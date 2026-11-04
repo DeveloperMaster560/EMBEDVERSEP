@@ -1,0 +1,63 @@
+# EMBEDVERSE STUDIO
+
+Aplicación local-first en etapa inicial para organizar proyectos de sistemas embebidos. En esta versión los proyectos y el código se guardan en IndexedDB del navegador.
+
+## Requisitos
+
+- Node.js 24 o compatible con Vite 8.
+- npm.
+
+## Ejecutar en desarrollo
+
+```powershell
+npm install
+npm run dev
+```
+
+Abre la URL local que imprime Vite. Los proyectos no se sincronizan con otros navegadores o dispositivos.
+
+## Comprobaciones
+
+```powershell
+npm test
+npm run lint
+npm run build
+npm audit
+```
+
+## Arduino Uno y 3D
+
+En Windows, instala el toolchain AVR gratuito si aún no está presente:
+
+```powershell
+.\scripts\setup-arduino.ps1
+```
+
+Inicia la aplicación con `npm run dev`, abre un proyecto Arduino Uno y pulsa **Compilar**. El `.hex` aparece como descarga en la consola. La API local debe permanecer ligada a localhost; no publiques el servidor Vite en redes no confiables.
+
+En la vista **Gemelo digital 3D**, genera el puente ilustrativo o importa un `.glb`, `.gltf`, `.obj` o `.stl`. Para `.gltf`, selecciona el archivo y sus `.bin`/texturas externos en el mismo selector. Es una visualización; no calcula física estructural.
+
+## Estado de capacidades
+
+El núcleo incluye dashboard, gestión local de proyectos, editor Monaco, compilación real para Arduino Uno, importación/visualización 3D y un laboratorio electrónico editable. El laboratorio permite colocar y mover componentes, conectar pines definidos, editar referencias/valores y validar integridad básica de conexiones. No ejecuta simulación eléctrica ni firmware. ESP32 permanece como placa lógica: su firmware no se compila en este entorno. Consulta [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md), [COMPONENT_LIBRARY.md](COMPONENT_LIBRARY.md) y [SIMULATION_COMPATIBILITY.md](SIMULATION_COMPATIBILITY.md).
+
+El ejemplo Blink está en `examples/arduino-blink/arduino-blink.ino`. El toolchain AVR local se guarda en `.tools/` y no se versiona.
+
+## EMBEDVERSE BRIDGE DESIGNER
+
+El módulo de modelado de puentes está organizado en `src/bridge-designer/` y usa Three.js ya incluido en el proyecto. Se abre desde **un proyecto → Modelos 3D** o de forma independiente desde la misma aplicación:
+
+```text
+http://localhost:5174/?bridge-designer=1&projectId=bridge-demo&projectName=Puente%20urbano
+```
+
+Incluye geometrías paramétricas editables para diez tipologías de puente, primitivas, selección y transformaciones, jerarquía/colecciones, materiales PBR básicos, unidades métricas, nodos ESP32/MPU6050 sin telemetría, importación GLB/glTF/OBJ/STL, exportación GLB, proyectos `.evbridge` y guardado automático en una base IndexedDB separada. No ejecuta análisis estructural ni se conecta a hardware. La escena se puede recuperar al reabrir el mismo ID de proyecto; el `.evbridge` permite respaldo y traslado manual.
+
+Documentación específica: [ARCHITECTURE.md](ARCHITECTURE.md), [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md), [LICENSE_AUDIT.md](LICENSE_AUDIT.md) y [TEST_REPORT.md](TEST_REPORT.md).
+
+## EMBEDVERSE ELECTRONICS LAB
+
+En un proyecto, abre la pestaña **Sistema embebido** para diseñar el montaje editable. La biblioteca incluye placas Arduino Uno/ESP32, MPU6050, resistencia, condensador, LED, pulsador, alimentación y GND. Cablea seleccionando dos terminales; los cables se mantienen unidos al mover o girar componentes. El montaje y la vista esquemática comparten componentes, pines y conexiones, y los cambios se guardan automáticamente en el proyecto local.
+
+El circuito inicial presenta un sistema de monitoreo de vibraciones de referencia con MPU6050 por I²C. Sus dibujos son ilustraciones vectoriales propias, no modelos oficiales ni verificación de diseño. La validación comprueba endpoints/pines y conexiones obligatorias del MPU6050; no calcula tensiones, corrientes, seguridad ni comportamiento. La simulación permanece deshabilitada.
+# EMBEDVERSEP
