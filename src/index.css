@@ -1,0 +1,22 @@
+:root {
+  font-family: Inter, "Segoe UI", sans-serif;
+  color: #e8edf5;
+  background: #11151c;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  --mono: "Cascadia Code", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body { min-width: 360px; min-height: 100vh; margin: 0; }
+button, input, select { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid #5da3f4;
+  outline-offset: 2px;
+}
+#root { min-height: 100vh; }
+::selection { color: #fff; background: #357fd0; }

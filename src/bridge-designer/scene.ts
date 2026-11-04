@@ -1,0 +1,380 @@
+import type { BridgeObject, BridgeParameters, BridgeSceneDocument, BridgeUnit, PrimitiveType } from './types';
+import { canGenerateBridge, type BridgeSpecification } from './ai-contracts';
+
+const materialColors = {
+  concrete: '#9aa5ae',
+  asphalt: '#343b43',
+  steel: '#54718b',
+  cable: '#9fb6cc',
+  sidewalk: '#c4cbd0',
+  sensor: '#e6a84b',
+};
+
+function object(
+  name: string,
+  kind: BridgeObject['kind'],
+  dimensions: [number, number, number],
+  position: [number, number, number],
+  color: string,
+  collection = 'Estructura',
+  role: BridgeObject['role'] = 'structure',
+): BridgeObject {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    kind,
+    role,
+    dimensions,
+    position,
+    rotation: [0, 0, 0],
+    scale: [1, 1, 1],
+    color,
+    roughness: color === materialColors.steel ? 0.38 : 0.82,
+    metalness: color === materialColors.steel ? 0.55 : 0.08,
+    visible: true,
+    locked: false,
+    collection,
+  };
+}
+
+export function createPrimitive(kind: PrimitiveType, name?: string): BridgeObject {
+  const defaults: Record<PrimitiveType, [number, number, number]> = {
+    box: [2, 1, 2],
+    sphere: [1, 1, 1],
+    cylinder: [1, 2, 1],
+    cone: [1, 2, 1],
+    plane: [5, 0.05, 5],
+    torus: [3, 0.5, 3],
+  };
+  const objectName = name ?? `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+  const primitive = object(objectName, kind, defaults[kind], [0, defaults[kind][1] / 2, 0], '#548dcc', 'Objetos', 'primitive');
+  if (kind === 'plane') primitive.rotation = [-Math.PI / 2, 0, 0];
+  return primitive;
+}
+
+export function createSensorObject(kind: 'esp32' | 'mpu6050'): BridgeObject {
+  const isBoard = kind === 'esp32';
+  const sensor = object(
+    isBoard ? 'ESP32 · sin conexión' : 'MPU6050 · sin conexión',
+    'box',
+    isBoard ? [0.55, 0.08, 0.28] : [0.22, 0.035, 0.18],
+    [0, 1, 0],
+    materialColors.sensor,
+    'Sensores IoT',
+    'iot',
+  );
+  sensor.association = {
+    bridgeComponentId: '',
+    deviceId: '',
+    status: 'unconnected',
+    sensorType: isBoard ? 'microcontroller' : 'inertial',
+  };
+  return sensor;
+}
+
+export function createBridgeObjects(parameters: BridgeParameters): BridgeObject[] {
+  const {
+    type,
+    length,
+    width,
+    deckHeight,
+    pierHeight,
+    spans,
+    lanes,
+  } = parameters;
+  if (![length, width, deckHeight, pierHeight, spans, lanes].every(Number.isFinite)
+    || length <= 0 || width <= 0 || deckHeight < 0 || pierHeight <= 0
+    || !Number.isInteger(spans) || spans < 1 || spans > 20
+    || !Number.isInteger(lanes) || lanes < 1 || lanes > 12) {
+    throw new Error('Dimensiones inválidas. Usa longitudes positivas y entre 1 y 20 vanos.');
+  }
+
+  const objects: BridgeObject[] = [];
+  const deckThickness = Math.max(width * 0.08, 0.35);
+  const deckY = deckHeight;
+  const spanLength = length / spans;
+
+  objects.push(object('Tablero estructural', 'box', [length, deckThickness, width], [0, deckY, 0], materialColors.concrete));
+  objects.push(object('Calzada', 'box', [length, 0.06, width * 0.68], [0, deckY + deckThickness / 2 + 0.03, 0], materialColors.asphalt, 'Acabados'));
+  for (let lane = 1; lane < lanes; lane += 1) {
+    const z = -width * 0.34 + (width * 0.68 * lane) / lanes;
+    objects.push(object(`Demarcación de carril ${lane}`, 'box', [length, 0.018, 0.035], [0, deckY + deckThickness / 2 + 0.071, z], '#e8e4d7', 'Acabados'));
+  }
+  objects.push(object('Acera norte', 'box', [length, 0.12, width * 0.14], [0, deckY + deckThickness / 2 + 0.1, -width * 0.43], materialColors.sidewalk, 'Acabados'));
+  objects.push(object('Acera sur', 'box', [length, 0.12, width * 0.14], [0, deckY + deckThickness / 2 + 0.1, width * 0.43], materialColors.sidewalk, 'Acabados'));
+
+  for (const z of [-width * 0.48, width * 0.48]) {
+    objects.push(object(`Baranda ${z < 0 ? 'norte' : 'sur'}`, 'box', [length, 0.12, 0.12], [0, deckY + 0.78, z], materialColors.steel, 'Acabados'));
+    for (let x = -length / 2 + 1; x <= length / 2; x += Math.max(2, length / 24)) {
+      objects.push(object(`Poste de baranda ${Math.round(x + length / 2)}`, 'box', [0.1, 0.8, 0.1], [x, deckY + 0.4, z], materialColors.steel, 'Acabados'));
+    }
+  }
+
+  const pierIndexes = Array.from({ length: Math.max(0, spans - 1) }, (_, index) => index + 1);
+  for (const x of [-length / 2 + 0.5, length / 2 - 0.5]) {
+    objects.push(object('Estribo', 'box', [1, Math.max(pierHeight * 0.4, 1), width], [x, deckY - Math.max(pierHeight * 0.4, 1) / 2, 0], materialColors.concrete, 'Estribos'));
+  }
+  for (const index of pierIndexes) {
+    const x = -length / 2 + spanLength * index;
+    objects.push(object(`Pila ${String(index).padStart(2, '0')}`, 'box', [1.2, pierHeight, width * 0.44], [x, deckY - pierHeight / 2, 0], materialColors.concrete));
+    objects.push(object(`Cimentación ${String(index).padStart(2, '0')}`, 'box', [3, 0.9, width * 0.7], [x, deckY - pierHeight - 0.45, 0], materialColors.concrete, 'Cimentaciones'));
+    objects.push(object(`Apoyo ${String(index).padStart(2, '0')}`, 'box', [1.5, 0.25, width * 0.48], [x, deckY - 0.1, 0], materialColors.steel, 'Apoyos'));
+  }
+
+  if (type === 'cable-stayed' || type === 'suspension') {
+    const towerHeight = Math.max(pierHeight, length / 7);
+    const towerX = type === 'suspension' ? [-length * 0.22, length * 0.22] : [-spanLength / 2, spanLength / 2];
+    towerX.forEach((x, index) => {
+      objects.push(object(`Pilon ${index + 1}`, 'box', [0.7, towerHeight, 0.8], [x, deckY + towerHeight / 2, 0], materialColors.concrete));
+      if (type === 'suspension') return;
+      for (const side of [-1, 1]) {
+        const cableCount = 5;
+        for (let cable = 0; cable < cableCount; cable += 1) {
+          const ratio = (cable + 1) / (cableCount + 1);
+          const endX = x + side * spanLength * ratio;
+          const startY = deckY + towerHeight * (0.25 + 0.7 * ratio);
+          const dx = endX - x;
+          const dy = deckY - startY;
+          const cableLength = Math.hypot(dx, dy);
+          const cableObject = object(
+            `Tirante ${index + 1}-${cable + 1}`,
+            'cylinder',
+            [0.035, cableLength, 0.035],
+            [(x + endX) / 2, (startY + deckY) / 2, side * width * 0.37],
+            materialColors.cable,
+            'Cables',
+          );
+          cableObject.rotation[2] = Math.atan2(dx, -dy);
+          objects.push(cableObject);
+        }
+      }
+    });
+    if (type === 'suspension') {
+      const towerXOffset = length * 0.22;
+      for (const z of [-width * 0.37, width * 0.37]) {
+        const segmentCount = 28;
+        const cableY = (x: number) => deckY + towerHeight - towerHeight * 0.38 * (x / towerXOffset) ** 2;
+        for (let index = 0; index < segmentCount; index += 1) {
+          const x0 = -length / 2 + (length * index) / segmentCount;
+          const x1 = -length / 2 + (length * (index + 1)) / segmentCount;
+          const y0 = x0 >= -towerXOffset && x0 <= towerXOffset ? cableY(x0) : deckY + towerHeight * 0.62;
+          const y1 = x1 >= -towerXOffset && x1 <= towerXOffset ? cableY(x1) : deckY + towerHeight * 0.62;
+          const dx = x1 - x0;
+          const dy = y1 - y0;
+          const mainCable = object('Cable principal', 'cylinder', [0.11, Math.hypot(dx, dy), 0.11], [(x0 + x1) / 2, (y0 + y1) / 2, z], materialColors.cable, 'Cables');
+          mainCable.rotation[2] = Math.atan2(dx, dy);
+          objects.push(mainCable);
+        }
+        for (let index = 1; index < 12; index += 1) {
+          const x = -towerXOffset + (2 * towerXOffset * index) / 12;
+          const top = cableY(x);
+          objects.push(object('Colgante vertical', 'cylinder', [0.045, Math.max(top - deckY, 0.1), 0.045], [x, (top + deckY) / 2, z], materialColors.cable, 'Cables'));
+        }
+      }
+    }
+  }
+
+  if (type === 'arch') {
+    const archRise = Math.max(length * 0.12, 3);
+    const archCount = 21;
+    for (const side of [-1, 1]) {
+      for (let index = 0; index < archCount - 1; index += 1) {
+        const t0 = index / (archCount - 1);
+        const t1 = (index + 1) / (archCount - 1);
+        const x0 = -length / 2 + length * t0;
+        const x1 = -length / 2 + length * t1;
+        const y0 = deckY + archRise * 4 * t0 * (1 - t0);
+        const y1 = deckY + archRise * 4 * t1 * (1 - t1);
+        const segment = object('Arco · segmento', 'cylinder', [0.25, Math.hypot(x1 - x0, y1 - y0), 0.25], [(x0 + x1) / 2, (y0 + y1) / 2, side * width * 0.35], materialColors.steel, 'Arcos');
+        segment.rotation[2] = Math.atan2(x1 - x0, y1 - y0);
+        objects.push(segment);
+      }
+    }
+    for (let x = -length / 2 + spanLength / 8; x < length / 2; x += spanLength / 8) {
+      objects.push(object('Montante de arco', 'cylinder', [0.08, archRise * 0.65, 0.08], [x, deckY + archRise * 0.3, 0], materialColors.steel, 'Arcos'));
+    }
+  }
+
+  if (type === 'truss') {
+    const panelCount = Math.max(spans * 5, 5);
+    for (let index = 0; index <= panelCount; index += 1) {
+      const x = -length / 2 + (length / panelCount) * index;
+      objects.push(object('Montante de cercha', 'box', [0.18, 3, 0.18], [x, deckY + 1.65, -width * 0.4], materialColors.steel, 'Cercha'));
+      objects.push(object('Montante de cercha', 'box', [0.18, 3, 0.18], [x, deckY + 1.65, width * 0.4], materialColors.steel, 'Cercha'));
+      if (index < panelCount) {
+        const nextX = x + length / panelCount;
+        for (const z of [-width * 0.4, width * 0.4]) {
+          const diagonal = object('Diagonal de cercha', 'box', [0.14, Math.hypot(length / panelCount, 3), 0.14], [(x + nextX) / 2, deckY + 1.5, z], materialColors.steel, 'Cercha');
+          diagonal.rotation[2] = Math.atan2(length / panelCount, 3) * (index % 2 === 0 ? 1 : -1);
+          objects.push(diagonal);
+        }
+      }
+    }
+  }
+
+  if (type === 'box-girder') {
+    for (const z of [-width * 0.28, width * 0.28]) {
+      objects.push(object('Viga cajón', 'box', [length, deckThickness * 1.8, width * 0.22], [0, deckY - deckThickness, z], materialColors.steel, 'Vigas'));
+    }
+  } else if (type === 'beam' || type === 'highway' || type === 'viaduct' || type === 'pedestrian') {
+    const girderCount = type === 'pedestrian' ? 2 : 4;
+    for (let index = 0; index < girderCount; index += 1) {
+      const z = -width * 0.36 + (width * 0.72 * index) / Math.max(girderCount - 1, 1);
+      objects.push(object(`Viga longitudinal ${index + 1}`, 'box', [length, deckThickness * 1.25, 0.32], [0, deckY - deckThickness, z], materialColors.steel, 'Vigas'));
+    }
+  }
+
+  for (let x = -length / 2 + 2; x < length / 2; x += Math.max(8, length / 8)) {
+    objects.push(object('Luminaria', 'cylinder', [0.07, 3.2, 0.07], [x, deckY + 1.7, -width * 0.4], '#e7d99a', 'Iluminación'));
+  }
+
+  return objects;
+}
+
+export function createAiBridgeObjects(specification: BridgeSpecification, unit: BridgeUnit): BridgeObject[] {
+  if (!canGenerateBridge(specification)) {
+    throw new Error('Resuelve las preguntas de aclaración antes de generar la geometría.');
+  }
+
+  const { lengthM, widthM, heightM } = specification.overallDimensions;
+  if (lengthM === null || widthM === null || heightM === null) {
+    throw new Error('Faltan dimensiones necesarias para generar la geometría.');
+  }
+  const length = lengthM;
+  const width = widthM;
+  const deckElevation = heightM;
+  const unitFactor: Record<BridgeUnit, number> = { m: 1, cm: 100, mm: 1000 };
+  const scale = unitFactor[unit];
+  const deckThickness = (specification.deck.thicknessM ?? Math.max(0.4, Math.min(1.2, length * 0.025))) * scale;
+  const girderHeight = Math.max(0.5, Math.min(2, width * 0.09)) * scale;
+  const girderWidth = Math.max(0.25, Math.min(0.6, width * 0.045)) * scale;
+  const lengthInScene = length * scale;
+  const widthInScene = width * scale;
+  const deckTop = deckElevation * scale;
+  const deckBottom = deckTop - deckThickness;
+  const supportTop = deckBottom - (specification.structureType === 'beam' ? girderHeight : 0);
+  if (supportTop <= 0) throw new Error('La altura del tablero debe superar el espesor conceptual de la estructura.');
+
+  const enabled = new Set(specification.components.filter(({ included }) => included).map(({ type }) => type));
+  const objects: BridgeObject[] = [];
+  const add = (
+    name: string,
+    dimensions: [number, number, number],
+    position: [number, number, number],
+    color: string,
+    collection = 'Puente IA',
+  ) => objects.push(object(name, 'box', dimensions, position, color, collection));
+
+  add('Bridge_Deck', [lengthInScene, deckThickness, widthInScene], [0, deckTop - deckThickness / 2, 0], materialColors.concrete);
+
+  if (specification.structureType === 'beam' && enabled.has('main_girder')) {
+    const girderCount = Math.max(2, Math.floor(width / 3));
+    for (let index = 0; index < girderCount; index += 1) {
+      const z = girderCount === 1 ? 0 : (-width * 0.36 + (width * 0.72 * index) / (girderCount - 1)) * scale;
+      add(`Main_Girder_${String(index + 1).padStart(2, '0')}`,
+        [lengthInScene, girderHeight, girderWidth],
+        [0, deckBottom - girderHeight / 2, z],
+        materialColors.steel);
+    }
+  }
+
+  if (enabled.has('cross_beam') && specification.structureType === 'beam') {
+    const beamCount = Math.max(2, Math.ceil(length / 6));
+    for (let index = 0; index <= beamCount; index += 1) {
+      const x = (-length / 2 + (length * index) / beamCount) * scale;
+      add(`Cross_Beam_${String(index + 1).padStart(2, '0')}`,
+        [Math.max(0.25, Math.min(0.5, length * 0.015)) * scale, girderHeight * 0.7, widthInScene * 0.84],
+        [x, deckBottom - girderHeight * 0.35, 0],
+        materialColors.steel);
+    }
+  }
+
+  if (enabled.has('support') && specification.supports.quantity) {
+    const quantity = specification.supports.quantity;
+    if (specification.supports.distribution === 'paired_across_width' && quantity % 2 !== 0) {
+      throw new Error('La distribución en pares requiere una cantidad par de apoyos.');
+    }
+    const pairCount = specification.supports.distribution === 'paired_across_width' ? quantity / 2 : quantity;
+    const positions = Array.from({ length: pairCount }, (_, index) => (
+      pairCount === 1 ? 0 : (-length / 2 + (length * (index + 1)) / (pairCount + 1))
+    ));
+    const supportWidth = (specification.supports.widthM ?? Math.max(0.7, Math.min(1.5, width * 0.12))) * scale;
+    const supportDepth = (specification.supports.depthM ?? Math.max(0.7, Math.min(1.5, width * 0.12))) * scale;
+    let supportIndex = 0;
+    for (const x of positions) {
+      const sides = specification.supports.distribution === 'paired_across_width'
+        ? [-width * 0.32, width * 0.32]
+        : [0];
+      for (const z of sides) {
+        supportIndex += 1;
+        const height = supportTop;
+        add(`Support_${String(supportIndex).padStart(2, '0')}`,
+          [supportWidth, height, supportDepth],
+          [x * scale, height / 2, z * scale],
+          specification.supports.material === 'steel' ? materialColors.steel : materialColors.concrete);
+      }
+    }
+  }
+
+  if (enabled.has('abutment')) {
+    const abutmentHeight = supportTop;
+    for (const [index, x] of [-length / 2, length / 2].entries()) {
+      add(`Abutment_${index === 0 ? 'Left' : 'Right'}`,
+        [Math.max(0.8, length * 0.025) * scale, abutmentHeight, widthInScene],
+        [x * scale, abutmentHeight / 2, 0],
+        materialColors.concrete);
+    }
+  }
+
+  if (enabled.has('guardrail')) {
+    const railHeight = Math.max(0.9, Math.min(1.2, width * 0.1)) * scale;
+    for (const [index, side] of [-1, 1].entries()) {
+      add(`Guardrail_${index === 0 ? 'Left' : 'Right'}`,
+        [lengthInScene, 0.12 * scale, 0.12 * scale],
+        [0, deckTop + railHeight / 2, side * widthInScene * 0.48],
+        materialColors.steel);
+    }
+  }
+
+  return objects;
+}
+
+export function createScene(projectId: string, projectName: string): BridgeSceneDocument {
+  return {
+    schemaVersion: 1,
+    id: crypto.randomUUID(),
+    projectId,
+    name: projectName,
+    bridgeType: null,
+    unit: 'm',
+    gridSize: 1,
+    objects: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function cloneScene(scene: BridgeSceneDocument): BridgeSceneDocument {
+  return structuredClone(scene);
+}
+
+export function convertSceneUnits(scene: BridgeSceneDocument, unit: BridgeUnit): BridgeSceneDocument {
+  const scale: Record<BridgeUnit, number> = { m: 1, cm: 100, mm: 1000 };
+  const ratio = scale[unit] / scale[scene.unit];
+  if (ratio === 1) return scene;
+  return {
+    ...scene,
+    unit,
+    gridSize: scene.gridSize * ratio,
+    objects: scene.objects.map((object) => ({
+      ...object,
+      dimensions: object.dimensions.map((value) => value * ratio) as [number, number, number],
+      position: object.position.map((value) => value * ratio) as [number, number, number],
+      ...(object.geometry ? {
+        geometry: {
+          ...object.geometry,
+          positions: object.geometry.positions.map((value) => value * ratio),
+        },
+      } : {}),
+    })),
+  };
+}

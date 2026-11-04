@@ -1,0 +1,214 @@
+.bridge-editor {
+  --bd-bg: #0e131a;
+  --bd-panel: #161d26;
+  --bd-panel-raised: #1b242f;
+  --bd-border: #2b3745;
+  --bd-muted: #8290a1;
+  --bd-text: #e0e8f1;
+  --bd-blue: #70afff;
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 205px);
+  min-height: 570px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--bd-border);
+  border-radius: 9px;
+  color: var(--bd-text);
+  background: var(--bd-bg);
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-size: 11px;
+}
+.bridge-editor-standalone { height: 100vh; min-height: 0; border: 0; border-radius: 0; }
+.bridge-editor-loading { display: grid; min-height: 55vh; place-items: center; color: #a9bacb; background: #10161f; }
+.bridge-topbar {
+  display: flex;
+  flex: 0 0 48px;
+  align-items: center;
+  gap: 18px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--bd-border);
+  background: #171f29;
+}
+.bridge-brand { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.bridge-brand-mark { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #395776; border-radius: 7px; color: #91c6ff; background: #203249; }
+.bridge-brand > span:last-child { display: flex; flex-direction: column; gap: 3px; }
+.bridge-brand strong { color: #f0f5fb; font-size: 9px; letter-spacing: 1px; }
+.bridge-brand small { color: #8d9eae; font-size: 8px; letter-spacing: 1.2px; }
+.bridge-project-title { min-width: 0; overflow: hidden; color: #b7c5d5; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-top-actions { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.bridge-save-state { margin-right: 7px; color: #78cc9e; font-size: 9px; white-space: nowrap; }
+.bridge-save-state.saving { color: #e7c37a; }
+.bridge-save-state.error { color: #f08a8a; }
+.bridge-toolbar-button, .bridge-primary-button {
+  display: inline-flex;
+  min-height: 29px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid #364452;
+  border-radius: 5px;
+  color: #c4cfdb;
+  background: #222c37;
+  font: inherit;
+  font-size: 9px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bridge-toolbar-button:hover { border-color: #506782; color: #f1f6fc; background: #293644; }
+.bridge-toolbar-button:disabled { opacity: .4; cursor: default; }
+.bridge-primary-button { border-color: #327dd0; color: white; background: #276db6; }
+.bridge-primary-button:hover { background: #3282d2; }
+.bridge-menubar { display: flex; flex: 0 0 31px; align-items: stretch; gap: 2px; padding: 0 10px; border-bottom: 1px solid #27313c; background: #131a22; }
+.bridge-menubar button { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 0; color: #95a4b4; background: transparent; font: inherit; font-size: 9px; cursor: pointer; }
+.bridge-menubar button:hover { color: #e0eaf4; background: #202a35; }
+.bridge-workspace { display: grid; min-height: 0; flex: 1; grid-template-columns: 152px minmax(0, 1fr) 286px; }
+.bridge-toolbox, .bridge-inspector { min-width: 0; overflow: auto; background: var(--bd-panel); }
+.bridge-toolbox { padding: 9px 7px; border-right: 1px solid var(--bd-border); }
+.bridge-inspector { border-left: 1px solid var(--bd-border); }
+.bridge-tool-section-label { padding: 8px 7px 5px; color: #657587; font-size: 8px; font-weight: 750; letter-spacing: .9px; }
+.bridge-tool-button { display: flex; width: 100%; min-height: 31px; align-items: center; gap: 9px; padding: 0 8px; border: 1px solid transparent; border-radius: 5px; color: #a5b2c0; background: transparent; font: inherit; font-size: 9px; text-align: left; cursor: pointer; }
+.bridge-tool-button:hover { color: #e4ecf4; background: #202a35; }
+.bridge-tool-button.active { border-color: #315477; color: #9ac9ff; background: #1c3045; }
+.bridge-tool-button:disabled { opacity: .4; cursor: default; }
+.bridge-tool-button svg { flex: 0 0 auto; }
+.bridge-iot-icon { display: inline-grid; width: 16px; height: 16px; flex: 0 0 auto; place-items: center; border: 1px solid #635437; border-radius: 4px; color: #e9c779; font-size: 6px; font-weight: 800; }
+.bridge-tool-divider { height: 1px; margin: 8px 4px; background: #2b3541; }
+.bridge-add-bridge { display: flex; width: 100%; min-height: 33px; align-items: center; gap: 7px; margin: 6px 0; padding: 0 8px; border: 1px solid #34516d; border-radius: 5px; color: #b1d6fa; background: #20334a; font: inherit; font-size: 9px; cursor: pointer; }
+.bridge-add-bridge:hover { background: #294461; }
+.bridge-viewport-column { display: flex; min-width: 0; min-height: 0; flex-direction: column; background: #10161e; }
+.bridge-viewport-toolbar { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 9px; border-bottom: 1px solid #28333f; background: #161e27; }
+.bridge-tool-mode { display: flex; align-items: center; gap: 7px; color: #b1becc; font-size: 9px; }
+.bridge-mode-dot { width: 7px; height: 7px; border-radius: 50%; background: #8ba2b8; }
+.bridge-mode-dot.translate { background: #66b2ff; }.bridge-mode-dot.rotate { background: #e4bd6d; }.bridge-mode-dot.scale { background: #bc91ed; }
+.bridge-view-actions { display: flex; align-items: center; gap: 3px; }
+.bridge-view-actions button { display: inline-flex; min-height: 24px; align-items: center; justify-content: center; padding: 0 7px; border: 1px solid transparent; border-radius: 4px; color: #91a1b2; background: transparent; font: inherit; font-size: 8px; cursor: pointer; }
+.bridge-view-actions button:hover, .bridge-view-actions button.selected { border-color: #35475b; color: #d8e6f4; background: #222e3b; }
+.bridge-viewport-frame { position: relative; min-height: 0; flex: 1; overflow: hidden; }
+.bridge-viewport { position: absolute; inset: 0; }
+.bridge-canvas { display: block; width: 100%; height: 100%; outline: none; }
+.bridge-viewport[data-error]::after { position: absolute; inset: 0; display: grid; place-items: center; padding: 25px; color: #efaaaa; content: attr(data-error); text-align: center; }
+.bridge-empty-scene { position: absolute; top: 50%; left: 50%; z-index: 1; display: flex; width: min(340px, 85%); align-items: center; flex-direction: column; gap: 9px; padding: 20px; border: 1px solid #344454; border-radius: 9px; color: #8ebdf0; background: #17212cd9; text-align: center; transform: translate(-50%, -50%); pointer-events: none; }
+.bridge-empty-scene strong { color: #e2ebf5; font-size: 12px; }
+.bridge-empty-scene span { color: #91a1b2; font-size: 9px; line-height: 1.5; }
+.bridge-empty-scene button { margin-top: 4px; pointer-events: auto; }
+.bridge-alert { position: absolute; top: 10px; left: 50%; z-index: 3; display: flex; max-width: 80%; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #67464b; border-radius: 5px; color: #f2b5b5; background: #302127f2; font-size: 9px; transform: translateX(-50%); }
+.bridge-alert span { overflow-wrap: anywhere; }
+.bridge-alert button { display: grid; flex: 0 0 auto; place-items: center; border: 0; color: inherit; background: none; cursor: pointer; }
+.bridge-viewport-scale { position: absolute; right: 9px; bottom: 8px; padding: 5px 7px; border: 1px solid #303c49; border-radius: 4px; color: #8999a9; background: #151d26e8; font-size: 8px; pointer-events: none; }
+.bridge-inspector-tabs { display: flex; overflow-x: auto; border-bottom: 1px solid #2c3743; background: #171f28; }
+.bridge-inspector-tabs button { min-height: 34px; padding: 0 9px; border: 0; border-bottom: 2px solid transparent; color: #8292a3; background: transparent; font: inherit; font-size: 8px; white-space: nowrap; cursor: pointer; }
+.bridge-inspector-tabs button.active { border-bottom-color: #60a6ef; color: #c1dcf8; }
+.bridge-inspector-content { padding: 10px; }
+.bridge-panel-title { display: flex; align-items: center; justify-content: space-between; margin: 1px 0 10px; color: #718193; font-size: 8px; font-weight: 750; letter-spacing: .75px; }
+.bridge-panel-title span { color: #8697a8; font-size: 9px; }
+.bridge-scene-root { display: flex; min-height: 29px; align-items: center; gap: 7px; padding: 0 5px; color: #acc9e7; }
+.bridge-scene-root strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-collection { margin: 5px 0; }
+.bridge-collection-heading { display: flex; min-height: 28px; align-items: center; gap: 6px; padding: 0 4px; color: #9aaabd; }
+.bridge-collection-heading strong { flex: 1; font-size: 9px; font-weight: 600; }
+.bridge-collection-heading small { color: #738395; font-size: 8px; }
+.bridge-object-row { display: flex; min-width: 0; min-height: 27px; align-items: center; border-radius: 4px; }
+.bridge-object-row.selected { background: #20344a; }
+.bridge-object-row:hover { background: #202b37; }
+.bridge-object-select { display: flex; min-width: 0; min-height: 26px; flex: 1; align-items: center; gap: 6px; padding: 0 4px 0 20px; overflow: hidden; border: 0; color: #a3b0be; background: transparent; font: inherit; font-size: 8px; text-align: left; cursor: pointer; }
+.bridge-object-select span { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-object-select small { color: #e8c06e; font-size: 7px; }
+.bridge-object-row > button:not(.bridge-object-select) { display: grid; width: 22px; height: 24px; flex: 0 0 auto; place-items: center; border: 0; color: #708093; background: transparent; cursor: pointer; }
+.bridge-object-row > button:not(.bridge-object-select):hover { color: #d7e4f1; }
+.bridge-add-collection { display: flex; width: 100%; min-height: 30px; align-items: center; gap: 7px; margin-top: 6px; padding: 0 6px; border: 1px solid #2d3946; border-radius: 5px; color: #96a7b8; background: #1a232d; font: inherit; font-size: 8px; text-align: left; cursor: pointer; }
+.bridge-add-collection:hover { color: #dce8f4; background: #222e3a; }
+.bridge-add-collection:disabled { opacity: .45; cursor: default; }
+.bridge-add-collection.danger:hover { border-color: #694348; color: #f09d9d; }
+.bridge-scene-settings { display: grid; gap: 10px; margin-top: 13px; padding-top: 12px; border-top: 1px solid #2a3440; }
+.bridge-scene-settings label, .bridge-property-label { display: grid; gap: 5px; color: #8797a8; font-size: 8px; }
+.bridge-scene-settings input, .bridge-scene-settings select, .bridge-property-label input, .bridge-modal input, .bridge-modal select { width: 100%; min-height: 27px; padding: 0 7px; border: 1px solid #364454; border-radius: 4px; outline: none; color: #d5e0eb; background: #121922; font: inherit; font-size: 9px; }
+.bridge-scene-settings input:focus, .bridge-scene-settings select:focus, .bridge-property-label input:focus, .bridge-modal input:focus, .bridge-modal select:focus { border-color: #4988c8; }
+.bridge-inspector-empty { padding: 20px 10px; color: #8292a3; font-size: 9px; line-height: 1.6; text-align: center; }
+.bridge-vector-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 10px 0; padding: 7px 6px 6px; border: 1px solid #2c3947; border-radius: 5px; }
+.bridge-vector-fields legend { grid-column: 1 / -1; padding: 0 4px; color: #8596a7; font-size: 8px; }
+.bridge-vector-fields label { display: flex; min-width: 0; align-items: center; gap: 3px; }
+.bridge-vector-fields label span { color: #6f8092; font-size: 8px; }
+.bridge-vector-fields input { width: 100%; min-width: 0; height: 25px; padding: 0 3px; border: 1px solid #354352; border-radius: 3px; color: #d9e3ed; background: #111820; font: inherit; font-size: 8px; }
+.bridge-property-label { margin: 8px 0; }
+.bridge-property-label input[type="color"] { height: 29px; padding: 3px; }
+.bridge-range-field { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin: 13px 0; color: #8797a8; font-size: 8px; }
+.bridge-range-field span { color: #c4d2e0; }
+.bridge-range-field input { grid-column: 1 / -1; width: 100%; accent-color: #63a8ee; }
+.bridge-material-swatches { display: flex; gap: 7px; margin: 12px 0; }
+.bridge-material-swatches button { width: 24px; height: 24px; border: 1px solid #70809066; border-radius: 50%; cursor: pointer; }
+.bridge-material-swatches button:hover { outline: 2px solid #cde2f9; }
+.bridge-info-note { margin: 12px 0; padding: 8px; border: 1px solid #564c37; border-radius: 4px; color: #c5b88e; background: #25231e; font-size: 8px; line-height: 1.5; }
+.bridge-sensor-card { display: flex; width: 100%; align-items: flex-start; gap: 9px; margin: 6px 0; padding: 9px; border: 1px solid #2c3947; border-radius: 6px; color: #c0ccda; background: #1a232d; text-align: left; cursor: pointer; }
+.bridge-sensor-card.selected { border-color: #3a658c; background: #20344a; }
+.bridge-sensor-status { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 4px; border-radius: 50%; background: #d3a55a; }
+.bridge-sensor-card > span:last-child { display: grid; gap: 4px; }
+.bridge-sensor-card strong { font-size: 9px; }
+.bridge-sensor-card small { color: #8596a6; font-size: 8px; }
+.bridge-statusbar { display: flex; min-height: 25px; align-items: center; gap: 16px; padding: 0 9px; border-top: 1px solid var(--bd-border); color: #8694a3; background: #171f28; font-size: 8px; }
+.bridge-statusbar > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-statusbar > span:first-child { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.bridge-statusbar > span:nth-child(2) { flex: 1; }
+.bridge-statusbar > span:last-child { margin-left: auto; }
+.bridge-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #59c58b; }
+.bridge-modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 18px; background: #06090dc9; }
+.bridge-modal { width: min(510px, 100%); max-height: 92vh; overflow: auto; padding: 19px; border: 1px solid #3a4b5c; border-radius: 9px; background: #1a232d; box-shadow: 0 20px 60px #0009; }
+.bridge-ai-modal { width: min(680px, 100%); }
+.bridge-ai-modal strong { color: #e6edf5; }
+.bridge-ai-modal .bridge-modal-heading > div { color: #a68eff; }
+.bridge-ai-modal .bridge-modal-heading button:disabled { opacity: .4; }
+.bridge-ai-modal .bridge-modal-actions > span { margin-right: auto; color: #91a1b2; font-size: 9px; }
+.bridge-ai-interpret-actions { align-items: center; }
+.bridge-ai-indicator { display: flex; align-items: center; gap: 7px; color: #8fa0b0; font-size: 9px; }
+.bridge-ai-indicator > span { width: 7px; height: 7px; border-radius: 50%; background: #69c892; }
+.bridge-ai-indicator.error > span { background: #e98787; }
+.bridge-ai-prompt-label { display: grid; gap: 6px; margin-top: 12px; color: #a0afbd; font-size: 9px; }
+.bridge-ai-prompt-label textarea { width: 100%; min-height: 70px; padding: 8px; resize: vertical; border: 1px solid #364454; border-radius: 4px; outline: none; color: #d5e0eb; background: #121922; font: inherit; font-size: 10px; line-height: 1.5; }
+.bridge-ai-prompt-label textarea:focus { border-color: #4988c8; }
+.bridge-ai-error { margin: 8px 0; padding: 8px; border: 1px solid #684348; border-radius: 4px; color: #f0adad !important; background: #2a1e23; }
+.bridge-ai-specification { margin-top: 13px; padding-top: 12px; border-top: 1px solid #33404d; }
+.bridge-ai-specification h3 { margin: 0 0 10px; color: #c5d5e5; font-size: 10px; }
+.bridge-ai-questions, .bridge-ai-notes { margin: 8px 0; padding: 8px; border: 1px solid #554b37; border-radius: 4px; color: #d5c18e; background: #25231e; font-size: 9px; line-height: 1.5; }
+.bridge-ai-questions ul, .bridge-ai-notes ul { margin: 5px 0 0; padding-left: 17px; }
+.bridge-ai-questions li, .bridge-ai-notes li { margin: 3px 0; }
+.bridge-ai-components { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; margin-top: 12px; padding: 9px; border: 1px solid #2e3b49; border-radius: 5px; color: #a8b7c5; font-size: 9px; }
+.bridge-ai-components > strong { grid-column: 1 / -1; }
+.bridge-ai-components label { display: flex; align-items: center; gap: 6px; }
+.bridge-ai-components input { width: auto; accent-color: #70afff; }
+.bridge-modal-heading, .bridge-modal-heading > div { display: flex; align-items: center; }
+.bridge-modal-heading { justify-content: space-between; }
+.bridge-modal-heading > div { gap: 8px; color: #8dbfff; }
+.bridge-modal-heading h2 { margin: 0; color: #e7eef6; font-size: 14px; }
+.bridge-modal > p { margin: 9px 0 15px; color: #95a3b1; font-size: 9px; line-height: 1.5; }
+.bridge-modal > label, .bridge-field-grid label { display: grid; gap: 5px; margin-top: 10px; color: #a0afbd; font-size: 9px; }
+.bridge-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 12px; }
+.bridge-modal-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 18px; padding-top: 12px; border-top: 1px solid #303b48; }
+.bridge-help-modal { width: min(460px, 100%); padding: 18px; border: 1px solid #3a4b5c; border-radius: 9px; background: #1a232d; box-shadow: 0 20px 60px #0009; }
+.bridge-help-modal > p { color: #a4b2c0; font-size: 9px; line-height: 1.7; }
+.bridge-help-modal > p strong { color: #e0ebf7; }
+.bridge-icon-button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 4px; color: #a0aebb; background: transparent; cursor: pointer; }
+.bridge-icon-button:hover { background: #2a3643; }
+@media (max-width: 900px) {
+  .bridge-workspace { grid-template-columns: 130px minmax(0, 1fr) 240px; }
+  .bridge-topbar { gap: 8px; padding: 0 7px; }
+  .bridge-save-state { display: none; }
+}
+@media (max-width: 680px) {
+  .bridge-editor { height: calc(100vh - 90px); min-height: 520px; }
+  .bridge-workspace { grid-template-columns: 45px minmax(0, 1fr); }
+  .bridge-toolbox { padding: 5px 3px; }
+  .bridge-tool-section-label, .bridge-tool-button span:not(.bridge-iot-icon), .bridge-add-bridge span, .bridge-tool-divider { display: none; }
+  .bridge-tool-button, .bridge-add-bridge { justify-content: center; min-height: 34px; padding: 0; }
+  .bridge-inspector { display: none; }
+  .bridge-menubar { overflow-x: auto; }
+  .bridge-menubar button { flex: 0 0 auto; }
+  .bridge-view-actions button:not(:last-child) { display: none; }
+  .bridge-brand small { display: none; }
+  .bridge-top-actions .bridge-toolbar-button span, .bridge-top-actions .bridge-primary-button span { display: none; }
+  .bridge-statusbar { gap: 8px; }
+  .bridge-statusbar > span:nth-child(2), .bridge-statusbar > span:last-child { display: none; }
+  .bridge-ai-components { grid-template-columns: 1fr; }
+  .bridge-ai-components > strong { grid-column: auto; }
+}
