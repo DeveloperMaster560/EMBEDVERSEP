@@ -153,13 +153,19 @@ function isLocalRequest(request: IncomingMessage): boolean {
 }
 
 async function compileProject(project: CompileRequest, rootDirectory: string): Promise<CompileResponse> {
-  const executable = path.join(rootDirectory, '.tools', 'arduino-cli', 'arduino-cli.exe');
-  const configFile = path.join(rootDirectory, '.tools', 'arduino-cli-config', 'arduino-cli.yaml');
+  const toolDirectory = path.join(rootDirectory, '.tools');
+  const executable = path.join(toolDirectory, 'arduino-cli', process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli');
+  const dataDirectory = path.join(toolDirectory, 'arduino-data');
+  const downloadsDirectory = path.join(toolDirectory, 'arduino-downloads');
+  const userDirectory = path.join(toolDirectory, 'arduino-user');
   try {
-    await Promise.all([access(executable), access(configFile)]);
+    await Promise.all([
+      access(executable),
+      access(path.join(dataDirectory, 'packages', 'arduino', 'hardware', 'avr', '1.8.8', 'platform.txt')),
+    ]);
   } catch {
     throw new CompileRequestError(
-      'No encuentro Arduino CLI o su configuración local. Reinstala el toolchain AVR desde la guía del proyecto.',
+      `No hay un toolchain Arduino AVR compatible con ${process.platform} en .tools. Instala Arduino CLI y el core AVR para este sistema.`,
       503,
       'TOOLCHAIN_NOT_INSTALLED',
     );
@@ -171,6 +177,16 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
   await Promise.all([mkdir(sketchDirectory), mkdir(outputDirectory)]);
 
   try {
+    await Promise.all([mkdir(downloadsDirectory, { recursive: true }), mkdir(userDirectory, { recursive: true })]);
+    const configFile = path.join(workspace, 'arduino-cli.yaml');
+    await writeFile(configFile, [
+      'directories:',
+      `  data: ${JSON.stringify(dataDirectory)}`,
+      `  downloads: ${JSON.stringify(downloadsDirectory)}`,
+      `  user: ${JSON.stringify(userDirectory)}`,
+      '',
+    ].join('\n'), 'utf8');
+
     const sketchFile = project.files.find((file) => file.path.toLowerCase().endsWith('.ino'));
     for (const file of project.files) {
       const sourcePath =

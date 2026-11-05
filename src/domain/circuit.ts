@@ -1,4 +1,5 @@
-import type { BoardId, ElectronicCircuit } from './types';
+import type { BoardId, CircuitLibraryPackage, ElectronicCircuit } from './types';
+import { findLibraryComponent } from './componentLibrary';
 
 export function createArduinoPracticeCircuit(boardId: BoardId): ElectronicCircuit {
   const isEsp32 = boardId === 'esp32-devkit';
@@ -38,7 +39,15 @@ export interface CircuitPin {
   type: 'power' | 'ground' | 'signal' | 'passive';
 }
 
-export function getCircuitPins(component: ElectronicCircuit['components'][number], boardId: BoardId): CircuitPin[] {
+export function getCircuitPins(
+  component: ElectronicCircuit['components'][number],
+  boardId: BoardId,
+  libraries?: CircuitLibraryPackage[],
+): CircuitPin[] {
+  if (component.kind === 'custom') {
+    const definition = findLibraryComponent(libraries, component.libraryComponentId);
+    return definition?.pins.map((pin) => ({ id: pin.id, label: pin.label, x: pin.x, y: pin.y, type: pin.type })) ?? [];
+  }
   switch (component.kind) {
     case 'board':
     case 'esp32': {
@@ -87,10 +96,35 @@ export function getCircuitPins(component: ElectronicCircuit['components'][number
   }
 }
 
-export function validateCircuit(circuit: ElectronicCircuit): { valid: boolean; summary: string; issues: string[] } {
+export interface CircuitValidation {
+  valid: boolean;
+  summary: string;
+  issues: string[];
+  warnings: string[];
+}
+
+export function validateCircuit(circuit: ElectronicCircuit): CircuitValidation {
   const issues: string[] = [];
+  const warnings: string[] = [];
   const pinConnectionCounts = new Map<string, number>();
   const key = (componentId: string, pinId: string) => `${componentId}:${pinId}`;
+  const parent = new Map<string, string>();
+  const findRoot = (node: string): string => {
+    const root = parent.get(node);
+    if (!root) {
+      parent.set(node, node);
+      return node;
+    }
+    if (root === node) return node;
+    const resolved = findRoot(root);
+    parent.set(node, resolved);
+    return resolved;
+  };
+  const union = (left: string, right: string) => {
+    const leftRoot = findRoot(left);
+    const rightRoot = findRoot(right);
+    if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+  };
 
   for (const connection of circuit.connections) {
     const from = circuit.components.find((component) => component.id === connection.from);
@@ -100,8 +134,8 @@ export function validateCircuit(circuit: ElectronicCircuit): { valid: boolean; s
       continue;
     }
     if (!connection.fromPin || !connection.toPin) continue;
-    const fromPin = getCircuitPins(from, circuit.boardId).find((pin) => pin.id === connection.fromPin);
-    const toPin = getCircuitPins(to, circuit.boardId).find((pin) => pin.id === connection.toPin);
+    const fromPin = getCircuitPins(from, circuit.boardId, circuit.componentLibraries).find((pin) => pin.id === connection.fromPin);
+    const toPin = getCircuitPins(to, circuit.boardId, circuit.componentLibraries).find((pin) => pin.id === connection.toPin);
     if (!fromPin || !toPin) {
       issues.push(`El cable entre ${from.label} y ${to.label} usa un pin no disponible.`);
       continue;
@@ -109,11 +143,66 @@ export function validateCircuit(circuit: ElectronicCircuit): { valid: boolean; s
     for (const endpoint of [key(from.id, fromPin.id), key(to.id, toPin.id)]) {
       pinConnectionCounts.set(endpoint, (pinConnectionCounts.get(endpoint) ?? 0) + 1);
     }
+    union(key(from.id, fromPin.id), key(to.id, toPin.id));
+  }
+
+  const boardComponent = circuit.components.find((component) => component.kind === 'board' || component.kind === 'esp32');
+  const knownBoardVoltages: { net: string; voltage: number }[] = [];
+  if (boardComponent) {
+    const pins = getCircuitPins(boardComponent, circuit.boardId);
+    for (const pin of pins) {
+      if (pin.id === '3V3') knownBoardVoltages.push({ net: findRoot(key(boardComponent.id, pin.id)), voltage: 3.3 });
+      if (circuit.boardId === 'arduino-uno' && pin.id === '5V') {
+        knownBoardVoltages.push({ net: findRoot(key(boardComponent.id, pin.id)), voltage: 5 });
+      }
+    }
+  }
+
+  const railsByNet = new Map<string, Set<number>>();
+  for (const { net, voltage } of knownBoardVoltages) {
+    const rail = railsByNet.get(net) ?? new Set<number>();
+    rail.add(voltage);
+    railsByNet.set(net, rail);
+  }
+  for (const voltages of railsByNet.values()) {
+    if (voltages.size > 1) {
+      warnings.push(`Hay un posible cortocircuito entre salidas de alimentación de distinto voltaje (${[...voltages].sort().join(' V y ')} V).`);
+    }
   }
 
   for (const component of circuit.components) {
-    const pins = getCircuitPins(component, circuit.boardId);
-    if (!pins.length || component.kind === 'board' || component.kind === 'esp32') continue;
+    const pins = getCircuitPins(component, circuit.boardId, circuit.componentLibraries);
+    if (component.kind === 'board' || component.kind === 'esp32') continue;
+    if (component.kind === 'custom') {
+      const definition = findLibraryComponent(circuit.componentLibraries, component.libraryComponentId);
+      if (!definition) {
+        issues.push(`${component.label} requiere instalar su biblioteca de componentes.`);
+        continue;
+      }
+      if (!definition.compatibleBoards.includes(circuit.boardId)) {
+        issues.push(`${component.label} no declara compatibilidad con ${circuit.boardId}.`);
+      }
+      if (definition.operatingVoltage) {
+        const supplyVoltages = new Set<number>();
+        for (const pin of definition.pins) {
+          if (pin.type !== 'power') continue;
+          const net = findRoot(key(component.id, pin.id));
+          for (const voltage of railsByNet.get(net) ?? []) supplyVoltages.add(voltage);
+        }
+        for (const voltage of supplyVoltages) {
+          if (voltage < definition.operatingVoltage.min || voltage > definition.operatingVoltage.max) {
+            warnings.push(
+              `${component.label}: ${voltage} V está fuera del rango declarado (${definition.operatingVoltage.min}–${definition.operatingVoltage.max} V).`,
+            );
+          }
+        }
+      }
+      const connected = pins.filter((pin) => (pinConnectionCounts.get(key(component.id, pin.id)) ?? 0) > 0);
+      const missing = definition.pins.filter((pin) => pin.required && !connected.some(({ id }) => id === pin.id));
+      if (missing.length) issues.push(`${component.label} requiere conexiones en: ${missing.map(({ label }) => label).join(', ')}.`);
+      continue;
+    }
+    if (!pins.length) continue;
     const connected = pins.filter((pin) => (pinConnectionCounts.get(key(component.id, pin.id)) ?? 0) > 0);
     if (connected.length === 0) {
       issues.push(`${component.label} no tiene pines conectados.`);
@@ -129,12 +218,16 @@ export function validateCircuit(circuit: ElectronicCircuit): { valid: boolean; s
   }
 
   const uniqueIssues = [...new Set(issues)];
+  const uniqueWarnings = [...new Set(warnings)];
   return {
     valid: uniqueIssues.length === 0,
-    summary: uniqueIssues.length === 0
-      ? 'No se detectaron errores estructurales de cableado. Esto no sustituye un análisis eléctrico ni una simulación.'
+    summary: uniqueIssues.length === 0 && uniqueWarnings.length === 0
+      ? 'No se detectaron errores estructurales ni conflictos de tensión conocidos. Esto no sustituye un análisis eléctrico ni una simulación.'
+      : uniqueIssues.length === 0
+        ? 'No se detectaron errores estructurales, pero hay advertencias eléctricas para revisar.'
       : 'Se encontraron problemas de conectividad que requieren revisión.',
     issues: uniqueIssues,
+    warnings: uniqueWarnings,
   };
 }
 
@@ -147,6 +240,7 @@ export function createCircuitComponent(kind: ElectronicCircuit['components'][num
     capacitor: { label: `C${index} · 100 nF`, description: 'Condensador cerámico.', value: '100 nF' },
     led: { label: `D${index} · LED rojo`, description: 'Diodo emisor de luz.', value: 'Rojo' },
     button: { label: `SW${index} · Pulsador`, description: 'Pulsador momentáneo normalmente abierto.' },
+    custom: { label: `Componente ${index}`, description: 'Componente de una biblioteca EMBEDVERSE.' },
     power: { label: 'Alimentación · 3V3', description: 'Terminal de alimentación ideal.' },
     ground: { label: 'GND', description: 'Referencia de tierra.' },
   };

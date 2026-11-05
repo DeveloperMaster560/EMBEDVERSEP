@@ -1,0 +1,346 @@
+AUDITORIA DE PREPARACION PROFESIONAL - EMBEDVERSE STUDIO
+Fecha: 2026-11-05
+Alcance: repositorio local de EMBEDVERSEP en el equipo de desarrollo.
+Tipo: auditoria estatica del codigo y documentacion, inventario de capacidades
+y ejecucion de las comprobaciones automatizadas disponibles.
+
+======================================================================
+1. RESUMEN EJECUTIVO
+======================================================================
+
+EMBEDVERSE es una aplicacion local-first en etapa de prototipo avanzado. Ya
+integra gestion de proyectos, editor de firmware, un editor electronico
+editable, visualizacion/modelado 3D y un endpoint de compilacion Arduino.
+No es todavia un entorno profesional completo de EDA, simulacion, ingenieria
+estructural ni programacion de hardware.
+
+El principal obstaculo para que este equipo Mac compile firmware es concreto:
+el repositorio contiene Arduino CLI y AVR compilados para Windows, pero no
+una instalacion nativa de macOS. El script de instalacion existente tambien
+es PowerShell/Windows. La interfaz puede abrirse en el Mac con Node.js y npm,
+pero la compilacion Arduino Uno no queda lista solo por ejecutar npm install.
+
+Los bloqueos de producto mas importantes son:
+1. La pagina "Pruebas" muestra marcas de verificacion fijas que no proceden
+   de pruebas ejecutadas.
+2. La importacion de proyectos JSON no valida el esquema ni limita el tamano
+   antes de guardar el contenido en IndexedDB.
+3. Las escenas del Bridge Designer se guardan en otra base IndexedDB y no se
+   incluyen en la exportacion/importacion normal del proyecto.
+4. El laboratorio no incluye simulador de circuito ni firmware; la validacion
+   electrica actual solo cubre algunos conflictos sencillos.
+5. El endpoint de compilacion es middleware local de Vite, no un servicio
+   de produccion, y ejecuta el compilador sin aislamiento del sistema operativo.
+6. La aplicacion principal y el Bridge Designer guardan en bases separadas;
+   no existe una operacion atomica de proyecto completo ni sincronizacion.
+
+Resultado de calidad observado en este workspace:
+- Suite automatizada: 13 archivos de prueba, 47 pruebas aprobadas y 1 omitida.
+- La prueba omitida requiere un toolchain Arduino compatible con el host.
+- Lint y build de produccion pasaron en las comprobaciones recientes.
+- El build conserva una advertencia de Vite por un chunk Three.js de mas de
+  500 kB minificados.
+- No se ejecuto una prueba E2E en navegador ni una revision manual de WebGL.
+
+Este informe evalua el repositorio de la aplicacion. No escanea el sistema
+operativo macOS, otros discos, dispositivos USB, cuentas, redes ni servicios
+externos.
+
+======================================================================
+2. INVENTARIO DE CAPACIDADES Y LIMITES
+======================================================================
+
+2.1 Aplicacion base y proyectos
+- Interfaz React/TypeScript/Vite, editor Monaco y navegacion por proyecto.
+- Proyectos locales en IndexedDB; no hay servidor de cuentas, nube,
+  colaboracion ni sincronizacion entre equipos.
+- Se puede exportar/importar un JSON de proyecto, pero la importacion actual
+  lo convierte mediante un cast de TypeScript sin validar la estructura.
+- Los archivos de firmware y proyectos no tienen un formato de intercambio
+  versionado completo ni migraciones de esquema implementadas.
+- El almacenamiento depende de la cuota del navegador y puede perderse al
+  borrar datos del sitio; no se ofrece una estrategia automatica de backup.
+
+2.2 Laboratorio electronico
+- Permite colocar, mover, rotar, duplicar y cablear componentes por pines.
+- Tiene una vista de montaje y una vista esquematica basadas en el mismo
+  modelo; no es un editor EDA con redes, hojas, footprints y reglas ERC.
+- Los paquetes .evcl aportan metadatos y pines. No ejecutan codigo, instalan
+  bibliotecas Arduino ni cargan modelos de Proteus/SPICE.
+- La validacion identifica pines/endpoints y conexiones obligatorias, avisa
+  sobre algunos rangos de tension y sobre unir salidas 3.3 V/5 V conocidas.
+- No calcula redes intermedias, caidas de tension, corriente, potencia,
+  polaridad, disipacion, tolerancias, niveles logicos ni seguridad.
+- No hay simulacion SPICE, simulacion del microcontrolador, protoboard,
+  instrumento, monitor serial conectado a datos ni prueba de hardware.
+- Las definiciones de biblioteca no se validan contra una fuente oficial;
+  fabricante, licencia, compatibilidad y referencias son afirmaciones del
+  paquete y deben verificarse antes de distribuirlo.
+
+2.3 Firmware y compilacion
+- El endpoint local de Vite prepara un sketch temporal y ejecuta Arduino CLI
+  para Arduino Uno, con restricciones de ruta, tipo, tamano, duracion y salida.
+- No instala automaticamente las bibliotecas Arduino declaradas por .evcl,
+  no resuelve versiones y no valida firmware contra el circuito.
+- ESP32 esta declarado en la UI, pero no tiene compilacion configurada en
+  este entorno.
+- El endpoint solo debe usarse en desarrollo/previsualizacion local. No es
+  una API de compilacion para publicar ni para recibir proyectos ajenos.
+- El proceso no tiene sandbox del sistema operativo ni una cuota de memoria.
+- En este Mac falta el ejecutable Arduino CLI nativo y el core AVR instalados
+  en la ubicacion que espera el backend. El binario .exe no sirve en macOS.
+- El script scripts/setup-arduino.ps1 solo instala el toolchain Windows.
+
+2.4 Modelado y visualizacion 3D
+- Bridge Designer permite escenas locales, transformaciones, primitivas,
+  tipologias parametricas visuales, importacion y exportacion GLB y formato
+  .evbridge; el visor principal admite GLB/glTF/OBJ/STL.
+- La geometria de puentes es ilustrativa. No hay analisis por elementos
+  finitos, calculo estructural, cumplimiento de normas ni planos de obra.
+- El Bridge Designer mantiene una base IndexedDB separada de los proyectos
+  EMBEDVERSE. La exportacion JSON principal no empaqueta esas escenas.
+- Los modelos grandes se procesan principalmente en el hilo de interfaz.
+  Los limites de importacion reducen riesgo, pero no evitan bloqueos o
+  consumo elevado en equipos modestos.
+- No se conserva toda la topologia, materiales/texturas complejos ni la
+  semantica de cada formato importado.
+- La carga Three.js produce una advertencia de chunk grande en Vite.
+
+2.5 Asistente estructural local
+- El flujo actual interpreta descripciones de puentes con reglas deterministas
+  locales; ya no requiere GEMINI_API_KEY ni envía solicitudes a un proveedor.
+- No es un modelo entrenado y solo reconoce un vocabulario limitado de
+  dimensiones, unidades, tipologías y apoyos.
+- La salida es una especificación conceptual validada por contrato y no un
+  diseño aprobado por ingeniería. No hay corpus técnico curado con citas que
+  sustenten resultados de cálculo.
+- No se debe usar esta función para construir, certificar o verificar una
+  estructura real.
+
+2.6 Calidad y experiencia de usuario
+- La pestaña "Pruebas" contiene una lista de resultados hardcodeados como
+  exitosos; no ejecuta esos flujos ni lee el resultado de Vitest. Esto puede
+  dar una impresion falsa de verificacion.
+- No se encontro una suite de pruebas E2E automatizadas para interacciones
+  reales del navegador, WebGL, instalacion de bibliotecas o flujo de backup.
+- Falta comprobar accesibilidad WCAG, navegacion completa por teclado,
+  lectores de pantalla, contraste y comportamiento en pantallas pequenas.
+- Falta una validacion formal de compatibilidad de navegadores y dispositivos.
+- Algunos estados de producto son prototipos o informativos, no instrumentacion
+  funcional; deben distinguirse de capacidades ya ejecutadas.
+
+======================================================================
+3. HALLAZGOS PRIORIZADOS
+======================================================================
+
+P0 - BLOQUEA UN LANZAMIENTO PROFESIONAL
+
+P0.1 - Importacion de proyecto sin validacion
+Evidencia: src/storage/projectRepository.ts, importProjectFromJson().
+El JSON importado se trata como EmbeddedProject con un cast; no se valida la
+version, los campos requeridos, tipos, tamanos, referencias o cantidad de
+assets antes de guardarlo. Un archivo malformado puede generar datos
+inconsistentes, errores posteriores o consumo excesivo de almacenamiento.
+Accion: definir esquema versionado, validar limites y referencias, migrar
+formatos antiguos y probar importaciones corruptas/hostiles antes de guardar.
+
+P0.2 - La exportacion normal no incluye la escena 3D profesional
+Evidencia: src/storage/projectRepository.ts; src/bridge-designer/persistence.ts.
+La escena de Bridge Designer tiene una base IndexedDB propia. exportProject()
+serializa EmbeddedProject, no carga ni empaqueta la escena asociada al
+projectId. El backup JSON principal no representa el proyecto completo.
+Accion: un paquete versionado unico que incluya firmware, laboratorio,
+assets y escena 3D; incluir exportar/importar y prueba round-trip.
+
+P0.3 - Pestaña de pruebas muestra resultados ficticios
+Evidencia: src/App.tsx, TestsPage().
+Los estados de las comprobaciones se inicializan como marcas fijas, sin
+ejecucion ni resultado real. La marca de "Importar GLB" solo depende de que
+exista digitalTwin, no de que GLB haya sido importado correctamente.
+Accion: quitar la pantalla o conectarla a checks verdaderos; separar pruebas
+automatizadas, estado de toolchain y pruebas manuales.
+
+P0.4 - Compilador disponible solo como integracion de desarrollo local
+Evidencia: vite.config.ts, server/arduinoCompiler.ts, ARCHITECTURE.md.
+El endpoint existe en Vite dev/preview y ejecuta codigo de compilacion en el
+host. No es un servicio de produccion ni un sandbox. La restriccion de origen
+y el bind local son medidas de reduccion de exposicion, no aislamiento de
+procesos ni autorizacion para alojar compilacion de terceros.
+Accion: mantenerlo solo en host local confiable hasta definir un host de
+escritorio o servicio aislado; separar permisos, cuotas, limites y ciclo de
+vida del proceso. No desplegar este middleware publicamente.
+
+P0.5 - No existe simulacion ni validacion de ingenieria
+Evidencia: SIMULATION_COMPATIBILITY.md, COMPONENT_LIBRARY.md y UI del lab.
+La funcion visual del circuito no valida que un montaje sea electricamente
+correcto ni simula el circuito o el firmware. El modelador no analiza la
+resistencia estructural. Es necesario comunicarlo en cada exportacion y flujo
+de trabajo, no inferir resultados tecnicos de un dibujo o estado "Listo".
+Accion: decidir y validar alcance profesional por modulo antes de ofrecer
+resultados calculados; conservar las advertencias actuales hasta integrar
+motores verificados.
+
+P1 - NECESARIO PARA UN PRODUCTO PUBLICABLE Y FIABLE
+
+P1.1 - Portabilidad e instalacion reproducible
+Evidencia: scripts/setup-arduino.ps1; estado de .tools en macOS.
+No existe instalador de toolchain para macOS/Linux ni soporte completo de
+targets ESP32. El estado actual del Mac permite npm/dev, pero no compilar Uno.
+Accion: crear bootstrap multiplataforma, fijar versiones y hashes oficiales,
+instalar CLI/core en directorio de usuario controlado y probar en CI por SO.
+
+P1.2 - Persistencia y migraciones
+Evidencia: src/storage/projectRepository.ts y src/bridge-designer/persistence.ts.
+Dos bases locales y esquemas versionados de forma independiente; no hay
+migraciones integrales, copia automatica, chequeo de cuota ni restauracion
+completa del workspace.
+Accion: repositorio de proyecto completo, migraciones, autosave observable,
+backup/restore, manejo de cuota y recuperacion ante cierre o interrupcion.
+
+P1.3 - Dependencias de firmware
+Evidencia: paquetes .evcl y server/arduinoCompiler.ts.
+Los enlaces a DHT/SSD1306/Servo/NewPing son solo referencias. No hay instalador
+ni resolucion segura de dependencias/versiones; compilar un sketch que incluya
+esas bibliotecas puede fallar aunque el paquete del componente este instalado.
+Accion: manifest explicito, versiones fijadas, fuentes confiables, licencias,
+consentimiento para descarga y pruebas de compilacion reproducibles.
+
+P1.4 - Modelo de circuito y reglas electricas insuficientes
+Evidencia: src/domain/circuit.ts.
+Los avisos de tension actuales solo cubren salidas conocidas conectadas
+directamente mediante redes. No modelan reguladores, resistencias, divisores,
+fuentes externas, corriente, niveles logicos o capacidad de salida.
+Accion: modelo de redes y reglas explicitas, advertencias con procedencia y
+alcance, validacion contra fixtures de referencia. No llamar ERC profesional
+a la validacion actual.
+
+P1.5 - Escena 3D pesada y limites de recursos
+Evidencia: src/bridge-designer/BridgeDesigner.tsx y BridgeViewport.tsx.
+Importar/parsing geometria en el hilo principal puede congelar la interfaz.
+El limite de vertices puede aun consumir memoria importante; el chunk 3D supera
+el umbral de Vite.
+Accion: workers, cancelacion/progreso, limites de memoria/triangulos/archivo,
+pruebas con modelos grandes y code splitting adicional.
+
+P1.6 - Pruebas y automatizacion de release incompletas
+Evidencia: pruebas presentes son principalmente unitarias.
+No se comprobaron en esta auditoria E2E de navegador, accesibilidad, matriz de
+navegadores, artefactos de instalacion ni CI de releases multiplataforma.
+Accion: pipeline reproducible con lint, typecheck, unit, integration, E2E,
+auditoria de dependencias y smoke test de instaladores en macOS/Windows/Linux.
+
+P1.7 - Politica de datos y servicios externos
+Evidencia: IndexedDB local; el asistente de puentes actual no requiere ni
+contacta Gemini. Otras integraciones externas futuras requieren una politica
+operativa sobre datos, retencion, consentimiento, costos y eliminacion.
+Accion: documentar el almacenamiento local y exigir consentimiento antes de
+incorporar cualquier proveedor externo.
+
+P2 - CALIDAD Y MADUREZ DE PRODUCTO
+
+P2.1 - Accesibilidad y UX
+Auditar teclado, foco, nombres accesibles, contraste, errores comprensibles,
+responsividad, zoom y operacion sin WebGL. Probar con WCAG y lectores de
+pantalla; agregar instrucciones de reparacion junto a cada error.
+
+P2.2 - Integracion real entre modulos
+Asociar componentes electronicos con nodos 3D, mostrar estado sincronizado y
+guardar ambos en la misma version del proyecto. Hoy los identificadores IoT
+son preparatorios y no hay enlace de telemetria.
+
+P2.3 - Interoperabilidad y fidelidad
+Definir formatos versionados para circuito y proyecto, importacion/exportacion
+con reporte de compatibilidad, atributos fisicos verificables y preservacion
+documentada de materiales/topologia.
+
+P2.4 - Herramientas de ingenieria
+Si el producto pretende ser profesional en electronica, seleccionar un motor
+de simulacion, placas/perifericos soportados y protocolos de validacion.
+Si pretende modelado estructural, definir solver, materiales, cargas, unidades,
+condiciones de borde, validacion con casos y revision por ingenieros.
+Son proyectos tecnicos separados; el dibujo por si solo no los sustituye.
+
+P2.5 - Distribucion
+Definir si el producto seguira como aplicacion web local o si necesita
+Electron/Tauri. Si se empaqueta como escritorio: firma/notarizacion macOS,
+actualizaciones, almacenamiento local, permisos minimos y canal IPC seguro.
+
+======================================================================
+4. PLAN RECOMENDADO POR FASES
+======================================================================
+
+FASE A - CONFIANZA Y PROTECCION DE DATOS
+1. Sustituir la pagina de pruebas ficticia por estado verdadero o quitarla.
+2. Validar importacion/exportacion con esquema versionado y limites.
+3. Incorporar la escena Bridge Designer al backup completo del proyecto.
+4. Probar round-trip de proyecto, bibliotecas, assets y escena.
+5. Informar cuotas, errores de guardado y necesidad de backup.
+
+FASE B - TOOLCHAIN MAC Y COMPILACION REPRODUCIBLE
+1. Instalar Arduino CLI nativo y core AVR en una ubicacion local controlada.
+2. Proveer scripts de setup para macOS, Windows y Linux con verificacion
+   criptografica, versiones fijas y errores recuperables.
+3. Ejecutar compilacion Uno real en Mac y capturar el HEX como prueba.
+4. Integrar bibliotecas Arduino con versiones verificables y licencias.
+5. Agregar compilacion ESP32 solo cuando se prueben core y target.
+
+FASE C - LABORATORIO ELECTRONICO
+1. Definir componentes y modelos electricos trazables a hojas de datos.
+2. Separar conectividad visual, ERC estatico y simulacion como capacidades
+   diferentes y etiquetadas.
+3. Implementar redes, niveles logicos, fuentes y reglas con pruebas de casos.
+4. Elegir un motor/SPICE compatible; validar primero un conjunto pequeno de
+   circuitos de referencia. No habilitar "Simular" antes de validar resultados.
+
+FASE D - MODELO 3D Y WORKSPACE
+1. Unificar escena, circuito y firmware en el proyecto portable.
+2. Mover importacion/procesamiento pesado a workers y agregar cancelacion.
+3. Mejorar carga/exportacion, rendimiento y manejo de errores de WebGL.
+4. Mantener afirmaciones estructurales como "ilustrativo" hasta integrar y
+   validar un solver estructural independiente.
+
+FASE E - ESTABILIZACION Y PUBLICACION
+1. E2E automatizado en navegador y smoke tests de flujos principales.
+2. Accesibilidad, compatibilidad y pruebas en equipos de capacidad limitada.
+3. CI con lint, build, tests, dependencias, licencias y artefactos reproducibles.
+4. Documentacion para usuarios, privacidad, limites, backup y soporte.
+5. Elegir distribucion web local o escritorio y definir su modelo de seguridad.
+
+======================================================================
+5. COMPROBACIONES EJECUTADAS Y LIMITES DE ESTA AUDITORIA
+======================================================================
+
+- Inventario de src/, server/, scripts/, public/ y documentacion principal.
+- Inspeccion de persistencia, importacion/exportacion, biblioteca .evcl,
+  validacion de circuitos, backend AI, compilador y Bridge Designer.
+- npm test: 47 aprobadas, 1 omitida por requerir toolchain compatible.
+- npm run lint: aprobado en las comprobaciones recientes.
+- npm run build: aprobado; persiste advertencia de chunk Three.js >500 kB.
+- El endpoint de compilacion no produjo firmware nativo en este Mac porque el
+  repositorio solo contiene el CLI .exe de Windows. La prueba nativa se omite.
+- No se ejecutaron auditoria de seguridad especializada, pruebas manuales de
+  navegador, E2E, ensayo fisico de hardware, SPICE, analisis estructural,
+  pruebas de penetracion, revision legal de licencias ni auditoria completa de
+  dependencias en este turno.
+- El arbol de trabajo ya contenia cambios sin commit antes de generar este
+  informe; esta auditoria no los revierte ni afirma que todos pertenezcan a
+  una sola entrega.
+
+======================================================================
+6. CONCLUSION
+======================================================================
+
+La plataforma ya funciona como prototipo integrado de organizacion, edicion,
+representacion y algunas verificaciones locales. Para ser profesional primero
+debe ser confiable y honesta sobre sus resultados: validar y respaldar
+proyectos completos, eliminar estados de prueba ficticios, facilitar la
+instalacion nativa de toolchains y proteger la ejecucion de compiladores.
+
+Despues se puede profesionalizar la electronica y el analisis 3D con motores
+reales, modelos de componentes verificados, pruebas de referencia y revision
+tecnica. Arduino IDE, Proteus o Python no resuelven por si solos esas carencias;
+se requieren adaptadores, licencias compatibles, formatos y validacion propios.
+
+Hasta completar esas fases, EMBEDVERSE debe presentarse como entorno local
+experimental de diseno visual y compilacion limitada, no como simulador
+certificado ni herramienta para aprobar circuitos o estructuras reales.

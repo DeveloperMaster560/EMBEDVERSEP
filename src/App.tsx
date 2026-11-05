@@ -750,7 +750,7 @@ function WorkspaceSummaryPage({
   onOpenModels,
 }: {
   project: EmbeddedProject;
-  circuitStatus: { valid: boolean; summary: string; issues: string[] };
+  circuitStatus: { valid: boolean; summary: string; issues: string[]; warnings: string[] };
   onOpenCode: () => void;
   onOpenEmbedded: () => void;
   onOpenModels: () => void;
@@ -789,9 +789,9 @@ function WorkspaceSummaryPage({
         </article>
 
         <article className="summary-card stats-card">
-          <span className="summary-label">Estado de compilación</span>
-          <strong>{circuitStatus.valid ? 'Listo' : 'Revisión'}</strong>
-          <small>El firmware compila y se valida en el editor de código.</small>
+          <span className="summary-label">Estado del circuito</span>
+          <strong>{circuitStatus.valid && circuitStatus.warnings.length === 0 ? 'Sin alertas' : 'Revisión'}</strong>
+          <small>Estado de conectividad y advertencias eléctricas conocidas.</small>
         </article>
 
         <article className="summary-card stats-card">
@@ -827,9 +827,10 @@ function WorkspaceSummaryPage({
         <div className="summary-panel">
           <h2>Validación del laboratorio</h2>
           <p>{circuitStatus.summary}</p>
-          {!circuitStatus.valid && (
+          {(circuitStatus.issues.length > 0 || circuitStatus.warnings.length > 0) && (
             <ul>
               {circuitStatus.issues.map((issue) => <li key={issue}>{issue}</li>)}
+              {circuitStatus.warnings.map((warning) => <li key={warning}>{warning}</li>)}
             </ul>
           )}
         </div>

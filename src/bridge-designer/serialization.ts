@@ -27,6 +27,7 @@ function isBridgeObject(value: unknown): value is BridgeObject {
     || typeof value.roughness !== 'number'
     || value.roughness < 0 || value.roughness > 1
     || typeof value.metalness !== 'number'
+    || (value.opacity !== undefined && (typeof value.opacity !== 'number' || value.opacity < 0.1 || value.opacity > 1))
     || value.metalness < 0 || value.metalness > 1
     || typeof value.visible !== 'boolean'
     || typeof value.locked !== 'boolean'
@@ -59,6 +60,7 @@ function isBridgeObject(value: unknown): value is BridgeObject {
       || (value.association.sensorType !== undefined && typeof value.association.sensorType !== 'string')
       || !['unconnected', 'connected'].includes(String(value.association.status))) return false;
   }
+  if (value.groupId !== undefined && typeof value.groupId !== 'string') return false;
   return true;
 }
 
@@ -95,13 +97,23 @@ export function parseBridgeScene(serialized: string, projectId: string): BridgeS
     || typeof value.gridSize !== 'number'
     || !Number.isFinite(value.gridSize)
     || value.gridSize <= 0
+    || (value.groups !== undefined && (!Array.isArray(value.groups) || value.groups.length > 100_000 || !value.groups.every((group) =>
+      isRecord(group) && typeof group.id === 'string' && group.id.length > 0 && typeof group.name === 'string' && group.name.trim().length > 0 && group.name.length <= 200)))
     || (value.bridgeParameters !== undefined && !isBridgeParameters(value.bridgeParameters))
     || (value.bridgeType !== null && !bridgeTypes.has(String(value.bridgeType)))) {
     throw new Error('El archivo no contiene un proyecto .evbridge válido o compatible.');
   }
   const objectIds = new Set((value.objects as BridgeObject[]).map((object) => object.id));
+  const groups = (value.groups ?? []) as BridgeSceneDocument['groups'];
+  const groupIds = new Set(groups.map(({ id }) => id));
   if (objectIds.size !== (value.objects as BridgeObject[]).length) {
     throw new Error('El proyecto contiene identificadores de objeto duplicados.');
+  }
+  if (groupIds.size !== groups.length) {
+    throw new Error('El proyecto contiene identificadores de grupo duplicados.');
+  }
+  if ((value.objects as BridgeObject[]).some((object) => object.groupId && !groupIds.has(object.groupId))) {
+    throw new Error('El proyecto contiene objetos asignados a un grupo inexistente.');
   }
   if ((value.objects as BridgeObject[]).some((object) =>
     object.association?.bridgeComponentId
@@ -113,6 +125,7 @@ export function parseBridgeScene(serialized: string, projectId: string): BridgeS
     projectId,
     unit: value.unit as BridgeSceneDocument['unit'],
     bridgeType: value.bridgeType as BridgeSceneDocument['bridgeType'],
+    groups,
     objects: value.objects as BridgeObject[],
   } as BridgeSceneDocument;
 }

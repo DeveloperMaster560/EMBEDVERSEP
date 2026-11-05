@@ -59,5 +59,7 @@ Documentación específica: [ARCHITECTURE.md](ARCHITECTURE.md), [INTEGRATION_GUI
 
 En un proyecto, abre la pestaña **Sistema embebido** para diseñar el montaje editable. La biblioteca incluye placas Arduino Uno/ESP32, MPU6050, resistencia, condensador, LED, pulsador, alimentación y GND. Cablea seleccionando dos terminales; los cables se mantienen unidos al mover o girar componentes. El montaje y la vista esquemática comparten componentes, pines y conexiones, y los cambios se guardan automáticamente en el proyecto local.
 
-El circuito inicial presenta un sistema de monitoreo de vibraciones de referencia con MPU6050 por I²C. Sus dibujos son ilustraciones vectoriales propias, no modelos oficiales ni verificación de diseño. La validación comprueba endpoints/pines y conexiones obligatorias del MPU6050; no calcula tensiones, corrientes, seguridad ni comportamiento. La simulación permanece deshabilitada.
+El circuito inicial presenta un sistema de monitoreo de vibraciones de referencia con MPU6050 por I²C. Sus dibujos son ilustraciones vectoriales propias, no modelos oficiales ni verificación de diseño. La validación comprueba endpoints/pines, conexiones obligatorias y conflictos básicos de tensión en salidas conocidas de la placa; no calcula corrientes, seguridad ni comportamiento. La simulación permanece deshabilitada.
+
+El laboratorio permite importar paquetes declarativos `.evcl` de componentes, guardados con el proyecto. Incluye una biblioteca básica descargable en la barra lateral y muestra referencias a bibliotecas Arduino cuando están declaradas. Estas referencias no instalan automáticamente código C/C++ ni habilitan simulación: consulta [COMPONENT_LIBRARY.md](COMPONENT_LIBRARY.md) para el alcance y formato.
 # EMBEDVERSEP

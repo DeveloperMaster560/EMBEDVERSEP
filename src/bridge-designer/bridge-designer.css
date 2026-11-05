@@ -88,6 +88,7 @@
 .bridge-view-actions button:hover, .bridge-view-actions button.selected { border-color: #35475b; color: #d8e6f4; background: #222e3b; }
 .bridge-viewport-frame { position: relative; min-height: 0; flex: 1; overflow: hidden; }
 .bridge-viewport { position: absolute; inset: 0; }
+.bridge-selection-box { position: absolute; z-index: 2; display: none; border: 1px solid #78b9f5; background: #4a9be82b; pointer-events: none; }
 .bridge-canvas { display: block; width: 100%; height: 100%; outline: none; }
 .bridge-viewport[data-error]::after { position: absolute; inset: 0; display: grid; place-items: center; padding: 25px; color: #efaaaa; content: attr(data-error); text-align: center; }
 .bridge-empty-scene { position: absolute; top: 50%; left: 50%; z-index: 1; display: flex; width: min(340px, 85%); align-items: center; flex-direction: column; gap: 9px; padding: 20px; border: 1px solid #344454; border-radius: 9px; color: #8ebdf0; background: #17212cd9; text-align: center; transform: translate(-50%, -50%); pointer-events: none; }
@@ -110,6 +111,11 @@
 .bridge-collection-heading { display: flex; min-height: 28px; align-items: center; gap: 6px; padding: 0 4px; color: #9aaabd; }
 .bridge-collection-heading strong { flex: 1; font-size: 9px; font-weight: 600; }
 .bridge-collection-heading small { color: #738395; font-size: 8px; }
+.bridge-group-tree { margin: 3px 0 6px 9px; padding-left: 5px; border-left: 1px solid #3b5064; }
+.bridge-group-select { display: flex; width: 100%; min-height: 27px; align-items: center; gap: 6px; padding: 0 5px; border: 1px solid transparent; border-radius: 4px; color: #a9c5df; background: transparent; font: inherit; font-size: 8px; text-align: left; cursor: pointer; }
+.bridge-group-select span { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.bridge-group-select small { color: #788da1; font-size: 8px; }
+.bridge-group-select:hover, .bridge-group-select.selected { border-color: #354c63; background: #1d2b39; }
 .bridge-object-row { display: flex; min-width: 0; min-height: 27px; align-items: center; border-radius: 4px; }
 .bridge-object-row.selected { background: #20344a; }
 .bridge-object-row:hover { background: #202b37; }
@@ -127,6 +133,7 @@
 .bridge-scene-settings input, .bridge-scene-settings select, .bridge-property-label input, .bridge-modal input, .bridge-modal select { width: 100%; min-height: 27px; padding: 0 7px; border: 1px solid #364454; border-radius: 4px; outline: none; color: #d5e0eb; background: #121922; font: inherit; font-size: 9px; }
 .bridge-scene-settings input:focus, .bridge-scene-settings select:focus, .bridge-property-label input:focus, .bridge-modal input:focus, .bridge-modal select:focus { border-color: #4988c8; }
 .bridge-inspector-empty { padding: 20px 10px; color: #8292a3; font-size: 9px; line-height: 1.6; text-align: center; }
+.bridge-multi-transform > p { color: #9aaabd; font-size: 8px; line-height: 1.5; }
 .bridge-vector-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 10px 0; padding: 7px 6px 6px; border: 1px solid #2c3947; border-radius: 5px; }
 .bridge-vector-fields legend { grid-column: 1 / -1; padding: 0 4px; color: #8596a7; font-size: 8px; }
 .bridge-vector-fields label { display: flex; min-width: 0; align-items: center; gap: 3px; }

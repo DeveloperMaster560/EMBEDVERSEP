@@ -1,4 +1,4 @@
-export type BridgeAiType = 'beam' | 'slab';
+export type BridgeAiType = 'beam' | 'slab' | 'cable_stayed';
 export type BridgeHeightMeaning =
   | 'deck_above_ground'
   | 'total_structure'
@@ -15,6 +15,8 @@ export type BridgeComponentType =
   | 'cross_beam'
   | 'guardrail'
   | 'tower'
+  | 'stay_cable'
+  | 'foundation'
   | 'decoration';
 
 export interface BridgeSpecification {
@@ -28,6 +30,24 @@ export interface BridgeSpecification {
     heightM: number | null;
     heightMeaning: BridgeHeightMeaning;
     heightReference: string | null;
+  };
+  stayCableCount?: number | null;
+  cableStayed?: {
+    towerHeightM: number | null;
+    towerSpacingM: number | null;
+    towerSectionWidthM: number | null;
+    towerSectionDepthM: number | null;
+    stayCableDiameterM: number | null;
+    mainGirderCount: number | null;
+    mainGirderHeightM: number | null;
+    mainGirderWidthM: number | null;
+    crossBeamSpacingM: number | null;
+    crossBeamWidthM: number | null;
+    crossBeamHeightM: number | null;
+    foundationLengthM: number | null;
+    foundationWidthM: number | null;
+    foundationDepthM: number | null;
+    guardrailHeightM: number | null;
   };
   deck: { thicknessM: number | null };
   supports: {
@@ -70,16 +90,17 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 const componentTypes = new Set<BridgeComponentType>([
-  'deck', 'support', 'abutment', 'main_girder', 'cross_beam', 'guardrail', 'tower', 'decoration',
+  'deck', 'support', 'abutment', 'main_girder', 'cross_beam', 'guardrail',
+  'tower', 'stay_cable', 'foundation', 'decoration',
 ]);
 
 export function parseBridgeSpecification(value: unknown): BridgeSpecification {
   if (!isRecord(value) || !isRecord(value.overallDimensions) || !isRecord(value.deck) || !isRecord(value.supports)) {
-    throw new BridgeSpecificationError('Gemini devolvió una especificación incompleta o con formato inválido.');
+    throw new BridgeSpecificationError('La especificación está incompleta o tiene un formato inválido.');
   }
-  if (value.structureType !== 'beam' && value.structureType !== 'slab') {
+  if (value.structureType !== 'beam' && value.structureType !== 'slab' && value.structureType !== 'cable_stayed') {
     throw new BridgeSpecificationError(
-      'Esta versión solo genera puentes de vigas y puentes de losa; la tipología solicitada todavía no está disponible.',
+      'Esta versión genera puentes de vigas, de losa y atirantados; la tipología solicitada todavía no está disponible.',
       'UNSUPPORTED_BRIDGE_TYPE',
     );
   }
@@ -90,6 +111,7 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
   const widthM = dimensions.widthM;
   const heightM = dimensions.heightM;
   const thicknessM = value.deck.thicknessM;
+  const cableStayed = value.cableStayed;
   const quantity = supports.quantity;
   const supportWidthM = supports.widthM;
   const supportDepthM = supports.depthM;
@@ -105,6 +127,26 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
     || (typeof widthM === 'number' && (widthM <= 0 || widthM > 1_000))
     || !validNumber(heightM, 0)
     || (typeof heightM === 'number' && (heightM <= 0 || heightM > 1_000))
+    || !(value.stayCableCount === undefined
+      || value.stayCableCount === null
+      || (typeof value.stayCableCount === 'number'
+        && Number.isInteger(value.stayCableCount)
+        && value.stayCableCount >= 8
+        && value.stayCableCount <= 400
+        && value.stayCableCount % 8 === 0))
+    || !(cableStayed === undefined || (isRecord(cableStayed)
+      && Object.entries(cableStayed).every(([key, number]) => (
+        key === 'mainGirderCount'
+          ? number === null || (typeof number === 'number' && Number.isInteger(number) && number >= 2 && number <= 12)
+          : isNumberOrNull(number) && (number === null || (number > 0 && number <= 1_000))
+      ))
+      && Object.keys(cableStayed).length === 15
+      && [
+        'towerHeightM', 'towerSpacingM', 'towerSectionWidthM', 'towerSectionDepthM',
+        'stayCableDiameterM', 'mainGirderCount', 'mainGirderHeightM', 'mainGirderWidthM',
+        'crossBeamSpacingM', 'crossBeamWidthM', 'crossBeamHeightM',
+        'foundationLengthM', 'foundationWidthM', 'foundationDepthM', 'guardrailHeightM',
+      ].every((key) => key in cableStayed)))
     || !['deck_above_ground', 'total_structure', 'tower_height', 'clearance', 'end_elevation_difference', 'unknown'].includes(String(dimensions.heightMeaning))
     || !(dimensions.heightReference === null || typeof dimensions.heightReference === 'string')
     || !validNumber(thicknessM, 0)
@@ -130,7 +172,7 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
     || !['needs_clarification', 'ready_for_approval'].includes(String(value.generationStatus))
     || value.conceptualModel !== true
   ) {
-    throw new BridgeSpecificationError('Gemini devolvió una especificación inválida. No se generó geometría.');
+    throw new BridgeSpecificationError('La especificación es inválida. No se generó geometría.');
   }
 
   const specification = value as unknown as BridgeSpecification;
@@ -155,8 +197,8 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
   }
   const uniqueQuestions = [...new Set(questions)];
   const unsupportedComponents = specification.components
-    .filter(({ included, type }) => included && (type === 'tower' || type === 'decoration'))
-    .map(({ type }) => type === 'tower' ? 'torres' : 'elementos decorativos');
+    .filter(({ included, type }) => included && type === 'decoration')
+    .map(() => 'elementos decorativos');
   const assumptions = specification.assumptions.filter((assumption) => (
     !assumption.startsWith('Se usará un espesor conceptual heurístico')
     && !assumption.startsWith('Las secciones de apoyos')
@@ -187,6 +229,9 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
   if (specification.structureType === 'beam') {
     assumptions.push('Las dimensiones de las vigas y elementos transversales se crearán con reglas geométricas proporcionales, sin cálculo estructural.');
   }
+  if (specification.structureType === 'cable_stayed') {
+    assumptions.push('La altura y la disposición de torres, cables, apoyos y cimentaciones son proporciones geométricas conceptuales, no dimensiones extraídas de planos ni verificadas estructuralmente.');
+  }
   const warnings = specification.warnings.filter((warning) => !warning.startsWith('Componentes no disponibles en este MVP:'));
   const conceptualWarning = 'MODELO CONCEPTUAL — NO VALIDADO PARA CONSTRUCCIÓN; no incluye cálculo estructural ni revisión normativa.';
   if (!warnings.includes(conceptualWarning)) warnings.push(conceptualWarning);
@@ -203,6 +248,7 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
 }
 
 export function canGenerateBridge(specification: BridgeSpecification): boolean {
+  const enabledComponents = new Set(specification.components.filter(({ included }) => included).map(({ type }) => type));
   return specification.unresolvedQuestions.length === 0
     && specification.overallDimensions.lengthM !== null
     && specification.overallDimensions.widthM !== null
@@ -217,5 +263,7 @@ export function canGenerateBridge(specification: BridgeSpecification): boolean {
     && (specification.supports.quantity === 0
       || (specification.supports.distribution !== 'unknown'
         && (specification.supports.distribution !== 'paired_across_width' || specification.supports.quantity % 2 === 0)))
-    && !specification.components.some(({ included, type }) => included && (type === 'tower' || type === 'decoration'));
+    && (specification.structureType !== 'cable_stayed'
+      || (enabledComponents.has('tower') && enabledComponents.has('stay_cable')))
+    && !specification.components.some(({ included, type }) => included && type === 'decoration');
 }

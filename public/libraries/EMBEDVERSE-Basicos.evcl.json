@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "embedverse.basicos",
+  "name": "EMBEDVERSE · Sensores y módulos básicos",
+  "version": "1.0.0",
+  "license": "CC0-1.0 (solo manifiesto y metadatos de esta biblioteca)",
+  "sourceUrl": "https://github.com/DeveloperMaster560/EMBEDVERSEP",
+  "components": [
+    {
+      "id": "dht22",
+      "name": "DHT22",
+      "manufacturer": "Aosong",
+      "reference": "AM2302",
+      "category": "Sensores ambientales",
+      "description": "Sensor digital de temperatura y humedad. El pin DATA requiere una resistencia pull-up según el módulo y el circuito utilizado.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 3.3, "max": 5 },
+      "interfaces": ["Single-wire"],
+      "datasheetUrl": "https://www.sparkfun.com/datasheets/Sensors/Temperature/DHT22.pdf",
+      "arduinoLibrary": {
+        "name": "DHT sensor library",
+        "url": "https://github.com/adafruit/DHT-sensor-library",
+        "header": "DHT.h"
+      },
+      "pins": [
+        { "id": "vcc", "label": "VCC", "type": "power", "x": -48, "y": -12, "required": true },
+        { "id": "data", "label": "DATA", "type": "signal", "x": -48, "y": 8, "required": true },
+        { "id": "nc", "label": "NC", "type": "passive", "x": 48, "y": -12 },
+        { "id": "gnd", "label": "GND", "type": "ground", "x": 48, "y": 8, "required": true }
+      ]
+    },
+    {
+      "id": "hc-sr04",
+      "name": "HC-SR04",
+      "manufacturer": "Generic",
+      "reference": "HC-SR04",
+      "category": "Distancia y proximidad",
+      "description": "Sensor ultrasónico. ECHO entrega una señal de 5 V; no conectarlo directamente a GPIO de 3.3 V. Requiere adaptación de nivel con ESP32.",
+      "compatibleBoards": ["arduino-uno"],
+      "operatingVoltage": { "min": 5, "max": 5 },
+      "interfaces": ["GPIO", "Ultrasonic pulse"],
+      "arduinoLibrary": {
+        "name": "NewPing",
+        "url": "https://github.com/teckel12/NewPing",
+        "header": "NewPing.h"
+      },
+      "pins": [
+        { "id": "vcc", "label": "VCC", "type": "power", "x": -52, "y": -20, "required": true },
+        { "id": "trig", "label": "TRIG", "type": "signal", "x": -52, "y": -5, "required": true },
+        { "id": "echo", "label": "ECHO", "type": "signal", "x": -52, "y": 10, "required": true },
+        { "id": "gnd", "label": "GND", "type": "ground", "x": -52, "y": 25, "required": true }
+      ]
+    },
+    {
+      "id": "ssd1306-i2c",
+      "name": "OLED SSD1306 128×64 I²C",
+      "manufacturer": "Generic",
+      "reference": "SSD1306",
+      "category": "Pantallas e interfaces",
+      "description": "Módulo OLED monocromático con interfaz I²C. Comprueba el rango de alimentación de la variante física antes de conectarlo.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 3.3, "max": 5 },
+      "interfaces": ["I2C"],
+      "arduinoLibrary": {
+        "name": "Adafruit SSD1306",
+        "url": "https://github.com/adafruit/Adafruit_SSD1306",
+        "header": "Adafruit_SSD1306.h"
+      },
+      "pins": [
+        { "id": "vcc", "label": "VCC", "type": "power", "x": -50, "y": -18, "required": true },
+        { "id": "gnd", "label": "GND", "type": "ground", "x": -50, "y": -2, "required": true },
+        { "id": "scl", "label": "SCL", "type": "signal", "x": -50, "y": 14, "required": true },
+        { "id": "sda", "label": "SDA", "type": "signal", "x": -50, "y": 30, "required": true }
+      ]
+    },
+    {
+      "id": "sg90-servo",
+      "name": "Micro servo SG90",
+      "manufacturer": "TowerPro",
+      "reference": "SG90",
+      "category": "Actuadores",
+      "description": "Micro servo con alimentación separada y señal de control. Evita alimentar el motor desde un GPIO.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 4.8, "max": 6 },
+      "interfaces": ["PWM"],
+      "arduinoLibrary": {
+        "name": "Servo",
+        "url": "https://docs.arduino.cc/libraries/servo/",
+        "header": "Servo.h"
+      },
+      "pins": [
+        { "id": "vcc", "label": "VCC", "type": "power", "x": -50, "y": -16, "required": true },
+        { "id": "signal", "label": "PWM", "type": "signal", "x": -50, "y": 0, "required": true },
+        { "id": "gnd", "label": "GND", "type": "ground", "x": -50, "y": 16, "required": true }
+      ]
+    }
+  ]
+}

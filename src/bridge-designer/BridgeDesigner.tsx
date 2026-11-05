@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   ArrowDownToLine,
   Box,
@@ -10,6 +10,7 @@ import {
   Cuboid,
   Eye,
   EyeOff,
+  FileText,
   Focus,
   FolderPlus,
   Grid2X2,
@@ -18,6 +19,8 @@ import {
   Layers,
   Lock,
   LockOpen,
+  Magnet,
+  Printer,
   Redo2,
   Rotate3D,
   Save,
@@ -53,12 +56,13 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { BridgeViewport } from './BridgeViewport';
 import type { BridgeViewportHandle } from './BridgeViewport';
-import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createPrimitive, createScene, createSensorObject } from './scene';
+import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createPrimitive, createScene, createSensorObject, transformBridgeObjects } from './scene';
 import { loadBridgeScene, saveBridgeScene } from './persistence';
 import { parseBridgeScene } from './serialization';
+import { createBridgeDrawingSvg, createPrintableBridgeDrawingHtml } from './drawings';
 import type { BridgeObject, BridgeParameters, BridgeSceneDocument, BridgeTool, BridgeType } from './types';
 import { canGenerateBridge, parseBridgeSpecification, type BridgeSpecification } from './ai-contracts';
-import { interpretBridgePrompt } from './ai-client';
+import { interpretBridgePromptLocally } from './local-bridge-interpreter';
 import './bridge-designer.css';
 
 const bridgeTypes: { id: BridgeType; label: string }[] = [
@@ -87,10 +91,28 @@ const clarificationQuestions = [
   '¿Cómo se distribuyen los apoyos: en una fila a lo largo del puente o en pares a ambos lados?',
   'La distribución en pares requiere una cantidad par; corrige la cantidad de apoyos.',
 ];
-type BridgeAiSpecificationUpdate = Omit<Partial<BridgeSpecification>, 'overallDimensions' | 'deck' | 'supports'> & {
+const cableStayedFields: { key: keyof NonNullable<BridgeSpecification['cableStayed']>; label: string }[] = [
+  { key: 'towerHeightM', label: 'Altura de torre sobre tablero (m)' },
+  { key: 'towerSpacingM', label: 'Separación entre torres (m)' },
+  { key: 'towerSectionWidthM', label: 'Ancho de sección de torre (m)' },
+  { key: 'towerSectionDepthM', label: 'Fondo de sección de torre (m)' },
+  { key: 'stayCableDiameterM', label: 'Diámetro de tirante (m)' },
+  { key: 'mainGirderCount', label: 'Cantidad de vigas longitudinales' },
+  { key: 'mainGirderHeightM', label: 'Altura de viga principal (m)' },
+  { key: 'mainGirderWidthM', label: 'Ancho de viga principal (m)' },
+  { key: 'crossBeamSpacingM', label: 'Separación entre vigas transversales (m)' },
+  { key: 'crossBeamWidthM', label: 'Ancho de viga transversal (m)' },
+  { key: 'crossBeamHeightM', label: 'Altura de viga transversal (m)' },
+  { key: 'foundationLengthM', label: 'Largo de zapata (m)' },
+  { key: 'foundationWidthM', label: 'Ancho de zapata (m)' },
+  { key: 'foundationDepthM', label: 'Profundidad de zapata (m)' },
+  { key: 'guardrailHeightM', label: 'Altura de baranda (m)' },
+];
+type BridgeAiSpecificationUpdate = Omit<Partial<BridgeSpecification>, 'overallDimensions' | 'deck' | 'supports' | 'cableStayed'> & {
   overallDimensions?: Partial<BridgeSpecification['overallDimensions']>;
   deck?: Partial<BridgeSpecification['deck']>;
   supports?: Partial<BridgeSpecification['supports']>;
+  cableStayed?: Partial<NonNullable<BridgeSpecification['cableStayed']>>;
 };
 
 function withUpdatedAt(scene: BridgeSceneDocument): BridgeSceneDocument {
@@ -251,7 +273,7 @@ export function BridgeDesigner({
   standalone?: boolean;
 }) {
   const [document, setDocument] = useState<BridgeSceneDocument | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selection, setSelectedIds] = useState<string[]>([]);
   const [tool, setTool] = useState<BridgeTool>('select');
   const [activeInspector, setActiveInspector] = useState<InspectorTab>('Escena');
   const [showGenerate, setShowGenerate] = useState(false);
@@ -260,13 +282,15 @@ export function BridgeDesigner({
   const [aiSpecification, setAiSpecification] = useState<BridgeSpecification | null>(null);
   const [aiFlow, setAiFlow] = useState<'idle' | 'interpreting' | 'needs_clarification' | 'awaiting_approval' | 'generating' | 'completed' | 'error'>('idle');
   const [aiError, setAiError] = useState('');
-  const [aiBackendStatus, setAiBackendStatus] = useState<'checking' | 'configured' | 'missing' | 'unavailable'>('checking');
   const [showHelp, setShowHelp] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const [error, setError] = useState('');
   const [operation, setOperation] = useState('Escena lista.');
   const [gridVisible, setGridVisible] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [transformSpace, setTransformSpace] = useState<'world' | 'local'>('world');
+  const [boxSelectEnabled, setBoxSelectEnabled] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [undoStack, setUndoStack] = useState<BridgeSceneDocument[]>([]);
   const [redoStack, setRedoStack] = useState<BridgeSceneDocument[]>([]);
@@ -284,7 +308,11 @@ export function BridgeDesigner({
   const viewportRef = useRef<BridgeViewportHandle>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const openRef = useRef<HTMLInputElement>(null);
-  const selected = document?.objects.find((object) => object.id === selectedId) ?? null;
+  const validObjectIds = useMemo(() => new Set(document?.objects.map(({ id }) => id) ?? []), [document?.objects]);
+  const selectedIds = useMemo(() => selection.filter((id) => validObjectIds.has(id)), [selection, validObjectIds]);
+  const selectedId = selectedIds.at(-1) ?? null;
+  const selectedObjects = document?.objects.filter((object) => selectedIds.includes(object.id)) ?? [];
+  const selected = selectedObjects.find((object) => object.id === selectedId) ?? null;
   const collections = useMemo(() => [...new Set(document?.objects.map((object) => object.collection) ?? [])], [document?.objects]);
 
   useEffect(() => {
@@ -292,7 +320,7 @@ export function BridgeDesigner({
     loadBridgeScene(projectId)
       .then((saved) => {
         if (!current) return;
-        const scene = saved ?? createScene(projectId, projectName);
+        const scene = saved ? { ...saved, groups: saved.groups ?? [] } : createScene(projectId, projectName);
         setDocument(scene);
         setSaveState('saved');
         setOperation(saved ? 'Escena del proyecto recuperada.' : 'Nueva escena independiente preparada.');
@@ -308,22 +336,6 @@ export function BridgeDesigner({
       });
     return () => { current = false; };
   }, [projectId, projectName]);
-
-  useEffect(() => {
-    let current = true;
-    fetch('/api/ai/bridge/status')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Backend no disponible');
-        return response.json() as Promise<{ configured?: unknown }>;
-      })
-      .then((result) => {
-        if (current) setAiBackendStatus(result.configured === true ? 'configured' : 'missing');
-      })
-      .catch(() => {
-        if (current) setAiBackendStatus('unavailable');
-      });
-    return () => { current = false; };
-  }, []);
 
   useEffect(() => {
     if (!document || isLoading) return;
@@ -347,11 +359,75 @@ export function BridgeDesigner({
     setError('');
   };
 
+  const selectObject = (id: string | null, additive = false) => {
+    setSelectedIds((current) => {
+      const currentSelection = current.filter((selected) => validObjectIds.has(selected));
+      if (!id) return additive ? currentSelection : [];
+      const object = document?.objects.find((item) => item.id === id);
+      const groupMembers = object?.groupId
+        ? document?.objects.filter((item) => item.groupId === object.groupId).map((item) => item.id) ?? []
+        : [id];
+      if (!additive) return groupMembers;
+      const allSelected = groupMembers.every((member) => currentSelection.includes(member));
+      return allSelected
+        ? currentSelection.filter((selected) => !groupMembers.includes(selected))
+        : [...new Set([...currentSelection, ...groupMembers])];
+    });
+  };
+
+  const selectGroup = (groupId: string, additive = false) => {
+    const members = document?.objects.filter((object) => object.groupId === groupId).map(({ id }) => id) ?? [];
+    setSelectedIds((current) => additive
+      ? [...new Set([...current.filter((id) => validObjectIds.has(id)), ...members])]
+      : members);
+  };
+
+  const selectObjects = (ids: string[], additive = false) => {
+    const expandedIds = new Set(ids.flatMap((id) => {
+      const object = document?.objects.find((item) => item.id === id);
+      return object?.groupId
+        ? document?.objects.filter((item) => item.groupId === object.groupId).map((item) => item.id) ?? []
+        : [id];
+    }));
+    setSelectedIds((current) => additive
+      ? [...new Set([...current.filter((id) => validObjectIds.has(id)), ...expandedIds])]
+      : [...expandedIds]);
+  };
+
+  const groupSelected = () => {
+    if (!document || selectedObjects.length < 2) return;
+    const name = window.prompt('Nombre del grupo', `Grupo ${document.groups.length + 1}`);
+    if (!name?.trim()) return;
+    const group = { id: crypto.randomUUID(), name: name.trim() };
+    const selectedSet = new Set(selectedIds);
+    const remainingGroups = document.groups.filter(({ id }) =>
+      !selectedSet.size || document.objects.some((object) => object.groupId === id && !selectedSet.has(object.id)));
+    commit({
+      ...document,
+      groups: [...remainingGroups, group],
+      objects: document.objects.map((object) => selectedSet.has(object.id) ? { ...object, groupId: group.id } : object),
+    }, `Grupo “${group.name}” creado con ${selectedSet.size} objetos.`);
+    setSelectedIds([...selectedSet]);
+  };
+
+  const ungroupSelected = () => {
+    if (!document) return;
+    const groupIds = new Set(selectedObjects.flatMap((object) => object.groupId ? [object.groupId] : []));
+    if (!groupIds.size) return;
+    const groups = document.groups.filter(({ id }) => !groupIds.has(id));
+    commit({
+      ...document,
+      groups,
+      objects: document.objects.map(({ groupId, ...object }) => groupIds.has(groupId ?? '') ? object : { ...object, ...(groupId ? { groupId } : {}) }),
+    }, groupIds.size === 1 ? 'Grupo deshecho; sus objetos se conservaron.' : `${groupIds.size} grupos deshechos; sus objetos se conservaron.`);
+    setSelectedIds(selectedObjects.map(({ id }) => id));
+  };
+
   const addPrimitive = (kind: typeof objectKinds[number]) => {
     if (!document) return;
     const object = createPrimitive(kind);
     commit({ ...document, objects: [...document.objects, object] }, `${object.name} agregado a la escena.`);
-    setSelectedId(object.id);
+    setSelectedIds([object.id]);
     setActiveInspector('Transformar');
   };
 
@@ -363,16 +439,29 @@ export function BridgeDesigner({
     }, message);
   };
 
-  const updateTransform = (id: string, values: Pick<BridgeObject, 'position' | 'rotation' | 'scale'>) => {
+  const updateTransform = (transforms: { id: string; values: Pick<BridgeObject, 'position' | 'rotation' | 'scale'> }[]) => {
     if (!document) return;
     setUndoStack((history) => [...history.slice(-39), structuredClone(document)]);
     setRedoStack([]);
     setDocument(withUpdatedAt({
       ...document,
-      objects: document.objects.map((object) => object.id === id ? { ...object, ...values } : object),
+      objects: document.objects.map((object) => {
+        const transform = transforms.find(({ id }) => id === object.id);
+        return transform ? { ...object, ...transform.values } : object;
+      }),
     }));
     setSaveState('saving');
-    setOperation('Transformación aplicada.');
+    setOperation(transforms.length > 1 ? `Transformación aplicada a ${transforms.length} objetos.` : 'Transformación aplicada.');
+  };
+
+  const applyMultiTransform = (delta: {
+    position: [number, number, number];
+    rotationDegrees: [number, number, number];
+    scaleFactor: [number, number, number];
+  }) => {
+    if (!document) return;
+    const objects = transformBridgeObjects(document.objects, selectedIds, delta);
+    commit({ ...document, objects }, `Transformación numérica aplicada a ${selectedObjects.filter((object) => !object.locked).length} objetos.`);
   };
 
   const createBridge = () => {
@@ -388,7 +477,7 @@ export function BridgeDesigner({
         objects,
       };
       commit(next, `${bridgeTypes.find(({ id }) => id === parameters.type)?.label} generado · ${objects.length} objetos paramétricos.`);
-      setSelectedId(objects[0]?.id ?? null);
+      setSelectedIds(objects[0] ? [objects[0].id] : []);
       setShowGenerate(false);
       window.setTimeout(() => viewportRef.current?.frameAll(), 50);
     } catch (cause) {
@@ -401,7 +490,7 @@ export function BridgeDesigner({
     setAiError('');
     setAiSpecification(null);
     try {
-      const specification = await interpretBridgePrompt(aiPrompt);
+      const specification = interpretBridgePromptLocally(aiPrompt);
       setAiSpecification(specification);
       setAiFlow(canGenerateBridge(specification) ? 'awaiting_approval' : 'needs_clarification');
     } catch (cause) {
@@ -418,6 +507,9 @@ export function BridgeDesigner({
       overallDimensions: { ...aiSpecification.overallDimensions, ...changes.overallDimensions },
       deck: { ...aiSpecification.deck, ...changes.deck },
       supports: { ...aiSpecification.supports, ...changes.supports },
+      ...(aiSpecification.cableStayed ? {
+        cableStayed: { ...aiSpecification.cableStayed, ...changes.cableStayed },
+      } : {}),
     };
     const unresolvedQuestions = updated.unresolvedQuestions.filter((question) => !clarificationQuestions.includes(question));
     try {
@@ -436,15 +528,15 @@ export function BridgeDesigner({
     setAiError('');
     try {
       const objects = createAiBridgeObjects(aiSpecification, document.unit);
-      const retainedObjects = document.objects.filter((object) => object.collection !== 'Puente IA');
+      const retainedObjects = document.objects.filter((object) => !['Puente IA', 'Puente asistido localmente'].includes(object.collection));
       commit({
         ...document,
         name: aiSpecification.bridgeName.trim() || document.name,
-        bridgeType: aiSpecification.structureType,
+        bridgeType: aiSpecification.structureType === 'cable_stayed' ? 'cable-stayed' : aiSpecification.structureType,
         bridgeParameters: undefined,
         objects: [...retainedObjects, ...objects],
-      }, `Puente conceptual generado por IA · ${objects.length} objetos editables.`);
-      setSelectedId(objects[0]?.id ?? null);
+      }, `Puente conceptual generado con reglas locales · ${objects.length} objetos editables.`);
+      setSelectedIds(objects[0] ? [objects[0].id] : []);
       setShowAiGenerator(false);
       setAiFlow('completed');
       window.setTimeout(() => viewportRef.current?.frameAll(), 50);
@@ -471,35 +563,64 @@ export function BridgeDesigner({
     setShowGenerate(true);
   };
 
+  const openManualBridgeGenerator = () => {
+    setShowAiGenerator(false);
+    setAiSpecification(null);
+    openBridgeDialog();
+  };
+
   const duplicateSelected = () => {
-    if (!document || !selected) return;
-    const copy = structuredClone(selected);
-    copy.id = crypto.randomUUID();
-    copy.name = `${selected.name} · copia`;
-    copy.position = [selected.position[0] + 1, selected.position[1], selected.position[2] + 1];
-    if (copy.association) {
-      copy.association = {
-        ...copy.association,
-        bridgeComponentId: copy.association.bridgeComponentId === selected.id ? copy.id : copy.association.bridgeComponentId,
-        deviceId: '',
-        sensorId: undefined,
-        status: 'unconnected',
-      };
+    if (!document || !selectedObjects.length) return;
+    const idMap = new Map(selectedObjects.map(({ id }) => [id, crypto.randomUUID()]));
+    const groupMap = new Map<string, string>();
+    for (const object of selectedObjects) {
+      if (object.groupId && !groupMap.has(object.groupId)) groupMap.set(object.groupId, crypto.randomUUID());
     }
-    commit({ ...document, objects: [...document.objects, copy] }, `${selected.name} duplicado.`);
-    setSelectedId(copy.id);
+    const copies = selectedObjects.map((object) => {
+      const copy = structuredClone(object);
+      copy.id = idMap.get(object.id) ?? object.id;
+      copy.name = `${object.name} · copia`;
+      copy.position = [object.position[0] + 1, object.position[1], object.position[2] + 1];
+      if (object.groupId) copy.groupId = groupMap.get(object.groupId);
+      if (copy.association) {
+        copy.association = {
+          ...copy.association,
+          bridgeComponentId: idMap.get(copy.association.bridgeComponentId) ?? '',
+          deviceId: '',
+          sensorId: undefined,
+          status: 'unconnected',
+        };
+      }
+      return copy;
+    });
+    const copiedGroups = [...groupMap].flatMap(([groupId, id]) => {
+      const source = document.groups.find((group) => group.id === groupId);
+      return source ? [{ id, name: `${source.name} · copia` }] : [];
+    });
+    commit({
+      ...document,
+      groups: [...document.groups, ...copiedGroups],
+      objects: [...document.objects, ...copies],
+    }, copies.length === 1 ? `${selected?.name ?? 'Objeto'} duplicado.` : `${copies.length} objetos duplicados como conjunto.`);
+    setSelectedIds(copies.map(({ id }) => id));
   };
 
   const deleteSelected = () => {
-    if (!document || !selected) return;
-    if (!window.confirm(`¿Eliminar “${selected.name}” de la escena?`)) return;
+    if (!document || !selectedObjects.length) return;
+    const selectedNames = selectedObjects.map(({ name }) => name);
+    const confirmation = selectedNames.length === 1
+      ? `¿Eliminar “${selectedNames[0]}” de la escena?`
+      : `¿Eliminar los ${selectedNames.length} objetos seleccionados de la escena?`;
+    if (!window.confirm(confirmation)) return;
+    const selectedSet = new Set(selectedIds);
     const objects = document.objects
-      .filter(({ id }) => id !== selected.id)
-      .map((object) => object.association?.bridgeComponentId === selected.id
+      .filter(({ id }) => !selectedSet.has(id))
+      .map((object) => object.association && selectedSet.has(object.association.bridgeComponentId)
         ? { ...object, association: { ...object.association, bridgeComponentId: '', status: 'unconnected' as const } }
         : object);
-    commit({ ...document, objects }, `${selected.name} eliminado.`);
-    setSelectedId(null);
+    const groups = document.groups.filter(({ id }) => objects.some((object) => object.groupId === id));
+    commit({ ...document, groups, objects }, selectedNames.length === 1 ? `${selectedNames[0]} eliminado.` : `${selectedNames.length} objetos eliminados.`);
+    setSelectedIds([]);
   };
 
   const undo = () => {
@@ -528,6 +649,33 @@ export function BridgeDesigner({
     setOperation('Proyecto .evbridge descargado.');
   };
 
+  const exportDrawingSvg = () => {
+    if (!document) return;
+    try {
+      const svg = createBridgeDrawingSvg(document);
+      downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), `${document.name.replace(/[^\w-]+/g, '-')}-planos.svg`);
+      setOperation('Lámina vectorial con planta, alzado y sección exportada.');
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudieron generar los planos vectoriales.');
+    }
+  };
+
+  const printDrawingPdf = () => {
+    if (!document) return;
+    try {
+      const printable = window.open('', '_blank');
+      if (!printable) throw new Error('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para exportar a PDF.');
+      printable.document.open();
+      printable.document.write(createPrintableBridgeDrawingHtml(document));
+      printable.document.close();
+      setOperation('Lámina técnica abierta: elige “Guardar como PDF” en el diálogo de impresión.');
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo preparar la impresión PDF.');
+    }
+  };
+
   const openSceneFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -537,7 +685,7 @@ export function BridgeDesigner({
       const restored = withUpdatedAt(parseBridgeScene(await file.text(), projectId));
       commit(restored, `Proyecto ${file.name} abierto.`);
       await saveBridgeScene(restored);
-      setSelectedId(null);
+      setSelectedIds([]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo abrir el proyecto.');
     }
@@ -568,7 +716,7 @@ export function BridgeDesigner({
       }
       if (!imported.length) throw new Error('El archivo no contiene mallas editables.');
       commit({ ...document, objects: [...document.objects, ...imported] }, `${model.name} importado · ${imported.length} mallas editables.`);
-      setSelectedId(imported[0].id);
+      setSelectedIds([imported[0].id]);
       setActiveInspector('Objetos');
       window.setTimeout(() => viewportRef.current?.frameAll(), 50);
     } catch (cause) {
@@ -610,7 +758,7 @@ export function BridgeDesigner({
       else if (event.key.toLowerCase() === 's') setTool('scale');
       else if (event.key.toLowerCase() === 'f') viewportRef.current?.focusSelection();
       else if (event.key === 'Escape') setTool('select');
-      else if ((event.key === 'Delete' || event.key === 'Backspace') && selected) deleteSelected();
+      else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedObjects.length) deleteSelected();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -651,15 +799,16 @@ export function BridgeDesigner({
     }}>
       <section className="bridge-modal bridge-ai-modal" role="dialog" aria-modal="true" aria-labelledby="bridge-ai-title">
         <div className="bridge-modal-heading">
-          <div><Sparkles size={18} /><h2 id="bridge-ai-title">Crear puente con IA</h2></div>
+          <div><Sparkles size={18} /><h2 id="bridge-ai-title">Asistente local de puentes</h2></div>
           <button type="button" className="bridge-icon-button" onClick={() => setShowAiGenerator(false)} aria-label="Cerrar" disabled={aiFlow === 'interpreting' || aiFlow === 'generating'}><X size={16} /></button>
         </div>
-        <p>Gemini interpreta la solicitud; la geometría se genera localmente y no se crea hasta tu aprobación. <strong>MODELO CONCEPTUAL — NO VALIDADO PARA CONSTRUCCIÓN.</strong></p>
-        <div className={`bridge-ai-indicator ${aiBackendStatus !== 'configured' ? 'error' : ''}`}><span />{aiBackendStatus === 'checking' ? 'Comprobando configuración de Gemini…' : aiBackendStatus === 'configured' ? 'Clave de Gemini configurada en el backend · conectividad se verifica al interpretar' : aiBackendStatus === 'missing' ? 'Falta GEMINI_API_KEY en .env.local del backend' : 'Backend de Gemini no disponible'} · clave nunca enviada al navegador</div>
+        <p>Interpreta medidas y características conocidas mediante reglas locales. No usa IA externa ni envía el texto por internet. Revisa y completa los campos antes de generar. <strong>MODELO CONCEPTUAL — NO VALIDADO PARA CONSTRUCCIÓN.</strong></p>
+        <div className="bridge-ai-indicator"><span />Interpretación determinista local · las frases no reconocidas requieren revisión manual.</div>
         <label className="bridge-ai-prompt-label">Describe el puente<textarea value={aiPrompt} rows={3} maxLength={8000} placeholder="Ej.: Puente de vigas de 30 m de longitud y 8 m de ancho, con el tablero a 15 m sobre el terreno y cuatro apoyos..." onChange={(event) => setAiPrompt(event.target.value)} /></label>
         <div className="bridge-modal-actions bridge-ai-interpret-actions">
-          <span>{aiFlow === 'interpreting' ? 'Interpretando con Gemini…' : aiFlow === 'needs_clarification' ? 'Faltan aclaraciones' : aiFlow === 'awaiting_approval' ? 'Interpretación lista para revisar' : aiFlow === 'generating' ? 'Generando geometría…' : aiFlow === 'completed' ? 'Modelo creado' : 'API Gemini · gemini-3.8-flash'}</span>
-          <button type="button" className="bridge-primary-button" onClick={() => void interpretWithAi()} disabled={!aiPrompt.trim() || aiFlow === 'interpreting' || aiFlow === 'generating'}><Sparkles size={14} />Interpretar</button>
+          <span>{aiFlow === 'interpreting' ? 'Analizando texto localmente…' : aiFlow === 'needs_clarification' ? 'Faltan aclaraciones' : aiFlow === 'awaiting_approval' ? 'Interpretación lista para revisar' : aiFlow === 'generating' ? 'Generando geometría…' : aiFlow === 'completed' ? 'Modelo creado' : 'Sin conexión externa'}</span>
+          <button type="button" className="bridge-toolbar-button" onClick={openManualBridgeGenerator} disabled={aiFlow === 'interpreting' || aiFlow === 'generating'}>Generador paramétrico manual</button>
+          <button type="button" className="bridge-primary-button" onClick={() => void interpretWithAi()} disabled={!aiPrompt.trim() || aiFlow === 'interpreting' || aiFlow === 'generating'}><Sparkles size={14} />Analizar descripción</button>
         </div>
         {aiError && <p className="bridge-ai-error" role="alert">{aiError}</p>}
         {aiSpecification && (
@@ -668,7 +817,7 @@ export function BridgeDesigner({
             {aiSpecification.unresolvedQuestions.length > 0 && <div className="bridge-ai-questions"><strong>Necesitamos aclarar:</strong><ul>{aiSpecification.unresolvedQuestions.map((question) => <li key={question}>{question}</li>)}</ul></div>}
             <div className="bridge-field-grid">
               <label>Nombre<input value={aiSpecification.bridgeName} onChange={(event) => updateAiSpecification({ bridgeName: event.target.value })} /></label>
-              <label>Tipología<select value={aiSpecification.structureType} onChange={(event) => updateAiSpecification({ structureType: event.target.value as BridgeSpecification['structureType'] })}><option value="beam">Puente de vigas</option><option value="slab">Puente de losa</option></select></label>
+              <label>Tipología<select value={aiSpecification.structureType} onChange={(event) => updateAiSpecification({ structureType: event.target.value as BridgeSpecification['structureType'] })}><option value="beam">Puente de vigas</option><option value="slab">Puente de losa</option><option value="cable_stayed">Puente atirantado</option></select></label>
               <label>Longitud (m)<input type="number" min="0.1" step="any" value={aiSpecification.overallDimensions.lengthM ?? ''} onChange={(event) => updateAiSpecification({ overallDimensions: { lengthM: event.target.value === '' ? null : Number(event.target.value) } })} /></label>
               <label>Ancho (m)<input type="number" min="0.1" step="any" value={aiSpecification.overallDimensions.widthM ?? ''} onChange={(event) => updateAiSpecification({ overallDimensions: { widthM: event.target.value === '' ? null : Number(event.target.value) } })} /></label>
               <label>Altura (m)<input type="number" min="0.1" step="any" value={aiSpecification.overallDimensions.heightM ?? ''} onChange={(event) => updateAiSpecification({ overallDimensions: { heightM: event.target.value === '' ? null : Number(event.target.value) } })} /></label>
@@ -687,10 +836,27 @@ export function BridgeDesigner({
               <label>Profundidad del apoyo (m)<input type="number" min="0.1" step="any" value={aiSpecification.supports.depthM ?? ''} onChange={(event) => updateAiSpecification({ supports: { depthM: event.target.value === '' ? null : Number(event.target.value) } })} /></label>
               <label>Espesor del tablero (m)<input type="number" min="0.1" step="any" value={aiSpecification.deck.thicknessM ?? ''} onChange={(event) => updateAiSpecification({ deck: { thicknessM: event.target.value === '' ? null : Number(event.target.value) } })} /></label>
             </div>
+            {aiSpecification.structureType === 'cable_stayed' && aiSpecification.cableStayed && (
+              <>
+                <h4>Parámetros del puente atirantado · revisa los supuestos</h4>
+                <div className="bridge-field-grid">
+                  <label>Cantidad total de cables<input type="number" min="8" max="400" step="8" value={aiSpecification.stayCableCount ?? ''} onChange={(event) => updateAiSpecification({ stayCableCount: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+                  {cableStayedFields.map(({ key, label }) => (
+                    <label key={key}>{label}<input
+                      type="number"
+                      min={key === 'mainGirderCount' ? 2 : 0.01}
+                      step={key === 'mainGirderCount' ? 1 : 'any'}
+                      value={aiSpecification.cableStayed?.[key] ?? ''}
+                      onChange={(event) => updateAiSpecification({ cableStayed: { [key]: event.target.value === '' ? null : Number(event.target.value) } })}
+                    /></label>
+                  ))}
+                </div>
+              </>
+            )}
             {aiSpecification.assumptions.length > 0 && <div className="bridge-ai-notes"><strong>Supuestos de la interpretación</strong><ul>{aiSpecification.assumptions.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></div>}
             {aiSpecification.warnings.length > 0 && <div className="bridge-ai-notes"><strong>Advertencias</strong><ul>{aiSpecification.warnings.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></div>}
             <div className="bridge-ai-components"><strong>Componentes incluidos</strong>{aiSpecification.components.map((component, index) => (
-              <label key={`${component.id}-${index}`}><input type="checkbox" checked={component.included} disabled={component.type === 'deck'} onChange={(event) => updateAiSpecification({ components: aiSpecification.components.map((item, itemIndex) => itemIndex === index ? { ...item, included: event.target.checked } : item) })} />{component.type === 'main_girder' ? 'Vigas principales' : component.type === 'cross_beam' ? 'Vigas transversales' : component.type === 'guardrail' ? 'Barandas' : component.type === 'abutment' ? 'Estribos' : component.type === 'support' ? 'Apoyos' : component.type === 'deck' ? 'Tablero' : component.type === 'tower' ? 'Torres (no disponibles)' : 'Decoración (no disponible)'}</label>
+              <label key={`${component.id}-${index}`}><input type="checkbox" checked={component.included} disabled={component.type === 'deck'} onChange={(event) => updateAiSpecification({ components: aiSpecification.components.map((item, itemIndex) => itemIndex === index ? { ...item, included: event.target.checked } : item) })} />{component.type === 'main_girder' ? 'Vigas principales' : component.type === 'cross_beam' ? 'Vigas transversales' : component.type === 'guardrail' ? 'Barandas' : component.type === 'abutment' ? 'Estribos' : component.type === 'support' ? 'Apoyos' : component.type === 'stay_cable' ? 'Cables atirantados' : component.type === 'foundation' ? 'Cimentaciones conceptuales' : component.type === 'deck' ? 'Tablero' : component.type === 'tower' ? 'Torres' : 'Decoración (no disponible)'}</label>
             ))}</div>
             <div className="bridge-modal-actions">
               <button type="button" className="bridge-toolbar-button" onClick={() => { setShowAiGenerator(false); setAiSpecification(null); }}>Cancelar</button>
@@ -733,7 +899,7 @@ export function BridgeDesigner({
         <button type="button" onClick={openBridgeDialog}>Generar puente</button>
         <button type="button" onClick={() => setActiveInspector('Material')}>Materiales <ChevronDown size={12} /></button>
         <button type="button" onClick={() => setActiveInspector('Escena')}>Escena <ChevronDown size={12} /></button>
-        <button type="button" onClick={openAiGenerator}><Sparkles size={12} />Crear con IA</button>
+        <button type="button" onClick={openAiGenerator}><Sparkles size={12} />Asistente local</button>
         <button type="button" onClick={() => viewportRef.current?.setView('perspective')}>Cámara <ChevronDown size={12} /></button>
         <button type="button" onClick={() => setWireframe((value) => !value)}>Visualización <ChevronDown size={12} /></button>
       </nav>
@@ -751,14 +917,18 @@ export function BridgeDesigner({
           <ToolButton icon={<Circle size={17} />} label="Esfera" onClick={() => addPrimitive('sphere')} />
           <ToolButton icon={<CylinderIcon size={17} />} label="Cilindro" onClick={() => addPrimitive('cylinder')} />
           <ToolButton icon={<Layers size={17} />} label="Plano" onClick={() => addPrimitive('plane')} />
-          <ToolButton icon={<Copy size={17} />} label="Duplicar" disabled={!selected} onClick={duplicateSelected} />
-          <ToolButton icon={<Trash2 size={17} />} label="Eliminar" disabled={!selected} onClick={deleteSelected} />
+          <ToolButton icon={<Copy size={17} />} label="Duplicar selección" disabled={!selectedObjects.length} onClick={duplicateSelected} />
+          <ToolButton icon={<Layers size={17} />} label="Agrupar selección" disabled={selectedObjects.length < 2} onClick={groupSelected} />
+          <ToolButton icon={<X size={17} />} label="Desagrupar selección" disabled={!selectedObjects.some((object) => object.groupId)} onClick={ungroupSelected} />
+          <ToolButton icon={<Trash2 size={17} />} label="Eliminar" disabled={!selectedObjects.length} onClick={deleteSelected} />
           <div className="bridge-tool-divider" />
           <button type="button" className="bridge-add-bridge" onClick={openBridgeDialog}><Waves size={16} /><span>Puente nuevo</span></button>
-          <button type="button" className="bridge-tool-button" onClick={() => { const sensor = createSensorObject('esp32'); if (document) { commit({ ...document, objects: [...document.objects, sensor] }, 'Dispositivo ESP32 agregado sin conexión física.'); setSelectedId(sensor.id); } }}><span className="bridge-iot-icon">ESP</span><span>Agregar ESP32</span></button>
-          <button type="button" className="bridge-tool-button" onClick={() => { const sensor = createSensorObject('mpu6050'); if (document) { commit({ ...document, objects: [...document.objects, sensor] }, 'Sensor MPU6050 agregado sin datos conectados.'); setSelectedId(sensor.id); setActiveInspector('Sensores'); } }}><span className="bridge-iot-icon">IMU</span><span>Agregar MPU6050</span></button>
+          <button type="button" className="bridge-tool-button" onClick={() => { const sensor = createSensorObject('esp32'); if (document) { commit({ ...document, objects: [...document.objects, sensor] }, 'Dispositivo ESP32 agregado sin conexión física.'); setSelectedIds([sensor.id]); } }}><span className="bridge-iot-icon">ESP</span><span>Agregar ESP32</span></button>
+          <button type="button" className="bridge-tool-button" onClick={() => { const sensor = createSensorObject('mpu6050'); if (document) { commit({ ...document, objects: [...document.objects, sensor] }, 'Sensor MPU6050 agregado sin datos conectados.'); setSelectedIds([sensor.id]); setActiveInspector('Sensores'); } }}><span className="bridge-iot-icon">IMU</span><span>Agregar MPU6050</span></button>
           <button type="button" className="bridge-tool-button" onClick={() => importRef.current?.click()}><Upload size={15} /><span>Importar modelo</span></button>
           <button type="button" className="bridge-tool-button" onClick={() => void exportGlb()}><HardDriveDownload size={15} /><span>Exportar GLB</span></button>
+          <button type="button" className="bridge-tool-button" disabled={!document.objects.some((object) => object.visible && object.role !== 'iot')} onClick={exportDrawingSvg}><FileText size={15} /><span>Exportar planos SVG</span></button>
+          <button type="button" className="bridge-tool-button" disabled={!document.objects.some((object) => object.visible && object.role !== 'iot')} onClick={printDrawingPdf}><Printer size={15} /><span>Imprimir / Guardar PDF</span></button>
           <input ref={importRef} type="file" accept=".glb,.gltf,.obj,.stl,.bin,.png,.jpg,.jpeg,.webp" multiple hidden onChange={(event) => void importModels(event)} />
         </aside>
 
@@ -770,8 +940,11 @@ export function BridgeDesigner({
               <button type="button" onClick={() => viewportRef.current?.setView('front')}>Frontal</button>
               <button type="button" onClick={() => viewportRef.current?.setView('side')}>Lateral</button>
               <button type="button" onClick={() => viewportRef.current?.setView('perspective')}>Perspectiva</button>
+              <button type="button" title="Seleccionar por ventana" aria-label="Seleccionar por ventana" aria-pressed={boxSelectEnabled} className={boxSelectEnabled ? 'selected' : ''} onClick={() => setBoxSelectEnabled((enabled) => !enabled)}><Box size={14} /></button>
               <button type="button" title="Encuadrar escena" onClick={() => viewportRef.current?.frameAll()}><Camera size={14} /></button>
               <button type="button" title="Mostrar/ocultar cuadrícula" className={gridVisible ? 'selected' : ''} onClick={() => setGridVisible((visible) => !visible)}><Grid2X2 size={14} /></button>
+              <button type="button" title={snapEnabled ? 'Desactivar ajuste preciso' : `Ajustar a la cuadrícula (${document.gridSize} ${document.unit}; rotación 15°; escala 0.1)`} aria-label="Ajuste preciso de transformaciones" aria-pressed={snapEnabled} className={snapEnabled ? 'selected' : ''} onClick={() => setSnapEnabled((enabled) => !enabled)}><Magnet size={14} /></button>
+              <button type="button" title="Cambiar orientación de los ejes" aria-label="Orientación de los ejes de transformación" aria-pressed={transformSpace === 'local'} className={transformSpace === 'local' ? 'selected' : ''} onClick={() => setTransformSpace((space) => space === 'world' ? 'local' : 'world')}>{transformSpace === 'world' ? 'Global' : 'Local'}</button>
               <button type="button" title="Ver objeto seleccionado (F)" onClick={() => viewportRef.current?.focusSelection()}><Focus size={14} /></button>
             </div>
           </div>
@@ -779,12 +952,16 @@ export function BridgeDesigner({
             <BridgeViewport
               ref={viewportRef}
               document={document}
-              selectedId={selectedId}
+              selectedIds={selectedIds}
               tool={tool}
               gridVisible={gridVisible}
               gridSize={document.gridSize}
+              snapEnabled={snapEnabled}
+              transformSpace={transformSpace}
+              boxSelectEnabled={boxSelectEnabled}
               wireframe={wireframe}
-              onSelect={(id) => { setSelectedId(id); if (id) setActiveInspector('Transformar'); }}
+              onSelect={(id, additive) => { selectObject(id, additive); if (id) setActiveInspector('Transformar'); }}
+              onSelectMany={(ids, additive) => { selectObjects(ids, additive); if (ids.length) setActiveInspector('Transformar'); }}
               onTransform={updateTransform}
             />
             {document.objects.length === 0 && (
@@ -809,11 +986,29 @@ export function BridgeDesigner({
             <div className="bridge-inspector-content">
               <div className="bridge-panel-title">ÁRBOL DE ESCENA <span>{document.objects.length}</span></div>
               <div className="bridge-scene-root"><Layers size={14} /><strong>{document.name}</strong></div>
+              {document.groups.length > 0 && (
+                <div className="bridge-collection">
+                  <div className="bridge-collection-heading"><ChevronDown size={13} /><Layers size={13} /><strong>Grupos</strong><small>{document.groups.length}</small></div>
+                  {document.groups.map((group) => {
+                    const members = document.objects.filter((object) => object.groupId === group.id);
+                    return (
+                      <div className="bridge-group-tree" key={group.id}>
+                        <button type="button" className={`bridge-group-select${members.every(({ id }) => selectedIds.includes(id)) ? ' selected' : ''}`} onClick={() => selectGroup(group.id)}>
+                          <Layers size={12} /><span>{group.name}</span><small>{members.length}</small>
+                        </button>
+                        {members.map((object) => (
+                          <ObjectTreeRow key={object.id} object={object} selected={selectedIds.includes(object.id)} onSelect={(event) => { selectObject(object.id, event.shiftKey || event.ctrlKey || event.metaKey); setActiveInspector(object.role === 'iot' ? 'Sensores' : 'Transformar'); }} onVisibility={() => updateObject(object.id, { visible: !object.visible })} onLock={() => updateObject(object.id, { locked: !object.locked })} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {collections.map((collection) => (
                 <div className="bridge-collection" key={collection}>
-                  <div className="bridge-collection-heading"><ChevronDown size={13} /><FolderPlus size={13} /><strong>{collection}</strong><small>{document.objects.filter((object) => object.collection === collection).length}</small></div>
-                  {document.objects.filter((object) => object.collection === collection).map((object) => (
-                    <ObjectTreeRow key={object.id} object={object} selected={object.id === selectedId} onSelect={() => { setSelectedId(object.id); setActiveInspector(object.role === 'iot' ? 'Sensores' : 'Transformar'); }} onVisibility={() => updateObject(object.id, { visible: !object.visible }, `${object.name}: visibilidad ${object.visible ? 'desactivada' : 'activada'}.`)} onLock={() => updateObject(object.id, { locked: !object.locked }, `${object.name}: bloqueo actualizado.`)} />
+                  <div className="bridge-collection-heading"><ChevronDown size={13} /><FolderPlus size={13} /><strong>{collection}</strong><small>{document.objects.filter((object) => object.collection === collection && !object.groupId).length}</small></div>
+                  {document.objects.filter((object) => object.collection === collection && !object.groupId).map((object) => (
+                    <ObjectTreeRow key={object.id} object={object} selected={selectedIds.includes(object.id)} onSelect={(event) => { selectObject(object.id, event.shiftKey || event.ctrlKey || event.metaKey); setActiveInspector(object.role === 'iot' ? 'Sensores' : 'Transformar'); }} onVisibility={() => updateObject(object.id, { visible: !object.visible }, `${object.name}: visibilidad ${object.visible ? 'desactivada' : 'activada'}.`)} onLock={() => updateObject(object.id, { locked: !object.locked }, `${object.name}: bloqueo actualizado.`)} />
                   ))}
                 </div>
               ))}
@@ -836,17 +1031,26 @@ export function BridgeDesigner({
             <div className="bridge-inspector-content">
               <div className="bridge-panel-title">OBJETOS <span>{document.objects.length}</span></div>
               {document.objects.map((object) => (
-                <ObjectTreeRow key={object.id} object={object} selected={object.id === selectedId} onSelect={() => setSelectedId(object.id)} onVisibility={() => updateObject(object.id, { visible: !object.visible })} onLock={() => updateObject(object.id, { locked: !object.locked })} />
+                <ObjectTreeRow key={object.id} object={object} selected={selectedIds.includes(object.id)} onSelect={(event) => selectObject(object.id, event.shiftKey || event.ctrlKey || event.metaKey)} onVisibility={() => updateObject(object.id, { visible: !object.visible })} onLock={() => updateObject(object.id, { locked: !object.locked })} />
               ))}
-              <button type="button" className="bridge-add-collection" onClick={duplicateSelected} disabled={!selected}><Copy size={14} /> Duplicar objeto seleccionado</button>
-              <button type="button" className="bridge-add-collection danger" onClick={deleteSelected} disabled={!selected}><Trash2 size={14} /> Eliminar seleccionado</button>
+              <button type="button" className="bridge-add-collection" onClick={groupSelected} disabled={selectedObjects.length < 2}><Layers size={14} /> Agrupar selección</button>
+              <button type="button" className="bridge-add-collection" onClick={ungroupSelected} disabled={!selectedObjects.some((object) => object.groupId)}><X size={14} /> Desagrupar selección</button>
+              <button type="button" className="bridge-add-collection" onClick={duplicateSelected} disabled={!selectedObjects.length}><Copy size={14} /> Duplicar selección</button>
+              <button type="button" className="bridge-add-collection danger" onClick={deleteSelected} disabled={!selectedObjects.length}><Trash2 size={14} /> Eliminar selección ({selectedObjects.length})</button>
             </div>
           )}
 
           {(activeInspector === 'Transformar' || activeInspector === 'Material') && (
             <div className="bridge-inspector-content">
               <div className="bridge-panel-title">{activeInspector === 'Transformar' ? 'TRANSFORMACIONES' : 'MATERIAL'}</div>
-              {!selected ? <div className="bridge-inspector-empty">Selecciona un objeto en la escena o jerarquía.</div> : (
+              {!selected ? <div className="bridge-inspector-empty">Selecciona un objeto en la escena o jerarquía.</div> : selectedObjects.length > 1 ? (
+                <MultiTransformPanel
+                  key={selectedIds.join(':')}
+                  selectedCount={selectedObjects.length}
+                  lockedCount={selectedObjects.filter((object) => object.locked).length}
+                  onApply={applyMultiTransform}
+                />
+              ) : (
                 <>
                   <label className="bridge-property-label">Nombre<input value={selected.name} onChange={(event) => updateObject(selected.id, { name: event.target.value }, 'Nombre del objeto actualizado.')} /></label>
                   {activeInspector === 'Transformar' ? (
@@ -874,7 +1078,7 @@ export function BridgeDesigner({
             <div className="bridge-inspector-content">
               <div className="bridge-panel-title">NODOS IoT · SIN DATOS REALES</div>
               {!componentObjects.length ? <div className="bridge-inspector-empty">Inserta un ESP32 o MPU6050 para prepararlo para una asociación futura.</div> : componentObjects.map((object) => (
-                <button type="button" key={object.id} className={`bridge-sensor-card${object.id === selectedId ? ' selected' : ''}`} onClick={() => setSelectedId(object.id)}>
+                <button type="button" key={object.id} className={`bridge-sensor-card${object.id === selectedId ? ' selected' : ''}`} onClick={() => selectObject(object.id)}>
                   <span className="bridge-sensor-status" />
                   <span><strong>{object.name}</strong><small>{object.association?.deviceId || 'Sin device_id · sin conexión'}</small><small>{object.association?.sensorType ?? 'tipo no definido'}</small></span>
                 </button>
@@ -896,7 +1100,7 @@ export function BridgeDesigner({
       <footer className="bridge-statusbar">
         <span><span className="bridge-status-dot" />{saveState === 'saved' ? 'Persistencia local activa' : saveState === 'saving' ? 'Guardando cambios…' : saveState === 'error' ? 'Error de persistencia' : 'Cargando'}</span>
         <span>{operation}</span>
-        <span>{selected ? `${selected.name} · ${selected.dimensions.map((value) => value.toFixed(2)).join(' × ')} ${document.unit}` : `${document.objects.length} objetos · ${document.unit}`}</span>
+        <span>{selectedObjects.length > 1 ? `${selectedObjects.length} objetos seleccionados · ${document.unit}` : selected ? `${selected.name} · ${selected.dimensions.map((value) => value.toFixed(2)).join(' × ')} ${document.unit}` : `${document.objects.length} objetos · ${document.unit}`}</span>
         <span>Proyecto conceptual · sin análisis estructural</span>
       </footer>
       {showGenerate && generateForm}
@@ -908,6 +1112,12 @@ export function BridgeDesigner({
           <section className="bridge-help-modal" role="dialog" aria-modal="true" aria-labelledby="bridge-help-title">
             <div className="bridge-modal-heading"><div><CircleHelp size={18} /><h2 id="bridge-help-title">Ayuda · controles y alcance</h2></div><button type="button" className="bridge-icon-button" onClick={() => setShowHelp(false)} aria-label="Cerrar"><X size={16} /></button></div>
             <p><strong>Viewport:</strong> arrastra para orbitar, rueda para zoom y botón derecho para desplazar. Selecciona un objeto directamente o desde el árbol.</p>
+            <p><strong>Selección múltiple:</strong> usa Shift o Ctrl/Cmd al seleccionar objetos en el viewport o en el árbol. El gizmo transforma juntos los objetos visibles y desbloqueados; Supr elimina la selección.</p>
+            <p><strong>Selección por ventana:</strong> activa el icono de selección rectangular en la barra del viewport y arrastra para seleccionar objetos. Shift/Ctrl/Cmd suma el resultado a la selección actual.</p>
+            <p><strong>Transformación numérica:</strong> con varios objetos seleccionados puedes aplicar desplazamientos y rotaciones adicionales, y factores de escala por eje desde el inspector. Los objetos bloqueados no cambian.</p>
+            <p><strong>Grupos:</strong> selecciona varios objetos y usa “Agrupar selección” para crear un grupo persistente. Al seleccionar un miembro se selecciona todo el grupo; puedes duplicar el conjunto o desagruparlo sin eliminar sus piezas.</p>
+            <p><strong>Precisión:</strong> activa el imán en la barra del viewport para mover según la cuadrícula, rotar en incrementos de 15° y escalar en pasos de 0.1.</p>
+            <p><strong>Ejes:</strong> Global transforma respecto a la escena; Local transforma siguiendo la orientación del objeto.</p>
             <p><strong>Atajos:</strong> G mover, R rotar, S escalar, F enfocar, Supr eliminar, Ctrl+Z deshacer, Ctrl+Shift+Z rehacer, Ctrl+S guardar y Esc seleccionar.</p>
             <p><strong>Geometría:</strong> puentes y objetos se guardan como elementos editables en unidades locales. La escena no calcula esfuerzos ni valida normas de diseño.</p>
             <p><strong>IoT:</strong> los identificadores y asociaciones se persisten, pero no existe conexión de hardware ni telemetría en esta versión.</p>
@@ -923,10 +1133,58 @@ function ToolButton({ icon, label, active = false, disabled = false, onClick }: 
   return <button type="button" className={`bridge-tool-button${active ? ' active' : ''}`} disabled={disabled} onClick={onClick} title={label}>{icon}<span>{label}</span></button>;
 }
 
+function MultiTransformPanel({ selectedCount, lockedCount, onApply }: {
+  selectedCount: number;
+  lockedCount: number;
+  onApply: (delta: {
+    position: [number, number, number];
+    rotationDegrees: [number, number, number];
+    scaleFactor: [number, number, number];
+  }) => void;
+}) {
+  const [position, setPosition] = useState<[number, number, number]>([0, 0, 0]);
+  const [rotationDegrees, setRotationDegrees] = useState<[number, number, number]>([0, 0, 0]);
+  const [scaleFactor, setScaleFactor] = useState<[number, number, number]>([1, 1, 1]);
+  const editableCount = selectedCount - lockedCount;
+
+  const fields = (
+    label: string,
+    values: [number, number, number],
+    update: (next: [number, number, number]) => void,
+    step: number,
+    min?: number,
+  ) => (
+    <fieldset className="bridge-vector-fields">
+      <legend>{label}</legend>
+      {values.map((value, index) => (
+        <label key={index}><span>{['X', 'Y', 'Z'][index]}</span><input type="number" step={step} min={min} value={value} onChange={(event) => {
+          const next = [...values] as [number, number, number];
+          next[index] = Number(event.target.value);
+          update(next);
+        }} /></label>
+      ))}
+    </fieldset>
+  );
+
+  return (
+    <div className="bridge-multi-transform">
+      <p>{selectedCount} objetos seleccionados. Se aplicarán cambios relativos a los objetos desbloqueados.</p>
+      {lockedCount > 0 && <p className="bridge-info-note">{lockedCount} objetos bloqueados no se modificarán.</p>}
+      {fields('Desplazamiento', position, setPosition, 0.1)}
+      {fields('Rotación adicional (°)', rotationDegrees, setRotationDegrees, 1)}
+      {fields('Factor de escala', scaleFactor, setScaleFactor, 0.1, 0.001)}
+      <button type="button" className="bridge-add-collection" disabled={!editableCount} onClick={() => onApply({ position, rotationDegrees, scaleFactor })}>
+        Aplicar a {editableCount} objetos
+      </button>
+      <p className="bridge-info-note">El desplazamiento y la rotación se suman a cada objeto; el factor escala sus dimensiones respecto a su propio origen. Usa 1 para conservar un eje sin cambios.</p>
+    </div>
+  );
+}
+
 function ObjectTreeRow({ object, selected, onSelect, onVisibility, onLock }: {
   object: BridgeObject;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
   onVisibility: () => void;
   onLock: () => void;
 }) {

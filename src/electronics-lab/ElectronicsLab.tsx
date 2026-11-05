@@ -1,9 +1,12 @@
-import { useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   Cable,
   Check,
   Copy,
   Cpu,
+  Download,
+  ExternalLink,
+  Import,
   Redo2,
   RotateCw,
   Save,
@@ -13,7 +16,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { createCircuitComponent, getCircuitPins, validateCircuit } from '../domain/circuit';
-import type { BoardId, CircuitComponent, CircuitConnection, ElectronicCircuit } from '../domain/types';
+import { createLibraryCircuitComponent, findLibraryComponent, parseComponentLibrary } from '../domain/componentLibrary';
+import type { BoardId, CircuitComponent, CircuitConnection, ElectronicCircuit, CircuitLibraryComponent } from '../domain/types';
 import './electronics-lab.css';
 
 type Tool = 'select' | 'wire';
@@ -44,18 +48,23 @@ function transformedPin(component: CircuitComponent, pin: { x: number; y: number
 function ComponentGraphic({
   component,
   boardId,
+  libraries,
   mode,
   selected,
 }: {
   component: CircuitComponent;
   boardId: BoardId;
+  libraries?: ElectronicCircuit['componentLibraries'];
   mode: CanvasMode;
   selected: boolean;
 }) {
-  const pins = getCircuitPins(component, boardId);
+  const pins = getCircuitPins(component, boardId, libraries);
   const title = component.value ? `${component.label} · ${component.value}` : component.label;
+  const customWidth = Math.max(70, ...pins.map((pin) => Math.abs(pin.x) * 2 + 24));
+  const customHeight = Math.max(54, ...pins.map((pin) => Math.abs(pin.y) * 2 + 24));
   const hitbox: [number, number, number, number] =
     component.kind === 'board' || component.kind === 'esp32' ? [-72, -58, 144, 116]
+      : component.kind === 'custom' ? [-customWidth / 2, -customHeight / 2, customWidth, customHeight]
       : component.kind === 'mpu6050' ? [-43, -37, 86, 74]
         : component.kind === 'resistor' || component.kind === 'capacitor' ? [-53, -20, 106, 40]
           : component.kind === 'led' ? [-42, -39, 84, 78]
@@ -93,6 +102,17 @@ function ComponentGraphic({
               textAnchor={pin.x < 0 ? 'start' : 'end'} className="el-schematic-pin">{pin.label}</text>)}
           </>
         )
+      ) : component.kind === 'custom' ? (
+        <>
+          <rect x={-customWidth / 2 + 8} y={-customHeight / 2 + 8} width={customWidth - 16} height={customHeight - 16} rx="7" className={mode === 'schematic' ? 'el-schematic-symbol' : 'el-sensor-board'} />
+          <rect x="-12" y="-10" width="24" height="20" rx="3" className="el-board-chip" />
+          <text x="0" y="4" className="el-chip-label">MOD</text>
+          <text x="0" y={customHeight / 2 + 8} className="el-value-label">
+            {findLibraryComponent(libraries, component.libraryComponentId)?.name ?? component.label}
+          </text>
+          {pins.map((pin) => <text key={`label-${pin.id}`} x={pin.x + (pin.x < 0 ? -5 : 5)} y={pin.y - 4}
+            textAnchor={pin.x < 0 ? 'end' : 'start'} className="el-pin-label">{pin.label}</text>)}
+        </>
       ) : component.kind === 'resistor' ? mode === 'schematic' ? (
         <><path d="M-49 0h12l7 -10 12 20 12 -20 12 20 12 -20 7 10h12" className="el-schematic-stroke" /><text x="0" y="27" className="el-value-label">{component.value ?? '220 Ω'}</text></>
         ) : (
@@ -151,7 +171,7 @@ function ComponentGraphic({
 function findPinPosition(circuit: ElectronicCircuit, componentId: string, pinId?: string) {
   const component = circuit.components.find((item) => item.id === componentId);
   if (!component) return null;
-  const pin = getCircuitPins(component, circuit.boardId).find((item) => item.id === pinId);
+  const pin = getCircuitPins(component, circuit.boardId, circuit.componentLibraries).find((item) => item.id === pinId);
   return pin ? transformedPin(component, pin) : { x: component.x ?? 500, y: component.y ?? 300 };
 }
 
@@ -177,10 +197,24 @@ export function ElectronicsLab({
   const [history, setHistory] = useState<ElectronicCircuit[]>([]);
   const [future, setFuture] = useState<ElectronicCircuit[]>([]);
   const [activePanel, setActivePanel] = useState<'validation' | 'console' | 'simulation'>('validation');
+  const [libraryError, setLibraryError] = useState('');
+  const [libraryNotice, setLibraryNotice] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number; before: ElectronicCircuit; moved: boolean } | null>(null);
   const validation = useMemo(() => validateCircuit(circuit), [circuit]);
   const selected = circuit.components.find((component) => component.id === selectedId) ?? null;
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setZoom((current) => Math.max(.65, Math.min(1.7, current + (event.deltaY < 0 ? .08 : -.08))));
+    };
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', handleWheel);
+  }, []);
 
   const commit = (next: ElectronicCircuit) => {
     setHistory((previous) => [...previous.slice(-29), circuit]);
@@ -209,10 +243,66 @@ export function ElectronicsLab({
   };
 
   const addComponent = (kind: CircuitComponent['kind']) => {
+    if (kind === 'custom') return;
     const component = createCircuitComponent(kind, circuit.components.length + 1);
     commit({ ...circuit, components: [...circuit.components, component] });
     setSelectedId(component.id);
     setTool('select');
+  };
+
+  const addLibraryComponent = (definition: CircuitLibraryComponent) => {
+    const component = createLibraryCircuitComponent(definition, circuit.components.length + 1);
+    commit({ ...circuit, components: [...circuit.components, component] });
+    setSelectedId(component.id);
+    setTool('select');
+  };
+
+  const installLibrary = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      if (file.size > 1024 * 1024) throw new Error('La biblioteca supera el límite de 1 MiB.');
+      const library = parseComponentLibrary(await file.text());
+      const installed = circuit.componentLibraries ?? [];
+      if (installed.some((item) => item.id === library.id)) {
+        throw new Error(`La biblioteca “${library.name}” ya está instalada en este proyecto.`);
+      }
+      const componentIds = new Set(installed.flatMap((item) => item.components.map(({ id }) => id)));
+      const conflict = library.components.find(({ id }) => componentIds.has(id));
+      if (conflict) throw new Error(`El ID “${conflict.id}” ya existe en otra biblioteca instalada.`);
+      commit({ ...circuit, componentLibraries: [...installed, library] });
+      setLibraryError('');
+      setLibraryNotice(`Biblioteca “${library.name}” instalada correctamente.`);
+    } catch (cause) {
+      setLibraryError(cause instanceof Error ? cause.message : 'No se pudo instalar la biblioteca.');
+      setLibraryNotice('');
+    }
+  };
+
+  const removeLibrary = (libraryId: string) => {
+    const library = circuit.componentLibraries?.find((item) => item.id === libraryId);
+    if (!library) return;
+    const placed = circuit.components.filter((component) =>
+      component.kind === 'custom' && library.components.some(({ id }) => id === component.libraryComponentId));
+    if (placed.length) {
+      setLibraryError(`No se puede quitar “${library.name}”: hay ${placed.length} componente(s) de esta biblioteca en el circuito.`);
+      setLibraryNotice('');
+      return;
+    }
+    commit({ ...circuit, componentLibraries: circuit.componentLibraries?.filter((item) => item.id !== libraryId) });
+    setLibraryError('');
+    setLibraryNotice(`Biblioteca “${library.name}” quitada del proyecto.`);
+  };
+
+  const exportLibrary = (library: NonNullable<ElectronicCircuit['componentLibraries']>[number]) => {
+    const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${library.id}.evcl.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const deleteSelected = () => {
@@ -323,11 +413,55 @@ export function ElectronicsLab({
 
       <div className="el-workspace">
         <aside className="el-library">
-          <div className="el-section-title"><span>Biblioteca</span><small>{palette.length} piezas</small></div>
+          <div className="el-section-title"><span>Biblioteca</span><small>{palette.length + (circuit.componentLibraries ?? []).reduce((count, library) => count + library.components.length, 0)} piezas</small></div>
           <p>Selecciona un componente para añadirlo al montaje.</p>
           {palette.map((item) => <button key={item.kind} type="button" className="el-library-item" onClick={() => addComponent(item.kind)}>
             <span className="el-library-icon">{item.icon}</span><span>{item.label}</span><span className="el-add-mark">+</span>
           </button>)}
+          <div className="el-library-manager">
+            <strong>Bibliotecas de componentes</strong>
+            <button type="button" className="el-library-action" onClick={() => libraryInputRef.current?.click()}><Import size={13} /> Instalar biblioteca .evcl</button>
+            <input ref={libraryInputRef} type="file" accept=".evcl,.json,application/json" hidden onChange={(event) => void installLibrary(event)} />
+            <a className="el-library-action" href="/libraries/EMBEDVERSE-Basicos.evcl.json" download><Download size={13} /> Descargar biblioteca básica</a>
+            {libraryError && <p className="el-library-error" role="alert">{libraryError}</p>}
+            {libraryNotice && <p className="el-library-notice" role="status">{libraryNotice}</p>}
+            {(circuit.componentLibraries ?? []).map((library) => {
+              const hasPlacedComponents = circuit.components.some((component) =>
+                component.kind === 'custom' && library.components.some(({ id }) => id === component.libraryComponentId));
+              const compatibleComponents = library.components.filter((item) => item.compatibleBoards.includes(boardId));
+              return (
+                <div className="el-installed-library" key={library.id}>
+                  <strong>{library.name} <small>v{library.version}</small></strong>
+                  <span>Licencia: {library.license} · {library.components.length} componentes</span>
+                  <div className="el-installed-library-actions">
+                    <button type="button" className="el-library-action" onClick={() => exportLibrary(library)}><Download size={12} /> Exportar</button>
+                    <button type="button" className="el-library-action" onClick={() => removeLibrary(library.id)}
+                      disabled={hasPlacedComponents} title="Solo se puede quitar si no hay componentes de esta biblioteca colocados"><Trash2 size={12} /> Quitar</button>
+                  </div>
+                  {hasPlacedComponents && <span className="el-library-incompatible">Retira del circuito sus componentes antes de quitar esta biblioteca.</span>}
+                  {compatibleComponents.map((item) => (
+                    <button type="button" className="el-library-item" key={item.id} onClick={() => addLibraryComponent(item)}>
+                      <span className="el-library-icon"><Cpu size={15} /></span><span>{item.name}</span><span className="el-add-mark">+</span>
+                    </button>
+                  ))}
+                  {!compatibleComponents.length && (
+                    <span className="el-library-incompatible">Sin componentes declarados para {boardId}.</span>
+                  )}
+                  {library.components.some((item) => item.arduinoLibrary) && (
+                    <div className="el-library-dependencies">
+                      {library.components.filter((item) => item.arduinoLibrary).map((item) => item.arduinoLibrary && (
+                        <a key={`${item.id}-arduino`} href={item.arduinoLibrary.url} target="_blank" rel="noreferrer">
+                          {item.arduinoLibrary.name} <ExternalLink size={10} />
+                        </a>
+                      ))}
+                      <span>Dependencias informativas: aún deben instalarse y configurarse en Arduino CLI.</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <p className="el-library-note">Las bibliotecas .evcl agregan metadatos de componentes y pines al proyecto. No incluyen código ejecutable ni modelos Proteus/SPICE.</p>
+          </div>
           <div className="el-library-note"><strong>Representación técnica</strong><span>Ilustraciones vectoriales propias; no son modelos oficiales de fabricante.</span></div>
         </aside>
 
@@ -354,7 +488,6 @@ export function ElectronicsLab({
           }}>
             <svg ref={svgRef} viewBox={`${(1120 - 1120 / zoom) / 2} ${(620 - 620 / zoom) / 2} ${1120 / zoom} ${620 / zoom}`} role="application" aria-label={`Editor de circuito, modo ${mode}`}
               onPointerMove={moveOnCanvas} onPointerCancel={() => { dragRef.current = null; }}
-              onWheel={(event) => { event.preventDefault(); setZoom((current) => Math.max(.65, Math.min(1.7, current + (event.deltaY < 0 ? .08 : -.08)))); }}
               onPointerDown={() => { if (!dragRef.current) setSelectedId(null); }}>
               <defs>
                 <pattern id="electronics-grid" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#334250" /></pattern>
@@ -365,8 +498,8 @@ export function ElectronicsLab({
               {circuit.components.map((component) => (
                 <g key={component.id} onPointerDown={(event) => startDrag(event, component)}
                   onClick={() => setSelectedId(component.id)} className={`el-component-hit${tool === 'select' ? ' draggable' : ''}`}>
-                  <ComponentGraphic component={component} boardId={boardId} mode={mode} selected={selectedId === component.id} />
-                  {getCircuitPins(component, boardId).map((pin) => {
+                  <ComponentGraphic component={component} boardId={boardId} libraries={circuit.componentLibraries} mode={mode} selected={selectedId === component.id} />
+                  {getCircuitPins(component, boardId, circuit.componentLibraries).map((pin) => {
                     const point = transformedPin(component, pin);
                     const pending = wireStart?.componentId === component.id && wireStart.pinId === pin.id;
                     return <circle key={`hit-${pin.id}`} cx={point.x} cy={point.y} r="12" className={`el-pin-hit${pending ? ' pending' : ''}`}
@@ -387,7 +520,7 @@ export function ElectronicsLab({
           <div className="el-section-title"><span>Propiedades</span>{selected && <small>{selected.kind}</small>}</div>
           {!selected ? <div className="el-inspector-empty">Selecciona un componente para editar sus propiedades.</div> : (
             <div className="el-property-form">
-              <div className={`el-selected-preview ${selected.kind}`}><ComponentGraphic component={{ ...selected, x: 90, y: 58 }} boardId={boardId} mode={mode} selected /></div>
+              <div className={`el-selected-preview ${selected.kind}`}><ComponentGraphic component={{ ...selected, x: 90, y: 58 }} boardId={boardId} libraries={circuit.componentLibraries} mode={mode} selected /></div>
               <label>Referencia / nombre<input value={selected.label} onChange={(event) => updateComponent(selected.id, { label: event.target.value })} /></label>
               {selected.value !== undefined && <label>{selected.kind === 'mpu6050' ? 'Dirección I²C (referencia)' : selected.kind === 'led' ? 'Color del encapsulado' : 'Valor nominal'}<input value={selected.value} onChange={(event) => updateComponent(selected.id, { value: event.target.value })} /></label>}
               <div className="el-property-row">
@@ -398,7 +531,12 @@ export function ElectronicsLab({
                 <div className="el-rotation-control"><input type="number" step="90" value={selected.rotation ?? 0} onChange={(event) => updateComponent(selected.id, { rotation: Number(event.target.value) })} /><button type="button" title="Rotar 90 grados" onClick={() => updateComponent(selected.id, { rotation: ((selected.rotation ?? 0) + 90) % 360 })}><RotateCw size={14} /></button></div>
               </label>
               <div className="el-property-description">{selected.description}</div>
-              <div className="el-pin-list"><strong>Terminales</strong>{getCircuitPins(selected, boardId).map((pin) => <div key={pin.id}><span className={`el-pin-dot ${pin.type}`} />{pin.label}<small>{pin.type}</small></div>)}</div>
+              {selected.kind === 'custom' && findLibraryComponent(circuit.componentLibraries, selected.libraryComponentId)?.arduinoLibrary && (
+                <a className="el-arduino-library-link" href={findLibraryComponent(circuit.componentLibraries, selected.libraryComponentId)?.arduinoLibrary?.url} target="_blank" rel="noreferrer">
+                  <Download size={13} /> Ver biblioteca Arduino recomendada
+                </a>
+              )}
+              <div className="el-pin-list"><strong>Terminales</strong>{getCircuitPins(selected, boardId, circuit.componentLibraries).map((pin) => <div key={pin.id}><span className={`el-pin-dot ${pin.type}`} />{pin.label}<small>{pin.type}</small></div>)}</div>
               <div className="el-inspector-actions">
                 <button type="button" onClick={duplicateSelected}><Copy size={13} /> Duplicar</button>
                 <button type="button" className="danger" onClick={deleteSelected}><Trash2 size={13} /> Eliminar</button>
@@ -410,15 +548,19 @@ export function ElectronicsLab({
 
       <footer className="el-bottom-panel">
         <div className="el-bottom-tabs">
-          <button type="button" className={activePanel === 'validation' ? 'active' : ''} onClick={() => setActivePanel('validation')}>Validación {validation.issues.length > 0 && <span>{validation.issues.length}</span>}</button>
+          <button type="button" className={activePanel === 'validation' ? 'active' : ''} onClick={() => setActivePanel('validation')}>Validación {(validation.issues.length + validation.warnings.length) > 0 && <span>{validation.issues.length + validation.warnings.length}</span>}</button>
           <button type="button" className={activePanel === 'console' ? 'active' : ''} onClick={() => setActivePanel('console')}>Consola</button>
           <button type="button" className={activePanel === 'simulation' ? 'active' : ''} onClick={() => setActivePanel('simulation')}>Simulación</button>
           <span className="el-bottom-note"><Save size={12} /> Se guarda con el proyecto</span>
         </div>
         <div className="el-bottom-content">
-          {activePanel === 'validation' && (validation.valid
-            ? <div className="el-validation-ok"><Check size={14} /> {validation.summary}</div>
-            : <ul>{validation.issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>)}
+          {activePanel === 'validation' && (
+            <>
+              {validation.valid && <div className="el-validation-ok"><Check size={14} /> {validation.summary}</div>}
+              {validation.issues.length > 0 && <ul className="el-validation-issues">{validation.issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>}
+              {validation.warnings.length > 0 && <ul className="el-validation-warnings">{validation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>}
+            </>
+          )}
           {activePanel === 'console' && <span>Motor de conectividad local. No hay consola de firmware ni telemetría activa.</span>}
           {activePanel === 'simulation' && <span>Simulación eléctrica y de microcontroladores no disponible. El estado visual no representa resultados calculados.</span>}
         </div>

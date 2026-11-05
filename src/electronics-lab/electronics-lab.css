@@ -124,7 +124,7 @@
   padding: 13px 10px;
   background: #141c24;
 }
-.el-library { border-right: 1px solid #28333e; }
+.el-library { overflow-y: auto; border-right: 1px solid #28333e; }
 .el-inspector { border-left: 1px solid #28333e; }
 .el-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; color: #d5e0e9; font-size: 10px; font-weight: 700; }
 .el-section-title small { color: #728396; font-size: 8px; font-weight: 500; }
@@ -142,6 +142,24 @@
 .el-library-note { display: grid; gap: 5px; margin-top: 20px; padding: 9px 7px; border: 1px solid #2b3945; border-radius: 5px; background: #17212a; }
 .el-library-note strong { color: #9eb4c6; font-size: 8px; }
 .el-library-note span { color: #728293; font-size: 8px; line-height: 1.5; }
+.el-library-manager { display: grid; gap: 6px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #293844; }
+.el-library-manager > strong { color: #91a8ba; font-size: 8px; }
+.el-library-action { display: flex; min-height: 27px; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid #30404d; border-radius: 4px; color: #9dc9e7; background: #192630; font-size: 8px; text-decoration: none; cursor: pointer; }
+.el-library-action:hover { border-color: #42637a; color: #d3ebfa; background: #1d303d; }
+.el-library-action:disabled { color: #61717f; cursor: not-allowed; opacity: .7; }
+.el-library-error { margin: 2px 0; color: #ee9d9d; font-size: 8px; line-height: 1.4; }
+.el-library-notice { margin: 2px 0; color: #91c9a5; font-size: 8px; line-height: 1.4; }
+.el-installed-library { display: grid; gap: 4px; margin-top: 7px; padding: 7px 5px; border: 1px solid #2b3b48; border-radius: 5px; background: #121b23; }
+.el-installed-library > strong { color: #b7c8d6; font-size: 8px; }
+.el-installed-library > strong small { color: #7d91a2; font-weight: 400; }
+.el-installed-library > span,.el-library-dependencies > span { color: #718494; font-size: 7px; line-height: 1.45; }
+.el-installed-library-actions { display: flex; gap: 4px; }
+.el-installed-library-actions .el-library-action { min-height: 24px; flex: 1; justify-content: center; padding: 3px; font-size: 7px; }
+.el-library-incompatible { color: #d6ae81; font-size: 7px; line-height: 1.4; }
+.el-installed-library .el-library-item { font-size: 8px; }
+.el-library-dependencies { display: grid; gap: 4px; padding: 5px 3px 1px; border-top: 1px solid #273641; }
+.el-library-dependencies a,.el-arduino-library-link { display: flex; align-items: center; gap: 4px; color: #8db9d6; font-size: 8px; text-decoration: none; }
+.el-library-dependencies a:hover,.el-arduino-library-link:hover { color: #d1e9fa; }
 
 .el-canvas-area { display: flex; min-width: 0; min-height: 0; flex-direction: column; background: #0e141a; }
 .el-canvas-toolbar { min-height: 38px; justify-content: space-between; padding: 0 10px; }
@@ -213,6 +231,7 @@
 .el-rotation-control button { display: grid; width: 28px; flex: 0 0 auto; place-items: center; border: 1px solid #34424e; border-radius: 4px; color: #9eb4c4; background: #1b2731; cursor: pointer; }
 .el-property-description { color: #7b8e9e; font-size: 8px; line-height: 1.5; }
 .el-pin-list { display: grid; gap: 5px; padding-top: 8px; border-top: 1px solid #2b3741; }
+.el-arduino-library-link { min-height: 25px; }
 .el-pin-list > strong { margin-bottom: 2px; color: #bcc9d4; font-size: 9px; }
 .el-pin-list > div { display: flex; align-items: center; gap: 6px; color: #a5b4c1; font-size: 8px; }
 .el-pin-list small { margin-left: auto; color: #718394; }
@@ -228,7 +247,9 @@
 .el-bottom-tabs button span { display: grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; color: #f4c18a; background: #553b27; font-size: 8px; }
 .el-bottom-note { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: #718393; font-size: 8px; }
 .el-bottom-content { min-height: 46px; padding: 10px 14px; color: #8797a5; font-size: 9px; }
-.el-bottom-content ul { display: flex; flex-wrap: wrap; gap: 5px 25px; margin: 0; padding-left: 15px; color: #dfab83; }
+.el-bottom-content ul { display: flex; flex-wrap: wrap; gap: 5px 25px; margin: 0; padding-left: 15px; }
+.el-bottom-content .el-validation-issues { color: #dfab83; }
+.el-bottom-content .el-validation-warnings { margin-top: 6px; color: #e3c17d; }
 .el-validation-ok { display: flex; align-items: flex-start; gap: 6px; color: #92c7a6; line-height: 1.45; }
 
 @media (max-width: 1050px) {

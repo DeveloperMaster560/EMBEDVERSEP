@@ -33,9 +33,11 @@ export interface BridgeObject {
   color: string;
   roughness: number;
   metalness: number;
+  opacity?: number;
   visible: boolean;
   locked: boolean;
   collection: string;
+  groupId?: string;
   geometry?: BridgeGeometryData;
   association?: {
     bridgeComponentId: string;
@@ -47,6 +49,11 @@ export interface BridgeObject {
   };
 }
 
+export interface BridgeSceneGroup {
+  id: string;
+  name: string;
+}
+
 export interface BridgeSceneDocument {
   schemaVersion: 1;
   id: string;
@@ -56,6 +63,7 @@ export interface BridgeSceneDocument {
   bridgeParameters?: BridgeParameters;
   unit: BridgeUnit;
   gridSize: number;
+  groups: BridgeSceneGroup[];
   objects: BridgeObject[];
   updatedAt: string;
 }

@@ -67,8 +67,23 @@ describe('bridge AI specification', () => {
     expect(canGenerateBridge(specification)).toBe(false);
   });
 
-  it('rejects malformed or unsupported geometry specifications', () => {
+  it('rejects malformed geometry and accepts the cable-stayed bridge type', () => {
     expect(() => parseBridgeSpecification({ ...validSpecification, overallDimensions: null })).toThrow(/incompleta|inválida/i);
-    expect(() => parseBridgeSpecification({ ...validSpecification, structureType: 'cable-stayed' })).toThrow(/solo genera puentes/i);
+    expect(parseBridgeSpecification({ ...validSpecification, structureType: 'cable_stayed' }).structureType).toBe('cable_stayed');
+  });
+
+  it('requires both towers and stay cables before approving cable-stayed geometry', () => {
+    const specification = parseBridgeSpecification({
+      ...validSpecification,
+      structureType: 'cable_stayed',
+      supports: { ...validSpecification.supports, quantity: 0 },
+      components: [
+        { id: 'deck', type: 'deck', included: true },
+        { id: 'tower', type: 'tower', included: true },
+        { id: 'cables', type: 'stay_cable', included: false },
+      ],
+    });
+
+    expect(canGenerateBridge(specification)).toBe(false);
   });
 });

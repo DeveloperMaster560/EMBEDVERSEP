@@ -8,13 +8,55 @@ export interface ProjectFile {
 
 export interface CircuitComponent {
   id: string;
-  kind: 'board' | 'power' | 'ground' | 'led' | 'resistor' | 'button' | 'capacitor' | 'esp32' | 'mpu6050';
+  kind: 'board' | 'power' | 'ground' | 'led' | 'resistor' | 'button' | 'capacitor' | 'esp32' | 'mpu6050' | 'custom';
   label: string;
   description: string;
   x?: number;
   y?: number;
   rotation?: number;
   value?: string;
+  libraryComponentId?: string;
+}
+
+export type CircuitPinType = 'power' | 'ground' | 'signal' | 'passive';
+
+export interface CircuitLibraryPin {
+  id: string;
+  label: string;
+  type: CircuitPinType;
+  x: number;
+  y: number;
+  required?: boolean;
+}
+
+export interface CircuitLibraryComponent {
+  id: string;
+  name: string;
+  manufacturer: string;
+  reference: string;
+  category: string;
+  description: string;
+  compatibleBoards: BoardId[];
+  operatingVoltage: { min: number; max: number } | null;
+  interfaces: string[];
+  pins: CircuitLibraryPin[];
+  datasheetUrl?: string;
+  arduinoLibrary?: {
+    name: string;
+    version?: string;
+    url: string;
+    header?: string;
+  };
+}
+
+export interface CircuitLibraryPackage {
+  schemaVersion: 1;
+  id: string;
+  name: string;
+  version: string;
+  license: string;
+  sourceUrl?: string;
+  components: CircuitLibraryComponent[];
 }
 
 export interface CircuitConnection {
@@ -30,6 +72,7 @@ export interface ElectronicCircuit {
   boardId: BoardId;
   components: CircuitComponent[];
   connections: CircuitConnection[];
+  componentLibraries?: CircuitLibraryPackage[];
 }
 
 export interface EmbeddedProject {

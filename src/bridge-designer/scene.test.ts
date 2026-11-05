@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createPrimitive, createScene, createSensorObject } from './scene';
+import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createPrimitive, createScene, createSensorObject, transformBridgeObjects } from './scene';
 import { parseBridgeSpecification } from './ai-contracts';
 
 describe('bridge designer scene model', () => {
@@ -39,7 +39,72 @@ describe('bridge designer scene model', () => {
     expect(new Set(objects.map(({ id }) => id)).size).toBe(objects.length);
     expect(objects.some(({ name }) => name === 'Main_Girder_01')).toBe(true);
     expect(objects.some(({ name }) => name === 'Abutment_Left')).toBe(true);
-    expect(objects.every(({ collection }) => collection === 'Puente IA')).toBe(true);
+    expect(objects.every(({ collection }) => collection === 'Puente asistido localmente')).toBe(true);
+  });
+
+  it('creates an editable holographic cable-stayed model with cylindrical stays and foundations', () => {
+    const specification = aiSpec({
+      structureType: 'cable_stayed',
+      overallDimensions: {
+        lengthM: 180,
+        widthM: 12,
+        heightM: 25,
+        heightMeaning: 'deck_above_ground',
+        heightReference: 'Supuesto conceptual',
+      },
+      stayCableCount: 40,
+      cableStayed: {
+        towerHeightM: 45,
+        towerSpacingM: 60,
+        towerSectionWidthM: 3,
+        towerSectionDepthM: 4,
+        stayCableDiameterM: 0.12,
+        mainGirderCount: 2,
+        mainGirderHeightM: 2,
+        mainGirderWidthM: 0.8,
+        crossBeamSpacingM: 6,
+        crossBeamWidthM: 0.6,
+        crossBeamHeightM: 1,
+        foundationLengthM: 10,
+        foundationWidthM: 10,
+        foundationDepthM: 3,
+        guardrailHeightM: 1.2,
+      },
+      deck: { thicknessM: 1.2 },
+      supports: { type: 'column', orientation: 'vertical', distribution: 'unknown', quantity: 0, widthM: null, depthM: null, material: 'concrete' },
+      components: [
+        { id: 'deck', type: 'deck', included: true },
+        { id: 'support', type: 'support', included: true },
+        { id: 'abutment', type: 'abutment', included: true },
+        { id: 'girder', type: 'main_girder', included: true },
+        { id: 'cross', type: 'cross_beam', included: true },
+        { id: 'guardrail', type: 'guardrail', included: true },
+        { id: 'tower', type: 'tower', included: true },
+        { id: 'cables', type: 'stay_cable', included: true },
+        { id: 'foundation', type: 'foundation', included: true },
+      ],
+    });
+
+    const objects = createAiBridgeObjects(specification, 'm');
+    const cables = objects.filter(({ name }) => name.startsWith('StayCable_'));
+    const girders = objects.filter(({ name }) => name.startsWith('Longitudinal_Girder_'));
+    const crossBeams = objects.filter(({ name }) => name.startsWith('Cross_Beam_'));
+    const foundations = objects.filter(({ name }) => name.startsWith('Foundation_'));
+
+    expect(objects.filter(({ name }) => name.includes('_Leg_'))).toHaveLength(4);
+    expect(objects.find(({ name }) => name === 'Tower_1_Leg_Left')?.dimensions).toEqual([3, 67, 4]);
+    expect(objects.find(({ name }) => name === 'Tower_1_Leg_Left')?.position[0]).toBeCloseTo(-29.4375);
+    expect(cables).toHaveLength(40);
+    expect(cables.every(({ kind, dimensions, opacity }) => kind === 'cylinder' && dimensions[0] === 0.12 && opacity === 0.8)).toBe(true);
+    expect(girders).toHaveLength(2);
+    expect(girders[0].dimensions).toEqual([180, 2, 0.8]);
+    expect(crossBeams).toHaveLength(31);
+    expect(crossBeams[0].dimensions).toEqual([0.6, 1, 12]);
+    expect(foundations).toHaveLength(4);
+    expect(foundations[0].dimensions).toEqual([10, 3, 10]);
+    expect(objects.find(({ name }) => name === 'Guardrail_Left')?.position[1]).toBe(25 + 1.2 - 0.06);
+    expect(objects.find(({ name }) => name === 'Bridge_Deck')?.opacity).toBeLessThan(1);
+    expect(new Set(objects.map(({ id }) => id)).size).toBe(objects.length);
   });
 
   it('converts meter specifications into the existing scene units', () => {
@@ -125,6 +190,28 @@ describe('bridge designer scene model', () => {
     expect(converted.objects[0].scale).toEqual([1, 1, 1]);
     expect(converted.gridSize).toBe(100);
     expect(scene.unit).toBe('m');
+  });
+
+  it('applies numeric transforms to selected unlocked objects and preserves locked or unselected objects', () => {
+    const first = createPrimitive('box');
+    const second = { ...createPrimitive('sphere'), locked: true };
+    const untouched = createPrimitive('cone');
+    const result = transformBridgeObjects([first, second, untouched], [first.id, second.id], {
+      position: [2, 0, -1],
+      rotationDegrees: [0, 90, 0],
+      scaleFactor: [2, 1, 0.5],
+    });
+
+    expect(result[0].position).toEqual([2, first.position[1], -1]);
+    expect(result[0].rotation[1]).toBeCloseTo(Math.PI / 2);
+    expect(result[0].scale).toEqual([2, 1, 0.5]);
+    expect(result[1]).toBe(second);
+    expect(result[2]).toBe(untouched);
+    expect(() => transformBridgeObjects([first], [first.id], {
+      position: [0, 0, 0],
+      rotationDegrees: [0, 0, 0],
+      scaleFactor: [1, 0, 1],
+    })).toThrow(/escala mayores que cero/);
   });
 
   it('creates recognizable structural elements across the bridge typologies', () => {
