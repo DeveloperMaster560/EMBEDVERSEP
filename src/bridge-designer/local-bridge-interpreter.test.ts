@@ -166,3 +166,27 @@ describe('local bridge description interpreter', () => {
     expect(canGenerateBridge(result)).toBe(false);
   });
 });
+
+describe('texto que no describe un puente', () => {
+  it('avisa cuando el enunciado describe un edificio y redirige al módulo correcto', () => {
+    const spec = interpretBridgePromptLocally(
+      'Edificio institucional de 3 niveles, longitud 24 m, ancho 18 m, altura libre 3.20 m y altura entre niveles 3.60 m.',
+    );
+    expect(spec.unresolvedQuestions.some((q) => q.includes('Edificación'))).toBe(true);
+    expect(spec.unresolvedQuestions[0]).toMatch(/describe un edificio/i);
+  });
+
+  it('no se confunde cuando el texto habla de un puente aunque mencione un edificio', () => {
+    const spec = interpretBridgePromptLocally(
+      'Puente peatonal de 40 m de longitud que conecta con el edificio administrativo.',
+    );
+    expect(spec.unresolvedQuestions.some((q) => q.includes('Edificación'))).toBe(false);
+  });
+
+  it('no avisa en una descripción normal de puente', () => {
+    const spec = interpretBridgePromptLocally(
+      'Puente de vigas de 30 m de longitud y 10 m de ancho con 2 apoyos.',
+    );
+    expect(spec.unresolvedQuestions.some((q) => q.includes('Edificación'))).toBe(false);
+  });
+});

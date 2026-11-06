@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canGenerateBridge, parseBridgeSpecification } from './ai-contracts';
+import { canGenerateBridge, describeGenerationBlockers, parseBridgeSpecification } from './ai-contracts';
 
 const validSpecification = {
   schemaVersion: 1,
@@ -70,6 +70,59 @@ describe('bridge AI specification', () => {
   it('rejects malformed geometry and accepts the cable-stayed bridge type', () => {
     expect(() => parseBridgeSpecification({ ...validSpecification, overallDimensions: null })).toThrow(/incompleta|inválida/i);
     expect(parseBridgeSpecification({ ...validSpecification, structureType: 'cable_stayed' }).structureType).toBe('cable_stayed');
+  });
+
+  it('explica siempre por qué no se puede generar, nunca deja el botón mudo', () => {
+    const specification = parseBridgeSpecification({
+      ...validSpecification,
+      overallDimensions: { ...validSpecification.overallDimensions, lengthM: null },
+      supports: { ...validSpecification.supports, quantity: null },
+    });
+    const blockers = describeGenerationBlockers(specification);
+    expect(canGenerateBridge(specification)).toBe(false);
+    expect(blockers.length).toBeGreaterThan(0);
+    expect(blockers.some((b) => /apoyos/i.test(b))).toBe(true);
+    expect(blockers.some((b) => /longitud/i.test(b))).toBe(true);
+  });
+
+  it('el botón y la lista de motivos no pueden divergir', () => {
+    const casos = [
+      validSpecification,
+      { ...validSpecification, supports: { ...validSpecification.supports, quantity: null } },
+      { ...validSpecification, supports: { ...validSpecification.supports, quantity: 0 } },
+      { ...validSpecification, supports: { ...validSpecification.supports, distribution: 'along_length' } },
+      {
+        ...validSpecification,
+        supports: { ...validSpecification.supports, quantity: 3, distribution: 'paired_across_width' },
+      },
+      { ...validSpecification, overallDimensions: { ...validSpecification.overallDimensions, widthM: null } },
+      {
+        ...validSpecification,
+        structureType: 'cable_stayed',
+        supports: { ...validSpecification.supports, quantity: 0 },
+        components: [
+          { id: 'deck', type: 'deck', included: true },
+          { id: 'tower', type: 'tower', included: true },
+          { id: 'cables', type: 'stay_cable', included: true },
+        ],
+      },
+    ];
+    for (const caso of casos) {
+      const specification = parseBridgeSpecification(caso);
+      expect(
+        canGenerateBridge(specification),
+        `desacuerdo en ${JSON.stringify(caso.supports)}`,
+      ).toBe(describeGenerationBlockers(specification).length === 0);
+    }
+  });
+
+  it('una especificación completa no deja ningún motivo pendiente', () => {
+    const specification = parseBridgeSpecification({
+      ...validSpecification,
+      supports: { ...validSpecification.supports, distribution: 'along_length' },
+    });
+    expect(describeGenerationBlockers(specification)).toEqual([]);
+    expect(canGenerateBridge(specification)).toBe(true);
   });
 
   it('requires both towers and stay cables before approving cable-stayed geometry', () => {

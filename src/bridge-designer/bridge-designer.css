@@ -219,3 +219,28 @@
   .bridge-ai-components { grid-template-columns: 1fr; }
   .bridge-ai-components > strong { grid-column: auto; }
 }
+
+/* Aviso que distingue este asistente conceptual del Bridge Studio paramétrico. */
+.bridge-ai-sibling {
+  margin: 0.35rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #4f8ea2;
+  border-radius: 0 6px 6px 0;
+  background: rgba(79, 142, 162, 0.12);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* Razones por las que el botón de generar sigue deshabilitado. */
+.bridge-ai-blockers {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid #e2a14c;
+  border-radius: 0 6px 6px 0;
+  background: rgba(226, 161, 76, 0.12);
+  font-size: 0.82rem;
+}
+
+.bridge-ai-blockers strong { display: block; margin-bottom: 0.3rem; }
+.bridge-ai-blockers ul { margin: 0; padding-left: 1.1rem; }
+.bridge-ai-blockers li { margin: 0.18rem 0; line-height: 1.4; }

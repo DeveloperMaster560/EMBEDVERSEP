@@ -42,9 +42,24 @@ const DigitalTwinViewer = lazy(() =>
 const BridgeDesigner = lazy(() =>
   import('./bridge-designer/BridgeDesigner').then((module) => ({ default: module.BridgeDesigner })),
 );
+const BuildingStudio = lazy(() =>
+  import('./building-studio/BuildingStudio').then((module) => ({ default: module.BuildingStudio })),
+);
+const BridgeStudio = lazy(() =>
+  import('./bridge-studio/BridgeStudio').then((module) => ({ default: module.BridgeStudio })),
+);
 
 type View = 'dashboard' | 'projects' | 'workspace' | 'editor' | 'components' | 'lab' | 'twin';
-type WorkspaceTab = 'summary' | 'code' | 'embedded' | 'models' | 'simulation' | 'tests' | 'settings';
+type WorkspaceTab =
+  | 'summary'
+  | 'code'
+  | 'embedded'
+  | 'models'
+  | 'building'
+  | 'bridge'
+  | 'simulation'
+  | 'tests'
+  | 'settings';
 
 const boardLabels: Record<BoardId, string> = {
   'arduino-uno': 'Arduino Uno R3',
@@ -81,6 +96,8 @@ const workspaceTabs: { id: WorkspaceTab; label: string }[] = [
   { id: 'code', label: 'Código' },
   { id: 'embedded', label: 'Sistema embebido' },
   { id: 'models', label: 'Modelos 3D' },
+  { id: 'building', label: 'Edificación' },
+  { id: 'bridge', label: 'Puentes' },
   { id: 'simulation', label: 'Simulación' },
   { id: 'tests', label: 'Pruebas' },
   { id: 'settings', label: 'Ajustes' },
@@ -732,6 +749,38 @@ function WorkspacePanel({
       {activeTab === 'models' && (
         <Suspense fallback={<div className="twin-viewer-shell"><div className="twin-loading">Cargando EMBEDVERSE BRIDGE DESIGNER…</div></div>}>
           <BridgeDesigner projectId={project.id} projectName={project.name} />
+        </Suspense>
+      )}
+
+      {activeTab === 'building' && (
+        <Suspense
+          fallback={
+            <div className="twin-viewer-shell">
+              <div className="twin-loading">Cargando EMBEDVERSE BUILDING STUDIO…</div>
+            </div>
+          }
+        >
+          <BuildingStudio
+            projectId={project.id}
+            projectName={project.name}
+            onOpenEditor={() => onSelectTab('models')}
+          />
+        </Suspense>
+      )}
+
+      {activeTab === 'bridge' && (
+        <Suspense
+          fallback={
+            <div className="twin-viewer-shell">
+              <div className="twin-loading">Cargando EMBEDVERSE BRIDGE STUDIO…</div>
+            </div>
+          }
+        >
+          <BridgeStudio
+            projectId={project.id}
+            projectName={project.name}
+            onOpenEditor={() => onSelectTab('models')}
+          />
         </Suspense>
       )}
 

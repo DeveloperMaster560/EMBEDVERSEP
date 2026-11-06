@@ -247,23 +247,64 @@ export function parseBridgeSpecification(value: unknown): BridgeSpecification {
   };
 }
 
+/**
+ * Por qué todavía no se puede generar, en lenguaje llano.
+ *
+ * Es la ÚNICA definición de las condiciones: `canGenerateBridge` se deriva de
+ * ella. Antes la comprobación era una conjunción booleana y el botón quedaba
+ * inerte sin explicar qué faltaba, que es la peor forma de pedir un dato.
+ */
+export function describeGenerationBlockers(specification: BridgeSpecification): string[] {
+  const blockers: string[] = [];
+  const { overallDimensions: dims, supports } = specification;
+  const enabledComponents = new Set(
+    specification.components.filter(({ included }) => included).map(({ type }) => type),
+  );
+
+  for (const question of specification.unresolvedQuestions) {
+    blockers.push(question);
+  }
+
+  if (dims.lengthM === null) blockers.push('Falta la longitud del puente.');
+  else if (dims.lengthM > 10_000) blockers.push('La longitud supera los 10.000 m que admite este generador.');
+
+  if (dims.widthM === null) blockers.push('Falta el ancho del puente.');
+  else if (dims.widthM > 1_000) blockers.push('El ancho supera los 1.000 m que admite este generador.');
+
+  if (dims.heightM === null) blockers.push('Falta la altura del puente.');
+  else if (dims.heightM > 1_000) blockers.push('La altura supera los 1.000 m que admite este generador.');
+
+  if (dims.heightMeaning !== 'deck_above_ground') {
+    blockers.push('Indica en «Referencia de altura» que la altura es la del tablero sobre el terreno; el generador solo sabe colocar el tablero con esa referencia.');
+  }
+  if (!dims.heightReference?.trim()) {
+    blockers.push('Escribe en «Referencia descriptiva» respecto a qué se mide la altura.');
+  }
+
+  if (supports.quantity === null) {
+    blockers.push('Indica cuántos apoyos tiene el puente en «Apoyos totales»; escribe 0 si no lleva ninguno.');
+  } else if (supports.quantity > 100) {
+    blockers.push('El número de apoyos supera los 100 que admite este generador.');
+  } else if (supports.quantity > 0) {
+    if (supports.distribution === 'unknown') {
+      blockers.push('Elige en «Distribución de apoyos» si van en una fila a lo largo del puente o en pares a ambos lados.');
+    } else if (supports.distribution === 'paired_across_width' && supports.quantity % 2 !== 0) {
+      blockers.push(`Con apoyos en pares a ambos lados el total debe ser par; ahora hay ${supports.quantity}.`);
+    }
+  }
+
+  if (specification.structureType === 'cable_stayed') {
+    if (!enabledComponents.has('tower')) blockers.push('Un puente atirantado necesita torres: márcalas en «Componentes incluidos».');
+    if (!enabledComponents.has('stay_cable')) blockers.push('Un puente atirantado necesita tirantes: márcalos en «Componentes incluidos».');
+  }
+
+  if (specification.components.some(({ included, type }) => included && type === 'decoration')) {
+    blockers.push('La decoración no está disponible en este generador: desmárcala.');
+  }
+
+  return blockers;
+}
+
 export function canGenerateBridge(specification: BridgeSpecification): boolean {
-  const enabledComponents = new Set(specification.components.filter(({ included }) => included).map(({ type }) => type));
-  return specification.unresolvedQuestions.length === 0
-    && specification.overallDimensions.lengthM !== null
-    && specification.overallDimensions.widthM !== null
-    && specification.overallDimensions.heightM !== null
-    && specification.overallDimensions.lengthM <= 10_000
-    && specification.overallDimensions.widthM <= 1_000
-    && specification.overallDimensions.heightM <= 1_000
-    && specification.overallDimensions.heightMeaning === 'deck_above_ground'
-    && Boolean(specification.overallDimensions.heightReference?.trim())
-    && specification.supports.quantity !== null
-    && specification.supports.quantity <= 100
-    && (specification.supports.quantity === 0
-      || (specification.supports.distribution !== 'unknown'
-        && (specification.supports.distribution !== 'paired_across_width' || specification.supports.quantity % 2 === 0)))
-    && (specification.structureType !== 'cable_stayed'
-      || (enabledComponents.has('tower') && enabledComponents.has('stay_cable')))
-    && !specification.components.some(({ included, type }) => included && type === 'decoration');
+  return describeGenerationBlockers(specification).length === 0;
 }

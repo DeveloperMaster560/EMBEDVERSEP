@@ -25,6 +25,7 @@ import {
   Rotate3D,
   Save,
   Scaling,
+  Spline,
   ShieldAlert,
   Sparkles,
   Trash2,
@@ -56,12 +57,12 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { BridgeViewport } from './BridgeViewport';
 import type { BridgeViewportHandle } from './BridgeViewport';
-import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createPrimitive, createScene, createSensorObject, transformBridgeObjects } from './scene';
+import { convertSceneUnits, createAiBridgeObjects, createBridgeObjects, createCableBetween, createPrimitive, createScene, createSensorObject, createStructuralElement, transformBridgeObjects, type StructuralElement } from './scene';
 import { loadBridgeScene, saveBridgeScene } from './persistence';
 import { parseBridgeScene } from './serialization';
 import { createBridgeDrawingSvg, createPrintableBridgeDrawingHtml } from './drawings';
 import type { BridgeObject, BridgeParameters, BridgeSceneDocument, BridgeTool, BridgeType } from './types';
-import { canGenerateBridge, parseBridgeSpecification, type BridgeSpecification } from './ai-contracts';
+import { canGenerateBridge, describeGenerationBlockers, parseBridgeSpecification, type BridgeSpecification } from './ai-contracts';
 import { interpretBridgePromptLocally } from './local-bridge-interpreter';
 import './bridge-designer.css';
 
@@ -431,6 +432,37 @@ export function BridgeDesigner({
     setActiveInspector('Transformar');
   };
 
+  const addStructuralElement = (element: StructuralElement) => {
+    if (!document) return;
+    const object = createStructuralElement(element);
+    commit({ ...document, objects: [...document.objects, object] }, `${object.name} agregado a la escena.`);
+    setSelectedIds([object.id]);
+    setActiveInspector('Transformar');
+  };
+
+  /**
+   * Tiende un cable entre las dos piezas seleccionadas, de centro a centro.
+   *
+   * Es la forma en que un ingeniero piensa un tirante —de este anclaje a aquel—
+   * y evita tener que deducir a mano la longitud y los tres ángulos.
+   */
+  const addCableBetweenSelection = () => {
+    if (!document) return;
+    if (selectedObjects.length !== 2) {
+      setError('Selecciona exactamente dos piezas para tender un cable entre ellas.');
+      return;
+    }
+    const [from, to] = selectedObjects;
+    try {
+      const cable = createCableBetween(from.position, to.position, 0.09, `Cable ${from.name} → ${to.name}`);
+      commit({ ...document, objects: [...document.objects, cable] }, 'Cable tendido entre las dos piezas seleccionadas.');
+      setSelectedIds([cable.id]);
+      setActiveInspector('Transformar');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo crear el cable.');
+    }
+  };
+
   const updateObject = (id: string, changes: Partial<BridgeObject>, message = 'Propiedades actualizadas.') => {
     if (!document) return;
     commit({
@@ -793,6 +825,8 @@ export function BridgeDesigner({
     </div>
   );
 
+  const generationBlockers = aiSpecification ? describeGenerationBlockers(aiSpecification) : [];
+
   const aiGeneratorForm = (
     <div className="bridge-modal-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget && aiFlow !== 'interpreting' && aiFlow !== 'generating') setShowAiGenerator(false);
@@ -804,6 +838,7 @@ export function BridgeDesigner({
         </div>
         <p>Interpreta medidas y características conocidas mediante reglas locales. No usa IA externa ni envía el texto por internet. Revisa y completa los campos antes de generar. <strong>MODELO CONCEPTUAL — NO VALIDADO PARA CONSTRUCCIÓN.</strong></p>
         <div className="bridge-ai-indicator"><span />Interpretación determinista local · las frases no reconocidas requieren revisión manual.</div>
+        <p className="bridge-ai-sibling">Esto genera un <strong>puente conceptual de visualización</strong>. Si lo que buscas es el modelo multidisciplinario —estructura, tablero, barreras, drenaje, iluminación, señalización e instrumentación, con detección de interferencias—, usa la pestaña <strong>Puentes</strong> del proyecto: allí no hay que indicar los apoyos, se deducen de los vanos.</p>
         <label className="bridge-ai-prompt-label">Describe el puente<textarea value={aiPrompt} rows={3} maxLength={8000} placeholder="Ej.: Puente de vigas de 30 m de longitud y 8 m de ancho, con el tablero a 15 m sobre el terreno y cuatro apoyos..." onChange={(event) => setAiPrompt(event.target.value)} /></label>
         <div className="bridge-modal-actions bridge-ai-interpret-actions">
           <span>{aiFlow === 'interpreting' ? 'Analizando texto localmente…' : aiFlow === 'needs_clarification' ? 'Faltan aclaraciones' : aiFlow === 'awaiting_approval' ? 'Interpretación lista para revisar' : aiFlow === 'generating' ? 'Generando geometría…' : aiFlow === 'completed' ? 'Modelo creado' : 'Sin conexión externa'}</span>
@@ -858,9 +893,15 @@ export function BridgeDesigner({
             <div className="bridge-ai-components"><strong>Componentes incluidos</strong>{aiSpecification.components.map((component, index) => (
               <label key={`${component.id}-${index}`}><input type="checkbox" checked={component.included} disabled={component.type === 'deck'} onChange={(event) => updateAiSpecification({ components: aiSpecification.components.map((item, itemIndex) => itemIndex === index ? { ...item, included: event.target.checked } : item) })} />{component.type === 'main_girder' ? 'Vigas principales' : component.type === 'cross_beam' ? 'Vigas transversales' : component.type === 'guardrail' ? 'Barandas' : component.type === 'abutment' ? 'Estribos' : component.type === 'support' ? 'Apoyos' : component.type === 'stay_cable' ? 'Cables atirantados' : component.type === 'foundation' ? 'Cimentaciones conceptuales' : component.type === 'deck' ? 'Tablero' : component.type === 'tower' ? 'Torres' : 'Decoración (no disponible)'}</label>
             ))}</div>
+            {generationBlockers.length > 0 && (
+              <div className="bridge-ai-blockers" role="status">
+                <strong>Falta esto para poder generar</strong>
+                <ul>{generationBlockers.map((item) => <li key={item}>{item}</li>)}</ul>
+              </div>
+            )}
             <div className="bridge-modal-actions">
               <button type="button" className="bridge-toolbar-button" onClick={() => { setShowAiGenerator(false); setAiSpecification(null); }}>Cancelar</button>
-              <button type="button" className="bridge-primary-button" onClick={generateAiBridge} disabled={!canGenerateBridge(aiSpecification) || aiFlow === 'generating'}>Aprobar y generar puente</button>
+              <button type="button" className="bridge-primary-button" onClick={generateAiBridge} disabled={generationBlockers.length > 0 || aiFlow === 'generating'} title={generationBlockers.length > 0 ? generationBlockers.join(' ') : undefined}>Aprobar y generar puente</button>
             </div>
           </div>
         )}
@@ -917,6 +958,16 @@ export function BridgeDesigner({
           <ToolButton icon={<Circle size={17} />} label="Esfera" onClick={() => addPrimitive('sphere')} />
           <ToolButton icon={<CylinderIcon size={17} />} label="Cilindro" onClick={() => addPrimitive('cylinder')} />
           <ToolButton icon={<Layers size={17} />} label="Plano" onClick={() => addPrimitive('plane')} />
+          <div className="bridge-tool-divider" />
+          <div className="bridge-tool-section-label">ESTRUCTURA</div>
+          <ToolButton icon={<Cuboid size={17} />} label="Viga" onClick={() => addStructuralElement('beam')} />
+          <ToolButton icon={<Cuboid size={17} />} label="Columna" onClick={() => addStructuralElement('column')} />
+          <ToolButton icon={<Layers size={17} />} label="Placa" onClick={() => addStructuralElement('plate')} />
+          <ToolButton icon={<CylinderIcon size={17} />} label="Riostra" onClick={() => addStructuralElement('brace')} />
+          <ToolButton icon={<CylinderIcon size={17} />} label="Cable suelto" onClick={() => addStructuralElement('cable')} />
+          <ToolButton icon={<Spline size={17} />} label="Cable entre 2 piezas seleccionadas" disabled={selectedObjects.length !== 2} onClick={addCableBetweenSelection} />
+          <div className="bridge-tool-divider" />
+          <div className="bridge-tool-section-label">EDICIÓN</div>
           <ToolButton icon={<Copy size={17} />} label="Duplicar selección" disabled={!selectedObjects.length} onClick={duplicateSelected} />
           <ToolButton icon={<Layers size={17} />} label="Agrupar selección" disabled={selectedObjects.length < 2} onClick={groupSelected} />
           <ToolButton icon={<X size={17} />} label="Desagrupar selección" disabled={!selectedObjects.some((object) => object.groupId)} onClick={ungroupSelected} />

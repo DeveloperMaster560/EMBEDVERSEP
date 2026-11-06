@@ -43,6 +43,64 @@ El núcleo incluye dashboard, gestión local de proyectos, editor Monaco, compil
 
 El ejemplo Blink está en `examples/arduino-blink/arduino-blink.ino`. El toolchain AVR local se guarda en `.tools/` y no se versiona.
 
+## EMBEDVERSE BUILDING STUDIO
+
+En un proyecto, abre la pestaña **Edificación**. Describe el edificio en español y el
+sistema genera un modelo multidisciplinario completo:
+
+```text
+Edificio institucional de 3 niveles, longitud 24 m, ancho 18 m,
+altura libre 3.20 m y altura entre niveles 3.60 m.
+```
+
+produce unos 1.300 componentes de siete disciplinas —estructura, arquitectura, eléctrico,
+telecomunicaciones, hidrosanitario, climatización y seguridad— con geometría 3D real,
+conexiones entre componentes y validación geométrica.
+
+Requiere Python una sola vez:
+
+```bash
+./tools/setup_generator.sh
+npm run dev
+```
+
+El visor permite encender y apagar disciplinas, aislar niveles, cortar el volumen,
+separar las plantas y consultar cualquier componente por su identificador.
+
+El intérprete del enunciado es determinista y local: no usa un modelo de IA ni envía
+nada a un servicio externo. Lo que no puede deducir lo pregunta, y lo que no cabe lo
+dice en vez de omitirlo en silencio.
+
+El modelo es **geometría conceptual**: no contiene cálculo estructural, eléctrico,
+hidráulico ni térmico, no está revisado por un profesional y no es apto para construir.
+Alcance y límites completos en [BUILDING_STUDIO.md](BUILDING_STUDIO.md).
+
+El mismo motor produce el expediente de planos (IFC4, GLB, OBJ, STEP y 84 láminas en
+DXF/PDF/SVG) con `python tools/building_generator/build.py <directorio>`.
+
+## EMBEDVERSE BRIDGE STUDIO
+
+En un proyecto, abre la pestaña **Puentes**. Es el mismo flujo del Building Studio
+aplicado al dominio puente:
+
+```text
+Puente de vigas de 90 m de longitud, 10 m de ancho de tablero,
+tablero a 7 m sobre el terreno, 3 vanos, 4 vigas principales
+y 2 carriles con aceras.
+```
+
+produce 138 componentes de siete disciplinas —estructura, tablero, barreras, drenaje,
+iluminación, señalización e instrumentación— en poco más de un segundo, con cero errores
+de consistencia y cero interferencias que requieran coordinación.
+
+Cubre tres tipologías: vigas, losa y atirantado. Comparte visor, armazón de interfaz y
+núcleo del endpoint con la edificación; lo propio del dominio es el vocabulario, el
+intérprete y la validación de la solicitud. Requiere el mismo `./tools/setup_generator.sh`.
+
+Igual que en edificación, el modelo es **geometría conceptual**: no contiene cálculo
+estructural, hidráulico ni de tráfico, no está revisado por un profesional y no es apto
+para construir. Alcance y límites completos en [BRIDGE_STUDIO.md](BRIDGE_STUDIO.md).
+
 ## EMBEDVERSE BRIDGE DESIGNER
 
 El módulo de modelado de puentes está organizado en `src/bridge-designer/` y usa Three.js ya incluido en el proyecto. Se abre desde **un proyecto → Modelos 3D** o de forma independiente desde la misma aplicación:

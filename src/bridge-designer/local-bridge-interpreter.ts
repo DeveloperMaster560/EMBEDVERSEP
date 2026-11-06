@@ -154,6 +154,20 @@ function componentsFor(
   }));
 }
 
+/**
+ * True si el enunciado describe una edificación en vez de un puente.
+ *
+ * Basta con un indicio inequívoco de edificio y ninguna palabra de puente:
+ * así un texto que mezcle ambos («puente peatonal de acceso al edificio») no
+ * se desvía por error.
+ */
+function describesBuilding(text: string): boolean {
+  const buildingHints =
+    /\b(?:edificio|edificaci[oó]n|niveles?|pisos?|plantas?|oficinas?|aulas?|apartament|vivienda|torre de \d)\b/;
+  const bridgeHints = /\b(?:puente|tablero|viaducto|pasarela|estribos?|atirantad)\b/;
+  return buildingHints.test(text) && !bridgeHints.test(text);
+}
+
 export function interpretBridgePromptLocally(prompt: string): BridgeSpecification {
   const text = normalizedText(prompt);
   const requestedCableStayed = /\b(?:atirantad[oa]s?|cable[- ]estay(?:ed)?|puente de cables? inclinados)\b/.test(text);
@@ -187,6 +201,14 @@ export function interpretBridgePromptLocally(prompt: string): BridgeSpecificatio
       : /\b(?:una fila|en fila|a lo largo del puente|alineados a lo largo)\b/.test(text)
         ? 'along_length' : 'unknown';
   const questions: string[] = [];
+  // Un texto de edificio encaja sin problema en los patrones de longitud y
+  // ancho, así que el asistente lo aceptaría en silencio y devolvería un
+  // puente absurdo. Se detecta y se redirige al módulo que corresponde.
+  if (describesBuilding(text)) {
+    questions.push(
+      'El texto describe un edificio, no un puente. Usa la pestaña Edificación (EMBEDVERSE BUILDING STUDIO) para generar un modelo multidisciplinario.',
+    );
+  }
   if (unsupportedType) questions.push('La tipología indicada no está disponible en el generador local. Elige un puente de vigas, de losa o atirantado.');
   const assumptions = [
     'Interpretación local por reglas y patrones de texto; no se usó un modelo de IA ni se envió información a un servicio externo.',

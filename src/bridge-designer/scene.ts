@@ -1,3 +1,5 @@
+import { Euler, Quaternion, Vector3 } from 'three';
+
 import type { BridgeObject, BridgeParameters, BridgeSceneDocument, BridgeUnit, PrimitiveType } from './types';
 import { canGenerateBridge, type BridgeSpecification } from './ai-contracts';
 
@@ -52,6 +54,77 @@ export function createPrimitive(kind: PrimitiveType, name?: string): BridgeObjec
   const primitive = object(objectName, kind, defaults[kind], [0, defaults[kind][1] / 2, 0], '#548dcc', 'Objetos', 'primitive');
   if (kind === 'plane') primitive.rotation = [-Math.PI / 2, 0, 0];
   return primitive;
+}
+
+/**
+ * Elementos estructurales con proporciones de partida razonables.
+ *
+ * Son PIEZAS DE MODELADO, no secciones calculadas: las dimensiones son un
+ * punto de partida editable, igual que el resto del editor. Existen porque
+ * construir una viga a partir de un cubo genérico obliga a teclear tres
+ * dimensiones y un color cada vez.
+ */
+export type StructuralElement = 'beam' | 'column' | 'plate' | 'brace' | 'cable';
+
+const structuralDefaults: Record<StructuralElement, {
+  label: string;
+  kind: PrimitiveType;
+  dimensions: [number, number, number];
+  color: string;
+}> = {
+  beam: { label: 'Viga', kind: 'box', dimensions: [6, 0.6, 0.35], color: materialColors.concrete },
+  column: { label: 'Columna', kind: 'box', dimensions: [0.45, 3, 0.45], color: materialColors.concrete },
+  plate: { label: 'Placa', kind: 'box', dimensions: [1.2, 0.025, 1.2], color: materialColors.steel },
+  brace: { label: 'Riostra', kind: 'cylinder', dimensions: [0.12, 4, 0.12], color: materialColors.steel },
+  cable: { label: 'Cable', kind: 'cylinder', dimensions: [0.09, 8, 0.09], color: materialColors.cable },
+};
+
+export function createStructuralElement(element: StructuralElement): BridgeObject {
+  const spec = structuralDefaults[element];
+  return object(
+    spec.label,
+    spec.kind,
+    spec.dimensions,
+    [0, spec.dimensions[1] / 2, 0],
+    spec.color,
+    'Estructura',
+  );
+}
+
+/**
+ * Cable tendido entre dos puntos.
+ *
+ * Se modela como un cilindro recto: es la geometría del cable TENSO, sin
+ * catenaria. La flecha depende de la tensión y del peso propio, que este
+ * editor no calcula, así que no se dibuja una curva que sugeriría un cálculo
+ * inexistente.
+ */
+export function createCableBetween(
+  from: [number, number, number],
+  to: [number, number, number],
+  diameter = 0.09,
+  name = 'Cable',
+): BridgeObject {
+  const delta: [number, number, number] = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+  const length = Math.hypot(delta[0], delta[1], delta[2]);
+  if (!(length > 0)) {
+    throw new Error('Un cable necesita dos puntos distintos; los seleccionados coinciden.');
+  }
+  const midpoint: [number, number, number] = [
+    (from[0] + to[0]) / 2,
+    (from[1] + to[1]) / 2,
+    (from[2] + to[2]) / 2,
+  ];
+  // El cilindro nace a lo largo de +Y; se gira para que apunte de `from` a `to`.
+  const cable = object(name, 'cylinder', [diameter, length, diameter], midpoint, materialColors.cable, 'Estructura');
+  // El visor aplica `rotation` con el orden de Euler por defecto (XYZ), y en ese
+  // orden el giro en Y no mueve el eje +Y del cilindro. Se calcula el giro como
+  // cuaternión y se expresa después en XYZ, que sí vale para cualquier dirección.
+  const direction = new Vector3(delta[0], delta[1], delta[2]).normalize();
+  const quaternion = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), direction);
+  const euler = new Euler().setFromQuaternion(quaternion, 'XYZ');
+  cable.rotation = [euler.x, euler.y, euler.z];
+  return cable;
 }
 
 export function createSensorObject(kind: 'esp32' | 'mpu6050'): BridgeObject {

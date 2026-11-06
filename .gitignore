@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 .tools/
+tools/venv/
+.venv/
+EMBEDVERSE_BUILDING_001/
 .env
 .env.*
 !.env.example
