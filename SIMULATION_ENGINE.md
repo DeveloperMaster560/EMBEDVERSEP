@@ -33,3 +33,74 @@ La Fase 1 no implementa ninguno: el catálogo solo representa información. El a
 ## Integración propuesta
 
 Definir interfaz de adaptador con detección de capacidades, validación de artefactos, inicio/pausa/detención, entradas/salidas, eventos y logs. Ejecutar cada motor en proceso aislado, con límites de tiempo/memoria y directorio de trabajo temporal controlado. No conectar un adaptador hasta contar con una prueba de compilación/ejecución repetible de un caso mínimo.
+
+---
+
+## Actualización — 9 de noviembre de 2026
+
+### Dos cosas de este documento han dejado de ser ciertas
+
+**1. AVR8js ya no es «solo el núcleo CPU».** La versión 0.21.1 incluye los
+periféricos del microcontrolador: `AVRIOPort` (puertos B, C, D), `AVRTimer`
+(0, 1 y 2), `AVRUSART`, `AVRADC`, `AVRTWI`, `AVRSPI`, `AVREEPROM`, `AVRClock`
+y `AVRWatchdog`. Lo que sigue siendo cierto es que **no simula los componentes
+externos**: un sensor conectado a un pin no responde si nadie escribe su
+modelo. Esa distinción es la que importa.
+
+**2. El toolchain de `.tools/` es solo de Windows.** `arduino-cli.exe` es un
+binario PE32+ y el compilador descargado es
+`avr-gcc-7.3.0-...-i686-w64-mingw32`. **En macOS no se puede compilar nada con
+lo que hay en el repositorio.** El `.hex` de Blink se verificó en Windows.
+
+Consecuencia práctica: las pruebas del motor **no dependen del toolchain**.
+Usan el ensamblador que trae AVR8js para construir programas mínimos en
+memoria, de modo que el motor se puede verificar en cualquier máquina. El
+`.hex` compilado solo hace falta para ejecutar firmware real de Arduino.
+
+### Lo que ya existe
+
+`src/simulation/`:
+
+- **`intel-hex.ts`** — lector estricto de Intel HEX. Rechaza checksum
+  incorrecto, archivo truncado, longitud que no cuadra, tipo de registro
+  desconocido, contenido tras el fin de archivo y escritura fuera de la
+  memoria de programa, diciendo siempre en qué línea. Validado contra los
+  gestores de arranque reales de la distribución de Arduino (optiboot 328,
+  ATmegaBOOT 328 y stk500v2 2560, este último con direccionamiento extendido).
+- **`avr-runner.ts`** — adaptador de ejecución para ATmega328P, con avance
+  explícito por ciclos (no hay temporizador de fondo), tope de ciclos por
+  llamada para que un bucle infinito no cuelgue la aplicación, correspondencia
+  de pines de Arduino a puertos físicos, entradas forzables desde fuera,
+  tensión analógica inyectable, captura del puerto serie y registro de cambios
+  de pin con su ciclo exacto.
+- **`CAPABILITIES`** — declara qué se ejecuta y, sobre todo, **qué no**.
+
+### Verificación
+
+28 pruebas. Las que sostienen la afirmación «esto ejecuta firmware de verdad»:
+
+| Afirmación | Cómo se comprueba |
+|---|---|
+| El periodo del bucle es el del juego de instrucciones | `out`+`out`+`rjmp` = 1+1+2 ciclos; se exige exactamente 4 entre flancos |
+| El reloj es el real de la placa | 16.000 ciclos = 1,000000 ms a 16 MHz |
+| La ejecución es reproducible | dos instancias con los mismos ciclos dan cambios de pin idénticos |
+| El ADC convierte de verdad | 2,5 V sobre referencia de 5 V y 10 bits = 512 cuentas |
+| El puerto serie transmite | el firmware escribe en UDR0 y sale `Hi` |
+| Las entradas responden al exterior | se fuerza PD2 y el firmware lo copia a PB5 |
+| Un `.hex` equivale al binario | el mismo programa, serializado y releído, produce los mismos cambios |
+
+**Defecto encontrado y corregido** al contrastar con archivos reales: el
+registro Intel HEX de tipo 03 es **CS:IP** (herencia del 8086), no un entero
+plano de 32 bits. La dirección es `(CS << 4) + IP`. Leído plano, el gestor de
+arranque del ATmega2560 daba 0x30000000 en vez de 0x3E000. Los archivos
+sintéticos de prueba no lo habrían detectado nunca.
+
+### Lo que sigue sin existir
+
+- **Integración con la interfaz.** El botón «Simular» del laboratorio sigue
+  deshabilitado. El motor no está conectado a la escena.
+- **Modelos de componentes externos.** Un LED, un relé o el DS3231 no
+  responden: hay que escribir cada modelo.
+- **ESP32.** Sin compilador y sin motor. No se infiere soporte.
+- **Nivel de fidelidad «física».** No hay modelo eléctrico: ni tensiones, ni
+  corrientes, ni potencia. Un pin está alto o bajo y nada más.

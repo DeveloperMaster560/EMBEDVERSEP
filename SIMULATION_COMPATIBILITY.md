@@ -16,3 +16,24 @@ La validación disponible opera sobre la estructura del circuito: existencia de 
 AVR8js puede evaluarse para el núcleo ATmega328P si se integra un adaptador reproducible desde el artefacto compilado y se implementan explícitamente GPIO, temporizadores y periféricos. Esto no simularía automáticamente la placa ni sensores externos. Para SPICE se requiere una integración local aislada y validación con netlists/resultados de referencia. Para ESP32 debe probarse el target y la placa exacta, incluidos los periféricos necesarios; no se inferirá soporte por compatibilidad genérica de QEMU/Renode.
 
 No ejecutar firmware arbitrario con acceso al host. Cualquier futuro motor debe imponer límites de tiempo/memoria y ejecutarse en worker/proceso aislado, con periféricos enumerados por capacidad. Véase [SIMULATION_ENGINE.md](SIMULATION_ENGINE.md).
+
+---
+
+## Actualización — 9 de noviembre de 2026
+
+Existe un **motor de ejecución de firmware para ATmega328P** en
+`src/simulation/`, verificado con 28 pruebas (ciclo exacto, ADC, puerto serie,
+entradas y lectura de `.hex` reales de Arduino). Véase
+[SIMULATION_ENGINE.md](SIMULATION_ENGINE.md).
+
+**El botón «Simular» sigue deshabilitado, y con razón:** el motor ejecuta el
+microcontrolador, pero los componentes de la escena todavía no tienen modelo.
+Conectarlo ahora haría parpadear un LED dibujado sin que eso signifique nada.
+
+| MCU / placa | Compilación local | Ejecución de firmware | Periféricos de la escena |
+|---|---|---|---|
+| ATmega328P / Arduino Uno R3 | Solo en Windows: el `arduino-cli` de `.tools/` es un binario PE32+ | **Sí**, con perifericos del MCU (GPIO, temporizadores, USART, ADC, TWI) | Ninguno modelado todavía |
+| ESP32 DevKit V1 | No | No | No |
+
+Sigue vigente: compilar firmware no equivale a simularlo, y ejecutar el
+microcontrolador no equivale a simular el circuito.
