@@ -1,0 +1,18 @@
+# Dependencias mínimas del generador paramétrico (edificios y puentes).
+#
+# Es lo que necesitan el Building Studio y el Bridge Studio para generar
+# geometría y exportar GLB. Sin esto el generador no arranca.
+#
+# Versiones verificadas el 9/11/2026 en macOS con Python 3.9.6:
+#   numpy 2.0.2 · shapely 2.0.7 · trimesh 4.12.2
+#   scipy 1.13.1 · networkx 3.2.1 · mapbox_earcut 2.1.0
+#
+# No se fijan versiones exactas a propósito: este proyecto se trabaja en macOS
+# y en Windows con intérpretes distintos, y un pin estricto rompe la
+# instalación en el otro sistema sin aportar nada a cambio.
+numpy
+shapely
+trimesh
+mapbox-earcut
+scipy
+networkx

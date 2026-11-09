@@ -1,0 +1,26 @@
+# Normalización de finales de línea.
+#
+# Este proyecto se trabaja en macOS y en Windows. Sin esto, Git en Windows
+# puede convertir a CRLF los scripts de shell y los de Python, y entonces
+# bash falla con un `\r: command not found` que no dice nada útil, mientras
+# que el `.hex` o el GLB se corromperían si alguien los tratara como texto.
+
+# Por defecto: Git decide si es texto y normaliza a LF en el repositorio.
+* text=auto
+
+# Scripts que SIEMPRE deben llevar LF, los ejecute quien los ejecute.
+*.sh      text eol=lf
+*.py      text eol=lf
+
+# Script de PowerShell: CRLF, que es lo nativo de Windows.
+*.ps1     text eol=crlf
+
+# Binarios: Git no debe tocarlos jamás.
+*.glb     binary
+*.hex     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.pdf     binary
+*.bz2     binary
+*.zip     binary

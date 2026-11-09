@@ -148,15 +148,34 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-/** Intérpretes de Python admitidos, en orden de preferencia. */
-export function pythonCandidates(rootDirectory: string): string[] {
+/**
+ * Intérpretes de Python admitidos, en orden de preferencia.
+ *
+ * El reparto de un entorno virtual NO es igual en todos los sistemas: en Unix
+ * el intérprete vive en `bin/python` y en Windows en `Scripts\\python.exe`.
+ * Dar por supuesto el primero deja el generador inservible en Windows, que es
+ * donde se desarrolla la mitad de este proyecto.
+ *
+ * `platform` se recibe por parámetro para poder probar el reparto de Windows
+ * desde cualquier máquina; por omisión es el sistema real.
+ */
+export function pythonCandidates(
+  rootDirectory: string,
+  platform: NodeJS.Platform = process.platform,
+): string[] {
   const fromEnv = process.env.EMBEDVERSE_PYTHON;
+  const windows = platform === 'win32';
+  const venvBin = windows ? 'Scripts' : 'bin';
+  const executable = windows ? 'python.exe' : 'python';
+
   const list = [
     ...(fromEnv ? [fromEnv] : []),
-    path.join(rootDirectory, '.venv', 'bin', 'python'),
-    path.join(rootDirectory, 'tools', 'venv', 'bin', 'python'),
-    '/usr/bin/python3',
-    'python3',
+    path.join(rootDirectory, '.venv', venvBin, executable),
+    path.join(rootDirectory, 'tools', 'venv', venvBin, executable),
+    // En Windows no existe `/usr/bin/python3`, y `python3` suele ser el
+    // acceso directo de la Microsoft Store, que abre la tienda en vez de
+    // ejecutar nada. Lo que sí funciona es `python` y el lanzador `py`.
+    ...(windows ? ['python', 'py'] : ['/usr/bin/python3', 'python3']),
   ];
   return Array.from(new Set(list));
 }

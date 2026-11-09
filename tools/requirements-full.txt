@@ -1,0 +1,12 @@
+# Dependencias completas: añade exportación a IFC, DXF, PDF y STEP.
+#
+# Son descargas grandes y NO hacen falta para generar ni visualizar modelos.
+# Instálalas solo si vas a exportar a esos formatos.
+#
+# reportlab 4.1 exige Python 3.10 o superior. Se acota a la rama 4.0, que sí
+# funciona en 3.9, para no romper la instalación en intérpretes antiguos.
+-r requirements-min.txt
+ezdxf
+ifcopenshell
+reportlab<4.1
+cadquery

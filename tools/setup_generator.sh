@@ -13,9 +13,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV="$ROOT/tools/venv"
 PY="${PYTHON:-python3}"
 
-# reportlab 5 exige Python 3.10+. En 3.9 se fija la rama 4.0, que sí lo soporta.
-MIN_PACKAGES=(numpy shapely trimesh mapbox-earcut scipy networkx)
-FULL_PACKAGES=(ezdxf ifcopenshell "reportlab<4.1" cadquery)
+# Las dependencias viven en los requirements, no aquí: este script y su
+# equivalente de PowerShell deben instalar exactamente lo mismo, y dos listas
+# separadas se desincronizan a la primera.
+MIN_REQUIREMENTS="$ROOT/tools/requirements-min.txt"
+FULL_REQUIREMENTS="$ROOT/tools/requirements-full.txt"
 
 MODE="min"
 if [[ "${1:-}" == "--full" ]]; then MODE="full"; fi
@@ -32,11 +34,11 @@ fi
 "$VENV/bin/python" -m pip install --quiet --upgrade pip
 
 echo "==> Instalando dependencias de geometría y malla"
-"$VENV/bin/python" -m pip install --quiet "${MIN_PACKAGES[@]}"
+"$VENV/bin/python" -m pip install --quiet -r "$MIN_REQUIREMENTS"
 
 if [[ "$MODE" == "full" ]]; then
   echo "==> Instalando dependencias de IFC, DXF, PDF y STEP (descarga grande)"
-  "$VENV/bin/python" -m pip install --quiet "${FULL_PACKAGES[@]}"
+  "$VENV/bin/python" -m pip install --quiet -r "$FULL_REQUIREMENTS"
 fi
 
 echo "==> Comprobando el generador"

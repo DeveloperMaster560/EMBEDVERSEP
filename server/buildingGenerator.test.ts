@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -89,6 +91,35 @@ describe('validateGeneratorSpec', () => {
 });
 
 describe('resolución del intérprete de Python', () => {
+  it('usa el reparto de entorno virtual de cada sistema', () => {
+    // Unix: bin/python. Windows: Scripts\python.exe. No es un detalle
+    // cosmético: equivocarse deja el generador sin intérprete.
+    const unix = pythonCandidates('/raiz', 'linux');
+    expect(unix).toContain('/raiz/tools/venv/bin/python');
+    expect(unix).toContain('/raiz/.venv/bin/python');
+
+    const windows = pythonCandidates('C:\\raiz', 'win32');
+    expect(windows.some((c) => c.includes('Scripts') && c.endsWith('python.exe'))).toBe(true);
+    expect(windows.some((c) => c.includes(`venv${path.sep}bin`))).toBe(false);
+  });
+
+  it('no ofrece en Windows nombres que allí no funcionan', () => {
+    const windows = pythonCandidates('C:\\raiz', 'win32');
+    // `/usr/bin/python3` no existe, y `python3` suele ser el acceso directo
+    // de la Microsoft Store, que abre la tienda en lugar de ejecutar.
+    expect(windows).not.toContain('/usr/bin/python3');
+    expect(windows).not.toContain('python3');
+    expect(windows).toContain('python');
+    expect(windows).toContain('py');
+  });
+
+  it('en Unix mantiene los nombres de siempre', () => {
+    const unix = pythonCandidates('/raiz', 'darwin');
+    expect(unix).toContain('/usr/bin/python3');
+    expect(unix).toContain('python3');
+    expect(unix).not.toContain('py');
+  });
+
   it('prioriza EMBEDVERSE_PYTHON cuando está definido', () => {
     const previous = process.env.EMBEDVERSE_PYTHON;
     process.env.EMBEDVERSE_PYTHON = '/opt/entorno/bin/python';
