@@ -17,7 +17,9 @@ import {
 } from 'lucide-react';
 import { createCircuitComponent, getCircuitPins, validateCircuit } from '../domain/circuit';
 import { createLibraryCircuitComponent, findLibraryComponent, parseComponentLibrary } from '../domain/componentLibrary';
-import type { BoardId, CircuitComponent, CircuitConnection, ElectronicCircuit, CircuitLibraryComponent } from '../domain/types';
+import type { BoardId, CircuitComponent, CircuitConnection, ElectronicCircuit, CircuitLibraryComponent, ProjectFile } from '../domain/types';
+import { SimulationPanel } from '../simulation/SimulationPanel';
+import { useSimulation } from '../simulation/useSimulation';
 import './electronics-lab.css';
 
 type Tool = 'select' | 'wire';
@@ -181,13 +183,20 @@ export function ElectronicsLab({
   onChange,
   saveState,
   onReset,
+  files,
 }: {
   circuit: ElectronicCircuit;
   boardId: BoardId;
   onChange: (circuit: ElectronicCircuit) => void;
   saveState: 'saved' | 'saving' | 'error';
   onReset: () => void;
+  /**
+   * Código fuente del proyecto. Sin él no se puede compilar, y sin binario el
+   * motor no tiene nada que ejecutar: la simulación queda deshabilitada.
+   */
+  files?: ProjectFile[];
 }) {
+  const simulation = useSimulation(circuit, boardId, files ?? []);
   const [tool, setTool] = useState<Tool>('select');
   const [mode, setMode] = useState<CanvasMode>('assembly');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -408,7 +417,19 @@ export function ElectronicsLab({
         <button type="button" disabled={!selected} title="Duplicar componente" onClick={duplicateSelected}><Copy size={14} /></button>
         <button type="button" disabled={!selected} title="Eliminar componente" onClick={deleteSelected}><Trash2 size={14} /></button>
         <button type="button" title="Restablecer el circuito de ejemplo" onClick={() => { if (window.confirm('¿Restablecer el circuito de ejemplo? Se perderán los cambios actuales.')) onReset(); }}><RotateCw size={14} /></button>
-        <button type="button" className="el-run-button" title="Simulación no disponible" disabled><Zap size={14} /> Simular</button>
+        <button
+          type="button"
+          className="el-run-button"
+          disabled={!files?.length || boardId !== 'arduino-uno' || simulation.status === 'compiling'}
+          title={!files?.length
+            ? 'Hace falta el código del proyecto para compilar'
+            : boardId !== 'arduino-uno'
+              ? 'El motor solo ejecuta ATmega328P (Arduino Uno)'
+              : 'Compilar el proyecto y ejecutarlo sobre este circuito'}
+          onClick={() => { setActivePanel('simulation'); void simulation.start(); }}
+        >
+          <Zap size={14} /> {simulation.status === 'compiling' ? 'Compilando…' : 'Simular'}
+        </button>
       </header>
 
       <div className="el-workspace">
@@ -562,7 +583,27 @@ export function ElectronicsLab({
             </>
           )}
           {activePanel === 'console' && <span>Motor de conectividad local. No hay consola de firmware ni telemetría activa.</span>}
-          {activePanel === 'simulation' && <span>Simulación eléctrica y de microcontroladores no disponible. El estado visual no representa resultados calculados.</span>}
+          {activePanel === 'simulation' && (
+            files?.length ? (
+              <SimulationPanel
+                status={simulation.status}
+                report={simulation.report}
+                message={simulation.message}
+                buttons={simulation.buttons}
+                photocells={simulation.photocells}
+                onStart={() => void simulation.start()}
+                onLoadHexFile={(file) => void simulation.loadHexFile(file)}
+                onPause={simulation.pause}
+                onResume={simulation.resume}
+                onStop={simulation.stop}
+              />
+            ) : (
+              <span>
+                Este laboratorio se abrió sin el código del proyecto, así que no hay nada
+                que compilar ni ejecutar. Ábrelo desde el editor para simular.
+              </span>
+            )
+          )}
         </div>
       </footer>
     </section>

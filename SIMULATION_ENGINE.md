@@ -95,12 +95,81 @@ plano de 32 bits. La dirección es `(CS << 4) + IP`. Leído plano, el gestor de
 arranque del ATmega2560 daba 0x30000000 en vez de 0x3E000. Los archivos
 sintéticos de prueba no lo habrían detectado nunca.
 
+## Actualización — 9 de noviembre de 2026, segunda entrega
+
+Las tres carencias que este documento declaraba —integración con la interfaz,
+modelos de componentes y el botón deshabilitado— **ya no existen**. El motor
+está conectado y se puede usar.
+
+### Lo que se añadió
+
+- **`devices.ts`** — modelos de comportamiento de LED (con medición del ciclo
+  de trabajo), LED invertido contra alimentación, pulsador (con la polaridad
+  del montaje), módulo de fotocelda LM393 (salida analógica y salida digital
+  con umbral) y módulo de relé (bobina y contacto). Cada modelo describe
+  comportamiento lógico, no física: un LED sabe si está encendido, no cuántos
+  lúmenes da.
+- **`binding.ts`** — traza el circuito dibujado hasta los pines del
+  microcontrolador. Agrupa los cables en redes, **atraviesa las resistencias en
+  serie** y no atraviesa los condensadores (bloquean la continua). Deduce la
+  polaridad del montaje: si el cátodo del LED va a masa enciende en alto, y si
+  el ánodo va a 5 V enciende en bajo. Lo que no tiene camino hasta un pin **no
+  se inventa**: se devuelve en `unresolved` con el motivo.
+- **`session.ts`** — junta firmware, circuito y tiempo. Avance explícito en
+  milisegundos simulados, con tope por paso para que una pestaña que vuelve de
+  segundo plano no pida media hora de golpe.
+- **`useSimulation.ts` y `SimulationPanel.tsx`** — el panel del laboratorio.
+  Compila con Arduino CLI, carga el `.hex`, ejecuta, y permite accionar las
+  entradas: mantener un pulsador, variar la luz que ve una fotocelda y mover el
+  umbral de su potenciómetro.
+- **Carga directa de `.hex`.** Arduino CLI depende del sistema operativo. Sin
+  esto, el motor sería inutilizable en cualquier equipo sin la cadena de
+  herramientas instalada.
+- **`public/firmware/alumbrado-demo.S` y su `.hex`** — firmware de
+  demostración, ensamblable con `tools/make_demo_firmware.mjs`. Conmuta el LED
+  de D13 y habla por el puerto serie a 9600 bps.
+
+### Verificación
+
+**59 pruebas** en `src/simulation/`: las 28 anteriores (14 del emulador y 14
+del lector de Intel HEX) más 31 nuevas (17 del trazado del circuito, 12 de la
+sesión y 2 del firmware publicado). Las que sostienen la afirmación «el
+circuito dibujado mueve componentes de verdad»:
+
+| Afirmación | Cómo se comprueba |
+|---|---|
+| El firmware enciende el LED del circuito | se traza D13 a través de R1, el firmware pone PB5 alto y el LED se lee encendido |
+| El ciclo de trabajo medido es exacto | bucle de 4 ciclos con 1 en alto; se exige 0,25 con 4 decimales |
+| El usuario acciona y el firmware reacciona | se mantiene el pulsador y el LED sigue al pin en los dos sentidos |
+| El convertidor analógico cierra el lazo | la fotocelda baja a 0,5 V, el firmware lee menos de 256 cuentas y enciende |
+| El relé respeta su polaridad real | pin en bajo, contacto cerrado: así disparan los módulos |
+| El `.hex` publicado funciona | se carga el archivo de `public/firmware`, se ejecuta y se exige ver el LED encendido y apagado |
+| El ESP32 no se finge | placa ESP32 y el motor lo declara otra arquitectura |
+
+**Defecto encontrado y corregido** durante esta entrega: el medidor del ciclo
+de trabajo clasificaba como «modulado» un pin que cambiaba **una sola vez**
+dentro de la ventana de muestreo, y daba el LED por encendido justo después de
+apagarlo. Un cambio de estado no es modulación. Ahora se cuentan los flancos y
+se exige un mínimo para hablar de PWM. Hay prueba de regresión.
+
 ### Lo que sigue sin existir
 
-- **Integración con la interfaz.** El botón «Simular» del laboratorio sigue
-  deshabilitado. El motor no está conectado a la escena.
-- **Modelos de componentes externos.** Un LED, un relé o el DS3231 no
-  responden: hay que escribir cada modelo.
+- **Dispositivos I²C.** El bus se emula y la interfaz de esclavo de avr8js está
+  disponible, pero no hay modelo del DS3231 ni del MPU6050. Quedan declarados
+  sin simular, con el motivo visible en el panel, en vez de devolver lecturas
+  inventadas.
 - **ESP32.** Sin compilador y sin motor. No se infiere soporte.
 - **Nivel de fidelidad «física».** No hay modelo eléctrico: ni tensiones, ni
-  corrientes, ni potencia. Un pin está alto o bajo y nada más.
+  corrientes, ni potencia. Un pin está alto o bajo y nada más. El relé no sabe
+  si gobierna un LED o un alumbrado de varios kilovatios.
+- **Pines accesibles en el editor.** La placa del laboratorio solo expone siete
+  pines (GND, 5V, 3V3, D2, D13, A4/SDA, A5/SCL). El motor sabe trazar D0–D13 y
+  A0–A5, pero mientras el editor no los dibuje no se pueden cablear.
+- **Verificación en navegador.** Las 59 pruebas se ejecutan sin navegador. La
+  comprobación visual del panel **no se ha hecho**: en este equipo la extensión
+  de Chrome no consigue abrir el servidor de desarrollo, aunque el servidor
+  responde HTTP 200 a `curl`.
+- **Compilación en macOS y Linux.** `.tools` solo contiene `arduino-cli.exe`.
+  El servidor lo detecta y lo dice con claridad; para compilar fuera de Windows
+  hay que instalar Arduino CLI y el core AVR de ese sistema. La carga directa
+  de `.hex` existe precisamente por esto.

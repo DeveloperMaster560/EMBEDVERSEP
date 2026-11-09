@@ -191,6 +191,25 @@ export class AvrRunner {
     });
   }
 
+  /**
+   * Avisa de cada cambio de un pin en el momento en que ocurre.
+   *
+   * `watch` acumula un historial para examinarlo después; esto es para quien
+   * debe reaccionar al instante, como el modelo de un componente conectado a
+   * ese pin. No registra nada, así que no consume memoria por cambio.
+   */
+  onPinChange(pin: number, listener: (high: boolean, cycles: number) => void): void {
+    const { port, bit } = arduinoPin(pin);
+    const target = this.portOf(port);
+    let previous = target.pinState(bit) === PinState.High;
+    target.addListener(() => {
+      const high = target.pinState(bit) === PinState.High;
+      if (high === previous) return;
+      previous = high;
+      listener(high, this.cpu.cycles);
+    });
+  }
+
   private portOf(name: PortName): AVRIOPort {
     return name === 'B' ? this.portB : name === 'C' ? this.portC : this.portD;
   }

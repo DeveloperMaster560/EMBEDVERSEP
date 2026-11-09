@@ -37,3 +37,29 @@ Conectarlo ahora haría parpadear un LED dibujado sin que eso signifique nada.
 
 Sigue vigente: compilar firmware no equivale a simularlo, y ejecutar el
 microcontrolador no equivale a simular el circuito.
+
+## Actualización — 9 de noviembre de 2026, segunda entrega
+
+**El botón «Simular» ya funciona.** Los componentes tienen modelo y el circuito
+dibujado se traza hasta los pines del microcontrolador. 59 pruebas en
+`src/simulation/`.
+
+| MCU / placa | Compilación local | Ejecución de firmware | Periféricos de la escena |
+|---|---|---|---|
+| ATmega328P / Arduino Uno R3 | Solo en Windows con el `arduino-cli` de `.tools/`; en otros sistemas, cargando un `.hex` ya compilado | **Sí**, con periféricos del MCU (GPIO, temporizadores, USART, ADC, TWI) | LED, LED invertido, pulsador, fotocelda LM393 y módulo de relé |
+| ESP32 DevKit V1 | No | No | No |
+
+Lo que **no** cambia:
+
+- No hay modelo eléctrico. Un pin está alto o bajo; no hay tensiones,
+  corrientes ni potencia. El estado visual de un relé no dice nada sobre la
+  carga que gobierna.
+- Los dispositivos I²C (DS3231, MPU6050) **no** tienen modelo. El bus se emula,
+  pero el módulo no contestaría. Quedan declarados sin simular en el panel, con
+  el motivo, en vez de devolver lecturas inventadas.
+- Sigue vigente que compilar firmware no equivale a simularlo, y que ejecutar
+  el microcontrolador no equivale a simular el circuito. Ahora se simula
+  además la parte lógica de algunos componentes; la parte física, no.
+- El requisito de aislamiento sigue cumpliéndose: el firmware se ejecuta en el
+  hilo de la página sin ningún acceso al sistema, con tope de ciclos por paso
+  para que un bucle infinito no cuelgue la aplicación.

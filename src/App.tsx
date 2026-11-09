@@ -479,6 +479,7 @@ function App() {
                 onChange={(electronicLab) => updateProject((project) => ({ ...project, electronicLab }))}
                 onReset={resetLab}
                 saveState={saveState}
+                files={selectedProject.files}
               />
             ) : (
               <EmptyEditor onCreate={() => setIsCreateOpen(true)} />
@@ -743,6 +744,7 @@ function WorkspacePanel({
           onChange={onChangeCircuit}
           onReset={onResetLab}
           saveState={saveState}
+          files={project.files}
         />
       )}
 
