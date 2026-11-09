@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "id": "embedverse.control.alumbrado",
+  "name": "EMBEDVERSE · Control de alumbrado de puente",
+  "version": "1.0.0",
+  "license": "CC0-1.0 (solo manifiesto y metadatos de esta biblioteca)",
+  "sourceUrl": "https://github.com/DeveloperMaster560/EMBEDVERSEP",
+  "components": [
+    {
+      "id": "fotocelda-lm393",
+      "name": "Modulo de fotocelda LM393",
+      "manufacturer": "Generico",
+      "reference": "LM393 LDR module",
+      "category": "Sensores de luz",
+      "description": "PENDIENTE DE VERIFICACION contra hoja de datos del modulo concreto. Detecta el nivel de luz ambiente. DO entrega un digital con umbral ajustable por potenciometro; AO entrega la lectura analogica. El umbral de conmutacion NO esta definido: depende del criterio del operador del puente.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 3.3, "max": 5 },
+      "interfaces": ["Salida digital", "Salida analogica"],
+      "pins": [
+        { "id": "VCC", "label": "VCC", "type": "power", "x": -40, "y": -24, "required": true },
+        { "id": "GND", "label": "GND", "type": "ground", "x": -40, "y": -8, "required": true },
+        { "id": "DO", "label": "DO", "type": "signal", "x": 40, "y": -24 },
+        { "id": "AO", "label": "AO", "type": "signal", "x": 40, "y": -8 }
+      ]
+    },
+    {
+      "id": "rtc-ds3231",
+      "name": "Reloj de tiempo real DS3231",
+      "manufacturer": "Maxim Integrated",
+      "reference": "DS3231",
+      "category": "Reloj y calendario",
+      "description": "PENDIENTE DE VERIFICACION contra hoja de datos. Reloj compensado por temperatura con bateria de respaldo. Da la hora para calcular orto y ocaso; sin latitud y longitud cargadas no hay calculo astronomico posible.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 3.3, "max": 5.5 },
+      "interfaces": ["I2C"],
+      "datasheetUrl": "https://datasheets.maximintegrated.com/en/ds/DS3231.pdf",
+      "pins": [
+        { "id": "VCC", "label": "VCC", "type": "power", "x": -40, "y": -32, "required": true },
+        { "id": "GND", "label": "GND", "type": "ground", "x": -40, "y": -16, "required": true },
+        { "id": "SDA", "label": "SDA", "type": "signal", "x": 40, "y": -32, "required": true },
+        { "id": "SCL", "label": "SCL", "type": "signal", "x": 40, "y": -16, "required": true },
+        { "id": "SQW", "label": "SQW", "type": "signal", "x": 40, "y": 0 },
+        { "id": "32K", "label": "32K", "type": "signal", "x": 40, "y": 16 }
+      ]
+    },
+    {
+      "id": "rele-1ch",
+      "name": "Modulo de rele de 1 canal",
+      "manufacturer": "Generico",
+      "reference": "Modulo rele optoacoplado 1 canal",
+      "category": "Maniobra de potencia",
+      "description": "PENDIENTE DE VERIFICACION contra hoja de datos del modulo concreto. Separa el mando de baja tension del circuito de alumbrado. IMPORTANTE: el calibre del contacto debe elegirse con la corriente de ARRANQUE del circuito, no con la nominal; ese dato no esta calculado. Los contactos COM/NO/NC conmutan tension peligrosa y no se modelan en este editor.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 5, "max": 5 },
+      "interfaces": ["Entrada digital"],
+      "pins": [
+        { "id": "VCC", "label": "VCC", "type": "power", "x": -40, "y": -24, "required": true },
+        { "id": "GND", "label": "GND", "type": "ground", "x": -40, "y": -8, "required": true },
+        { "id": "IN", "label": "IN", "type": "signal", "x": -40, "y": 8, "required": true },
+        { "id": "COM", "label": "COM", "type": "passive", "x": 40, "y": -24 },
+        { "id": "NO", "label": "NO", "type": "passive", "x": 40, "y": -8 },
+        { "id": "NC", "label": "NC", "type": "passive", "x": 40, "y": 8 }
+      ]
+    },
+    {
+      "id": "max485",
+      "name": "Transceptor RS-485 MAX485",
+      "manufacturer": "Maxim Integrated",
+      "reference": "MAX485",
+      "category": "Comunicaciones",
+      "description": "PENDIENTE DE VERIFICACION contra hoja de datos. Capa fisica del bus que gobierna los proyectores de realce: DMX512 viaja sobre RS-485. A y B forman el par diferencial; DE y RE controlan el sentido. La terminacion del bus y el apantallamiento no estan definidos.",
+      "compatibleBoards": ["arduino-uno", "esp32-devkit"],
+      "operatingVoltage": { "min": 4.75, "max": 5.25 },
+      "interfaces": ["RS-485", "UART"],
+      "datasheetUrl": "https://datasheets.maximintegrated.com/en/ds/MAX1487-MAX491.pdf",
+      "pins": [
+        { "id": "VCC", "label": "VCC", "type": "power", "x": -40, "y": -32, "required": true },
+        { "id": "GND", "label": "GND", "type": "ground", "x": -40, "y": -16, "required": true },
+        { "id": "RO", "label": "RO", "type": "signal", "x": -40, "y": 0 },
+        { "id": "RE", "label": "RE", "type": "signal", "x": -40, "y": 16 },
+        { "id": "DE", "label": "DE", "type": "signal", "x": 40, "y": -32 },
+        { "id": "DI", "label": "DI", "type": "signal", "x": 40, "y": -16, "required": true },
+        { "id": "A", "label": "A", "type": "passive", "x": 40, "y": 0 },
+        { "id": "B", "label": "B", "type": "passive", "x": 40, "y": 16 }
+      ]
+    }
+  ]
+}

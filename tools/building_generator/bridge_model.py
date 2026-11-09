@@ -767,6 +767,12 @@ def build_towers_and_stays(model) -> None:
                         parameters={
                             "tower_index": i, "length_m": round(length, 4),
                             "nominal_diameter_m": B.HYP_STAY_DIAMETER,
+                            # El punto de anclaje al tablero es un dato del
+                            # tirante, no solo de la operacion que lo creo: el
+                            # realce y el mantenimiento lo necesitan.
+                            "deck_anchor_x_m": round(deck_x, 4),
+                            "deck_anchor_y_m": round(y_deck, 4),
+                            "deck_anchor_z_m": anchor_deck_z,
                             "strand_count": None, "design_tension_kN": None,
                             "breaking_load_kN": None, "fatigue_check": None,
                             "corrosion_protection": None, "vibration_damping": None,
@@ -1469,15 +1475,416 @@ def build_instrumentation(model) -> None:
 # Orquestador
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Iluminacion arquitectonica (realce)
+# ---------------------------------------------------------------------------
+
+
+def build_architectural_lighting(model) -> None:
+    """Realce nocturno: tirantes, torres y barreras.
+
+    Es iluminacion de color, no de calzada. No sustituye al alumbrado vial ni
+    comparte su mando: el vial responde a seguridad y se enciende entero; el
+    realce responde a un programa y se direcciona por zonas.
+
+    Cada proyector se modela como una UNIDAD DIRECCIONABLE. El numero de nodos
+    LED que contiene cada unidad depende del producto que se seleccione y aqui
+    queda como pendiente: agrupar no es contar.
+    """
+    if not B.HYP_ARCH_LIGHTING:
+        return
+
+    half = B.REQ_WIDTH / 2
+    base = round(B.DECK_TOP + (B.HYP_SIDEWALK_RISE if B.REQ_SIDEWALKS else 0.0), 4)
+    fixtures: List[Tuple[str, str, float]] = []   # (id, zona de control, W)
+
+    # --- 1. un proyector lineal por tirante, en su anclaje al tablero -------
+    stays = sorted(c for c in model.components
+                   if model.components[c].type == "stay_cable")
+    for n, stay_id in enumerate(stays, start=1):
+        stay = model.components[stay_id]
+        # El tirante guarda su punto de anclaje; no se vuelve a calcular.
+        anchor_x = stay.parameters.get("deck_anchor_x_m")
+        anchor_y = stay.parameters.get("deck_anchor_y_m")
+        if anchor_x is None or anchor_y is None:
+            continue
+        dx, dy, dz = B.HYP_STAY_FIXTURE["body_m"]
+        # El proyector se separa del anclaje hacia AFUERA del abanico: dentro
+        # del anclaje estaria en el paso del propio cable, y un cable con
+        # viento se mueve. Apunta al tirante desde detras de su anclaje.
+        tower_index = stay.parameters.get("tower_index")
+        tower_x = (B.TOWER_AXES[tower_index - 1]
+                   if tower_index and tower_index <= len(B.TOWER_AXES) else anchor_x)
+        away = math.copysign(1.0, anchor_x - tower_x) if anchor_x != tower_x else 1.0
+        fixture_x = round(anchor_x + away * (dx / 2 + 0.35), 4)
+        cid = "ILU-ARQ-TIR-%03d" % n
+        K.add_device(
+            model, component_id=cid, discipline="lighting", type="accent_luminaire",
+            name="Proyector de tirante %d" % n, level_id=stay.level_id,
+            # Apoyado sobre el tablero junto al anclaje, apuntando al cable.
+            # Sobre la viga de anclaje, a cota de tablero y no de acera: asi
+            # su coronacion queda por debajo del punto mas bajo del abanico
+            # y el cable pasa limpio por encima.
+            xyz=(fixture_x, round(anchor_y, 4), round(B.DECK_TOP + dz / 2, 4)),
+            box=(dx, dy, dz), material="luminaria",
+            ifc_class="IfcLightFixture", layer="ILU-REALCE",
+            parameters={"model_reference": B.HYP_STAY_FIXTURE["model_ref"],
+                        "nominal_power_w": B.HYP_STAY_FIXTURE["nominal_power_w"],
+                        "nominal_voltage_v": B.HYP_STAY_FIXTURE["nominal_voltage_v"],
+                        "control_zone": "tirantes", "aims_at": stay_id,
+                        "color_capability": "RGBW",
+                        "led_node_count": None, "dmx_address": None,
+                        "beam_angle_deg": None, "luminous_flux_lm": None,
+                        "ip_rating": None, "photometric_file": None},
+            requires_calculation=["led_node_count", "dmx_address", "beam_angle_deg",
+                                  "luminous_flux_lm", "ip_rating", "photometric_file"],
+            tags=["iluminacion", "realce", "tirante"],
+            op_description=("Proyector de realce apuntando al tirante %s. Posicion "
+                            "tomada del anclaje real del cable." % stay_id),
+            derived_from=["HYP_STAY_FIXTURE"],
+            validation_notes=["La direccion DMX se asigna en puesta en marcha; sin "
+                              "ella el proyector no es gobernable."],
+        )
+        model.relate(cid, "illuminates", stay_id)
+        fixtures.append((cid, "tirantes", B.HYP_STAY_FIXTURE["nominal_power_w"]))
+
+    # --- 2. proyectores de gran alcance al pie de cada fuste de torre ------
+    towers = sorted(c for c in model.components
+                    if model.components[c].type == "tower")
+    dx, dy, dz = B.HYP_TOWER_FLOODLIGHT["body_m"]
+    tower_width = B.HYP_TOWER_SECTION[0]
+    for tower_id in towers:
+        tower = model.components[tower_id]
+        tx, ty, tz = tower.position
+        # POR FUERA del fuste, nunca entre fuste y tablero: ahi esta el abanico
+        # de tirantes y el proyector quedaria dentro del paso de los cables.
+        # Fuera del fuste hay plataforma de mantenimiento y el haz sube limpio.
+        y_fl = round(ty + math.copysign(tower_width / 2 + 0.40, ty), 4)
+        for j in range(B.HYP_FLOODLIGHTS_PER_LEG):
+            # Repartidos a lo largo del fuste, alternando delante y detras,
+            # para que el bañado no deje la torre medio apagada.
+            offset = (j - (B.HYP_FLOODLIGHTS_PER_LEG - 1) / 2) * 2.6
+            cid = "ILU-ARQ-TOR-%s-%02d" % (tower.level_id + tower.parameters.get("side", "X"), j + 1)
+            K.add_device(
+                model, component_id=cid, discipline="lighting", type="floodlight",
+                name="Proyector de torre %s-%d" % (tower.level_id, j + 1),
+                level_id=tower.level_id,
+                xyz=(round(tx + offset, 4), y_fl, round(B.DECK_TOP + dz / 2, 4)),
+                box=(dx, dy, dz), material="luminaria",
+                ifc_class="IfcLightFixture", layer="ILU-REALCE",
+                parameters={"model_reference": B.HYP_TOWER_FLOODLIGHT["model_ref"],
+                            "nominal_power_w": B.HYP_TOWER_FLOODLIGHT["nominal_power_w"],
+                            "nominal_voltage_v": B.HYP_TOWER_FLOODLIGHT["nominal_voltage_v"],
+                            "control_zone": "torres", "aims_at": tower_id,
+                            "color_capability": "RGBW",
+                            "led_node_count": None, "dmx_address": None,
+                            "beam_angle_deg": None, "throw_distance_m": None,
+                            "luminous_flux_lm": None, "ip_rating": None},
+                requires_calculation=["led_node_count", "dmx_address", "beam_angle_deg",
+                                      "throw_distance_m", "luminous_flux_lm", "ip_rating"],
+                tags=["iluminacion", "realce", "torre"],
+                op_description=("Proyector al pie del fuste %s. El alcance necesario "
+                                "depende de la altura de torre (%.2f m sobre tablero) y "
+                                "no esta calculado." % (tower_id, B.TOWER_HEIGHT)),
+                derived_from=["HYP_TOWER_FLOODLIGHT", "HYP_FLOODLIGHTS_PER_LEG"],
+                validation_notes=["Sin estudio fotometrico no se puede afirmar que el "
+                                  "proyector alcance la cabeza de la torre."],
+            )
+            model.relate(cid, "illuminates", tower_id)
+            fixtures.append((cid, "torres", B.HYP_TOWER_FLOODLIGHT["nominal_power_w"]))
+
+    # --- 3. bañadores lineales a lo largo de la barrera --------------------
+    dx, dy, dz = B.HYP_BARRIER_ACCENT["body_m"]
+    count = max(2, int(B.REQ_LENGTH // B.HYP_BARRIER_ACCENT_SPACING))
+    for k in range(count):
+        x = round(min(max(B.REQ_LENGTH * (k + 0.5) / count, 1.0), B.REQ_LENGTH - 1.0), 4)
+        for side, y in (("L", -round(half - B.HYP_BARRIER_WIDTH - 0.08, 4)),
+                        ("R", round(half - B.HYP_BARRIER_WIDTH - 0.08, 4))):
+            cid = "ILU-ARQ-BAR-%s-%03d" % (side, k + 1)
+            K.add_device(
+                model, component_id=cid, discipline="lighting", type="accent_luminaire",
+                name="Bañador de barrera %s-%d" % (side, k + 1), level_id="TAB",
+                xyz=(x, y, round(base + dz / 2, 4)), box=(dx, dy, dz),
+                material="luminaria", ifc_class="IfcLightFixture", layer="ILU-REALCE",
+                parameters={"model_reference": B.HYP_BARRIER_ACCENT["model_ref"],
+                            "nominal_power_w": B.HYP_BARRIER_ACCENT["nominal_power_w"],
+                            "nominal_voltage_v": B.HYP_BARRIER_ACCENT["nominal_voltage_v"],
+                            "control_zone": "barreras", "side": side,
+                            "color_capability": "RGB", "spacing_rule_m":
+                                B.HYP_BARRIER_ACCENT_SPACING,
+                            "led_node_count": None, "dmx_address": None,
+                            "luminous_flux_lm": None, "ip_rating": None,
+                            "glare_check": None},
+                requires_calculation=["led_node_count", "dmx_address", "luminous_flux_lm",
+                                      "ip_rating", "glare_check"],
+                tags=["iluminacion", "realce", "barrera"],
+                op_description=("Bañador de barrera en x=%.2f, lado %s. Reparto "
+                                "geometrico cada %.2f m." % (x, side,
+                                                             B.HYP_BARRIER_ACCENT_SPACING)),
+                derived_from=["HYP_BARRIER_ACCENT", "HYP_BARRIER_ACCENT_SPACING"],
+                validation_notes=["Un bañador a la altura del conductor exige "
+                                  "comprobacion de deslumbramiento; no esta hecha."],
+            )
+            fixtures.append((cid, "barreras", B.HYP_BARRIER_ACCENT["nominal_power_w"]))
+
+    model.arch_fixtures = fixtures   # lo consume build_control
+
+
+# ---------------------------------------------------------------------------
+# Control y sistemas embebidos
+# ---------------------------------------------------------------------------
+
+
+def build_control(model) -> None:
+    """El mando del alumbrado: lo que decide CUANDO y DE QUE COLOR se enciende.
+
+    Cadena de causa declarada, de principio a fin:
+
+        fotocelda  ->  controlador  ->  contactor  ->  circuito vial
+                   ->  controlador  ->  fuente DMX ->  proyectores de realce
+
+    Nada aqui esta dimensionado. El numero de universos, la direccion de cada
+    proyector y la potencia de cada fuente dependen del producto que se
+    seleccione y del programa de iluminacion, y quedan declarados pendientes.
+    """
+    cfg = B.HYP_CONTROL
+    fixtures = getattr(model, "arch_fixtures", [])
+    base = round(B.DECK_TOP + (B.HYP_SIDEWALK_RISE if B.REQ_SIDEWALKS else 0.0), 4)
+    half = B.REQ_WIDTH / 2
+    y_cab = round(half - B.HYP_BARRIER_WIDTH - 0.9, 4)
+
+    # --- gabinete principal, en el estribo inicial -------------------------
+    dx, dy, dz = cfg["cabinet_box_m"]
+    cab = "CTL-GAB-001"
+    K.add_device(
+        model, component_id=cab, discipline="control", type="control_cabinet",
+        name="Gabinete de control de alumbrado", level_id="EA",
+        xyz=(2.5, -y_cab, round(base + dz / 2, 4)), box=(dx, dy, dz),
+        material="acero_galvanizado", ifc_class="IfcElectricDistributionBoard",
+        layer="CTL-GABINETES",
+        parameters={"nominal_voltage_v": cfg["nominal_voltage_v"],
+                    "data_protocol": cfg["data_protocol"],
+                    "zones_served": list(B.HYP_CONTROL_ZONES),
+                    "short_circuit_rating_kA": None, "ip_rating": None,
+                    "thermal_dissipation_w": None, "ups_autonomy_min": None,
+                    "supply_point": None},
+        requires_calculation=["short_circuit_rating_kA", "ip_rating",
+                              "thermal_dissipation_w", "ups_autonomy_min",
+                              "supply_point"],
+        tags=["control", "gabinete"],
+        op_description="Gabinete de control en el estribo inicial, accesible sin cortar trafico.",
+        derived_from=["HYP_CONTROL"],
+        validation_notes=["El punto de acometida no esta definido: sin el no hay "
+                          "proteccion de cabecera ni calculo de corto."],
+    )
+
+    # --- fotocelda: el sensor que dispara el encendido ---------------------
+    dx, dy, dz = cfg["photocell_box_m"]
+    photocell = "CTL-FOT-001"
+    K.add_device(
+        model, component_id=photocell, discipline="control", type="photocell",
+        name="Fotocelda crepuscular", level_id="EA",
+        # Sobre el gabinete y mirando al cielo: junto a una luminaria se
+        # realimentaria con su propia luz y oscilaria al anochecer.
+        xyz=(2.5, -y_cab, round(base + dz + cfg["cabinet_box_m"][2], 4)),
+        box=(dx, dy, dz), material="equipo_generico", ifc_class="IfcSensor",
+        layer="CTL-SENSORES",
+        parameters={"sensor_kind": "fotocelda", "mounting": "sobre gabinete, vista al cielo",
+                    "switch_on_lux": None, "switch_off_lux": None,
+                    "response_delay_s": None, "output_type": None,
+                    "nominal_voltage_v": None},
+        requires_calculation=["switch_on_lux", "switch_off_lux", "response_delay_s",
+                              "output_type", "nominal_voltage_v"],
+        tags=["control", "sensor", "embebido"],
+        op_description=("Fotocelda que ordena el encendido. Los umbrales de lux no "
+                        "estan definidos: dependen del criterio del operador."),
+        derived_from=["HYP_CONTROL"],
+        validation_notes=["Sin umbrales declarados el encendido no es reproducible.",
+                          "Conviene redundarla con reloj astronomico: una fotocelda "
+                          "sucia o sombreada deja el puente a oscuras."],
+    )
+    model.relate(photocell, "housed_in", cab)
+
+    # --- reloj astronomico: redundancia del anterior -----------------------
+    dx, dy, dz = cfg["controller_box_m"]
+    clock = "CTL-RLJ-001"
+    K.add_device(
+        model, component_id=clock, discipline="control", type="astronomical_timer",
+        name="Reloj astronomico", level_id="EA",
+        xyz=(2.5, -y_cab + 0.05, round(base + 0.30, 4)), box=(dx, dy, dz),
+        material="equipo_generico", ifc_class="IfcController", layer="CTL-EQUIPOS",
+        # Si el emplazamiento esta declarado, el reloj ya nace con sus
+        # coordenadas: es el unico equipo del puente cuyo comportamiento
+        # depende literalmente de donde esta el puente.
+        parameters={"function": "calcula orto y ocaso para la latitud del sitio",
+                    "latitude_deg": B.SITE.get("latitude_deg"),
+                    "longitude_deg": B.SITE.get("longitude_deg"),
+                    "coordinate_source": (B.SITE.get("provenance", {}).get("latitude_deg")
+                                          if B.SITE.get("latitude_deg") is not None
+                                          else None),
+                    "timezone": None,
+                    "backup_autonomy_h": None, "time_sync_source": None},
+        requires_calculation=(
+            ["timezone", "backup_autonomy_h", "time_sync_source"]
+            + ([] if B.SITE.get("latitude_deg") is not None
+               else ["latitude_deg", "longitude_deg"])),
+        tags=["control", "embebido", "redundancia"],
+        op_description=("Reloj astronomico en paralelo con la fotocelda. La latitud "
+                        "y longitud se cargan en puesta en marcha."),
+        derived_from=["HYP_CONTROL"],
+        validation_notes=(
+            ["Coordenadas tomadas del emplazamiento declarado; verificar contra "
+             "levantamiento antes de la puesta en marcha."]
+            if B.SITE.get("latitude_deg") is not None
+            else ["Sin coordenadas cargadas el reloj no calcula el ocaso."]),
+    )
+    model.relate(clock, "housed_in", cab)
+
+    # --- contactor del alumbrado vial --------------------------------------
+    contactor = "CTL-CON-001"
+    K.add_device(
+        model, component_id=contactor, discipline="control", type="contactor",
+        name="Contactor del alumbrado vial", level_id="EA",
+        xyz=(2.5, -y_cab - 0.05, round(base + 0.70, 4)), box=(0.18, 0.14, 0.22),
+        material="equipo_generico", ifc_class="IfcProtectiveDevice", layer="CTL-EQUIPOS",
+        parameters={"controls": "ILU-CIR-001", "command_source": photocell,
+                    "rated_current_a": None, "coil_voltage_v": None,
+                    "utilization_category": None, "making_capacity_a": None},
+        requires_calculation=["rated_current_a", "coil_voltage_v",
+                              "utilization_category", "making_capacity_a"],
+        tags=["control", "maniobra"],
+        op_description=("Contactor que abre y cierra el circuito vial por orden de la "
+                        "fotocelda. Su calibre depende de la corriente de arranque del "
+                        "circuito, que no esta calculada."),
+        derived_from=["HYP_CONTROL"],
+        validation_notes=["Dimensionar un contactor con la corriente nominal y no con "
+                          "la de arranque es un error frecuente; falta el dato."],
+    )
+    model.relate(contactor, "housed_in", cab)
+    K.link(model, connection_id="CNX-FOT-CTL", discipline="control",
+           type="signal", origin=photocell, destination=contactor,
+           medium="señal_de_mando", technology="contacto seco o salida digital",
+           parameters={"signal_type": None, "nominal_voltage_v": None},
+           flow_direction="sensor_hacia_maniobra",
+           requires_calculation=["signal_type", "nominal_voltage_v"])
+    if "ILU-CIR-001" in model.components:
+        K.link(model, connection_id="CNX-CTL-CIR", discipline="control",
+               type="power_switching", origin=contactor, destination="ILU-CIR-001",
+               medium="conductor_de_potencia", technology="maniobra de circuito",
+               parameters={"switched_power_w":
+                           model.components["ILU-CIR-001"].parameters.get("connected_power_w"),
+                           "rated_current_a": None},
+               flow_direction="contactor_hacia_circuito",
+               requires_calculation=["rated_current_a"])
+
+    # --- un controlador y una fuente por zona de realce --------------------
+    by_zone: Dict[str, List[Tuple[str, float]]] = {}
+    for fid, zone, watts in fixtures:
+        by_zone.setdefault(zone, []).append((fid, watts))
+
+    # Troncal de datos a lo largo del tablero: sin el, el gabinete del estribo
+    # no alcanza a los proyectores del vano central.
+    if by_zone:
+        y_data = round(half - B.HYP_BARRIER_WIDTH - 0.30, 4)
+        _, data_len = K.add_route(
+            model, component_id="CTL-RED", discipline="control", type="data_conduit",
+            name="Troncal de datos de iluminacion",
+            polylines=[[(2.5, -y_data, round(base + 0.10, 4)),
+                        (B.REQ_LENGTH - 2.5, -y_data, round(base + 0.10, 4))]],
+            diameter=B.HYP_DATA_CONDUIT_DIAMETER, material="pvc",
+            ifc_class="IfcCableCarrierSegment", layer="CTL-RED", level_id="TAB",
+            parameters={"protocol": cfg["data_protocol"],
+                        "segregation_from_power": "canalizacion independiente",
+                        "cable_type": None, "max_segment_length_m": None,
+                        "shielding": None},
+            requires_calculation=["cable_type", "max_segment_length_m", "shielding"],
+            tags=["control", "red"],
+            op_description=("Troncal de datos separado de la canalizacion de potencia: "
+                            "compartir tubo con el alumbrado induce ruido en el bus."),
+            derived_from=["HYP_DATA_CONDUIT_DIAMETER"],
+        )
+    else:
+        data_len = 0.0
+
+    for i, zone in enumerate(B.HYP_CONTROL_ZONES, start=1):
+        group = by_zone.get(zone, [])
+        if not group:
+            continue
+        x = round(B.REQ_LENGTH * i / (len(B.HYP_CONTROL_ZONES) + 1), 4)
+        connected = round(sum(w for _, w in group), 2)
+        current = round(connected / (cfg["nominal_voltage_v"] * B.HYP_POWER_FACTOR), 3)
+
+        dx, dy, dz = cfg["controller_box_m"]
+        ctrl = "CTL-DMX-%02d" % i
+        K.add_device(
+            model, component_id=ctrl, discipline="control", type="lighting_controller",
+            name="Controlador de iluminacion, zona %s" % zone, level_id="TAB",
+            xyz=(x, -y_cab, round(base + 0.35, 4)), box=(dx, dy, dz),
+            material="equipo_generico", ifc_class="IfcController", layer="CTL-EQUIPOS",
+            parameters={"control_zone": zone, "fixture_count": len(group),
+                        "data_protocol": cfg["data_protocol"],
+                        "universes_required": None, "addresses_assigned": None,
+                        "scene_program": None, "network_address": None,
+                        "failover_behaviour": None},
+            requires_calculation=["universes_required", "addresses_assigned",
+                                  "scene_program", "network_address",
+                                  "failover_behaviour"],
+            tags=["control", "embebido", "dmx"],
+            op_description=("Controlador de la zona %s, con %d proyectores a su cargo. "
+                            "El numero de universos depende de los nodos LED por "
+                            "proyector, que no esta definido." % (zone, len(group))),
+            derived_from=["HYP_CONTROL"],
+            validation_notes=["Un universo DMX512 direcciona 512 canales; sin saber "
+                              "los canales por proyector no se puede repartir."],
+        )
+        model.relate(ctrl, "commanded_by", cab)
+
+        dx, dy, dz = cfg["driver_box_m"]
+        psu = "CTL-FTE-%02d" % i
+        K.add_device(
+            model, component_id=psu, discipline="control", type="led_driver",
+            name="Fuente y driver, zona %s" % zone, level_id="TAB",
+            xyz=(round(x + 0.6, 4), -y_cab, round(base + 0.35, 4)), box=(dx, dy, dz),
+            material="equipo_generico", ifc_class="IfcElectricDistributionBoard",
+            layer="CTL-EQUIPOS",
+            parameters={"control_zone": zone, "fixture_count": len(group),
+                        "connected_power_w": connected,
+                        "nominal_voltage_v": cfg["nominal_voltage_v"],
+                        "derived_current_a": current,
+                        "current_derivation": "P/(V*fp)",
+                        "power_factor_assumed": B.HYP_POWER_FACTOR,
+                        "output_voltage_v": None, "efficiency": None,
+                        "dimming_curve": None, "thermal_derating": None},
+            requires_calculation=["output_voltage_v", "efficiency", "dimming_curve",
+                                  "thermal_derating"],
+            tags=["control", "fuente"],
+            op_description=("Fuente de la zona %s. Potencia conectada por suma de "
+                            "potencias nominales declaradas; corriente derivada de "
+                            "P/(V x fp) con fp=%.2f." % (zone, B.HYP_POWER_FACTOR)),
+            derived_from=["HYP_CONTROL", "HYP_POWER_FACTOR"],
+            validation_notes=["La corriente es aritmetica sobre hipotesis, no una "
+                              "medicion. Sin rendimiento declarado no hay consumo real."],
+        )
+        K.link(model, connection_id="CNX-%s-%s" % (ctrl, psu), discipline="control",
+               type="signal", origin=ctrl, destination=psu,
+               medium="bus_de_datos", technology=cfg["data_protocol"],
+               parameters={"protocol": cfg["data_protocol"], "cable_type": None},
+               flow_direction="controlador_hacia_fuente",
+               requires_calculation=["cable_type"])
+        for fid, _w in group:
+            model.relate(fid, "driven_by", psu)
+
+
 BUILDERS = {
     "structure": [build_foundations, build_piers, build_abutments, build_bearings,
                   build_superstructure, build_towers_and_stays, build_joints],
     "deck": [build_deck],
     "barriers": [build_barriers],
     "drainage": [build_drainage],
-    "lighting": [build_lighting],
+    "lighting": [build_lighting, build_architectural_lighting],
     "signage": [build_signage],
     "instrumentation": [build_instrumentation],
+    "control": [build_control],
 }
 
 # La estructura y el tablero son la base geometrica del resto.
@@ -1488,6 +1895,8 @@ REQUIRED_BY = {
     "lighting": {"structure", "deck"},
     "signage": {"structure", "deck"},
     "instrumentation": {"structure"},
+    # El control manda sobre el alumbrado: sin luminarias no hay nada que mandar.
+    "control": {"structure", "deck", "lighting"},
 }
 
 

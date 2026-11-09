@@ -14,6 +14,7 @@ import {
   type BridgeSpecification,
   type BridgeType,
 } from './contracts';
+import { matchReferenceBridge, specificationFor } from './reference-bridges';
 
 const NUMBER_WORDS: Record<string, number> = {
   un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
@@ -100,6 +101,7 @@ const DISCIPLINE_PATTERNS: { re: RegExp; key: BridgeDisciplineKey }[] = [
   { re: /\b(?:iluminacion|luminarias?|alumbrado|postes? de luz)\b/, key: 'lighting' },
   { re: /\b(?:senalizacion|senales?|senaletica)\b/, key: 'signage' },
   { re: /\b(?:instrumentacion|sensores?|monitoreo|acelerometros?|galgas?)\b/, key: 'instrumentation' },
+  { re: /\b(?:control|controlador(?:es)?|embebidos?|automatizacion|domotica|dmx|fotocelda)\b/, key: 'control' },
 ];
 
 /** Tipologías o elementos que este generador no cubre. */
@@ -128,6 +130,13 @@ function describesBuilding(text: string): boolean {
 
 export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   const text = normalize(prompt);
+
+  // Si el enunciado nombra una obra real documentada, se carga su ficha en vez
+  // de interpretar el texto. Un reparto de vanos o unas coordenadas no son
+  // deducibles de una frase: o están registrados con su fuente, o no existen.
+  const reference = matchReferenceBridge(text);
+  if (reference) return specificationFor(reference);
+
   const assumptions: string[] = [
     'Interpretación local por reglas y patrones de texto; no se usó un modelo de IA ni se envió información a ningún servicio externo.',
   ];
@@ -266,6 +275,12 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
     lanes,
     sidewalks,
     disciplines,
+    // El intérprete de lenguaje no deduce estos tres: un reparto de vanos, la
+    // altura de torre de proyecto y el emplazamiento son datos de obra que se
+    // cargan explícitamente, no frases que se adivinen de un enunciado.
+    spanLengthsM: null,
+    towerHeightM: null,
+    site: null,
     assumptions,
     questions,
     unrecognized,

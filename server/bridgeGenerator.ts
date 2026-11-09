@@ -40,6 +40,26 @@ const MAX_SPANS = 20;
 
 const ALLOWED_TYPES = new Set(['beam', 'slab', 'cable_stayed']);
 
+const MAX_TOWER_HEIGHT_M = 400;
+
+/**
+ * Campos admitidos del emplazamiento. Es una lista blanca: lo que no está
+ * aquí no viaja al generador. Cada entrada declara cómo se valida, porque un
+ * texto libre y una latitud no se comprueban igual.
+ */
+const SITE_TEXT_FIELDS = [
+  'country', 'region', 'municipality', 'description', 'crosses',
+  'coordinate_system', 'seismic_hazard_zone', 'soil_profile_type',
+] as const;
+
+const SITE_NUMERIC_FIELDS: Record<string, [number, number]> = {
+  latitude_deg: [-90, 90],
+  longitude_deg: [-180, 180],
+  ground_elevation_m: [-500, 6000],
+  design_wind_speed_kmh: [0, 400],
+  rainfall_intensity_mm_h: [0, 500],
+};
+
 const ALLOWED_DISCIPLINES = new Set([
   'structure',
   'deck',
@@ -48,6 +68,7 @@ const ALLOWED_DISCIPLINES = new Set([
   'lighting',
   'signage',
   'instrumentation',
+  'control',
 ]);
 
 export interface BridgeGeneratorSpec {
@@ -61,6 +82,57 @@ export interface BridgeGeneratorSpec {
   sidewalks?: boolean;
   project_name?: string;
   disciplines?: string[];
+  span_lengths?: number[];
+  tower_height_m?: number;
+  site?: Record<string, unknown>;
+}
+
+/**
+ * Valida el emplazamiento declarado.
+ *
+ * No completa nada: un campo ausente se queda ausente y el generador lo
+ * contará como pendiente. La procedencia se admite como texto corto por
+ * campo, para que un dato publicado nunca se confunda con uno levantado.
+ */
+function requireSite(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new GenerateRequestError(
+      'El emplazamiento debe ser un objeto.', 400, 'INVALID_SITE',
+    );
+  }
+  const input = value as Record<string, unknown>;
+  const site: Record<string, unknown> = {};
+  for (const key of SITE_TEXT_FIELDS) {
+    if (input[key] !== undefined && input[key] !== null) {
+      site[key] = requireShortText(input[key], `site.${key}`);
+    }
+  }
+  for (const [key, [min, max]] of Object.entries(SITE_NUMERIC_FIELDS)) {
+    if (input[key] !== undefined && input[key] !== null) {
+      site[key] = requireFiniteInRange(input[key], `site.${key}`, min, max);
+    }
+  }
+  if (input.provenance !== undefined && input.provenance !== null) {
+    const raw = input.provenance;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new GenerateRequestError(
+        'site.provenance debe ser un objeto campo → origen.', 400, 'INVALID_SITE',
+      );
+    }
+    const provenance: Record<string, string> = {};
+    const entries = Object.entries(raw as Record<string, unknown>);
+    if (entries.length > 40) {
+      throw new GenerateRequestError(
+        'site.provenance declara demasiados campos.', 400, 'INVALID_SITE',
+      );
+    }
+    for (const [key, origin] of entries) {
+      provenance[requireShortText(key, 'site.provenance')] =
+        requireShortText(origin, `site.provenance.${key}`);
+    }
+    site.provenance = provenance;
+  }
+  return site;
 }
 
 /** Valida y normaliza la especificación. Rechaza todo lo que no reconoce. */
@@ -98,6 +170,31 @@ export function validateBridgeSpec(value: unknown): BridgeGeneratorSpec {
   }
   if (input.span_count !== undefined) {
     spec.span_count = requireInteger(input.span_count, 'El número de vanos', MIN_SPANS, MAX_SPANS);
+  }
+  if (input.span_lengths !== undefined) {
+    const raw = input.span_lengths;
+    if (!Array.isArray(raw)) {
+      throw new GenerateRequestError(
+        'span_lengths debe ser una lista de longitudes de vano.', 400, 'INVALID_SPAN_LENGTHS',
+      );
+    }
+    if (raw.length < MIN_SPANS || raw.length > MAX_SPANS) {
+      throw new GenerateRequestError(
+        `span_lengths debe declarar entre ${MIN_SPANS} y ${MAX_SPANS} vanos.`,
+        400,
+        'INVALID_SPAN_LENGTHS',
+      );
+    }
+    spec.span_lengths = raw.map((item, index) =>
+      requireFiniteInRange(item, `El vano ${index + 1}`, 0.5, MAX_LENGTH_M));
+  }
+  if (input.tower_height_m !== undefined) {
+    spec.tower_height_m = requireFiniteInRange(
+      input.tower_height_m, 'La altura de torre sobre el tablero', 0.5, MAX_TOWER_HEIGHT_M,
+    );
+  }
+  if (input.site !== undefined) {
+    spec.site = requireSite(input.site);
   }
   if (input.girder_count !== undefined) {
     spec.girder_count = requireInteger(input.girder_count, 'El número de vigas principales', 2, 12);

@@ -29,6 +29,9 @@ const EXAMPLES = [
   'Puente de vigas de 90 m de longitud, 10 m de ancho de tablero, tablero a 7 m sobre el terreno, 3 vanos, 4 vigas principales y 2 carriles con aceras.',
   'Puente de losa de 24 m de longitud y 9 m de ancho, tablero a 5 m sobre el cauce, 2 carriles sin aceras.',
   'Puente atirantado de 240 m de longitud y 16 m de ancho de tablero, tablero a 22 m sobre el terreno, 3 vanos y 4 carriles.',
+  // Obra real: nombrarla carga su ficha documentada en vez de interpretar el
+  // texto. Las fuentes de cada dato aparecen en los supuestos.
+  'Viaducto de la Novena, Bucaramanga.',
 ];
 
 const bridgeDomain: StudioDomainConfig<BridgeSpecification> = {

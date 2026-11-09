@@ -146,6 +146,8 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
             "clashes_by_severity": clash["by_severity"],
             "actionable_clashes": actionable,
         },
+        "site": dict(B.SITE),
+        "site_pending": B.site_pending(),
         "pending": {"null_parameters": nulls, "declarations": declarations},
         "engineering": engineering_report,
         "professional_review": "not_reviewed",

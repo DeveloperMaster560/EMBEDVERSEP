@@ -46,6 +46,16 @@ REQ_GIRDER_COUNT = 4        # vigas principales (solo en tipologia de vigas)
 REQ_LANES = 2               # carriles de circulacion
 REQ_SIDEWALKS = True        # aceras a ambos lados
 
+# Reparto de vanos. Vacio = vanos iguales (longitud / numero de vanos). Con
+# valores explicitos el generador respeta el reparto real de la obra, que en
+# un atirantado nunca es uniforme: el vano central es mucho mayor que los
+# laterales. La suma debe coincidir con REQ_LENGTH.
+REQ_SPAN_LENGTHS: Tuple[float, ...] = ()
+
+# Altura de torre SOBRE EL TABLERO. None = se deduce de la luz. Se admite
+# explicita porque en una obra real es un dato de proyecto, no una proporcion.
+REQ_TOWER_HEIGHT: Any = None
+
 # ---------------------------------------------------------------------------
 # HYP_* — hipotesis geometricas conceptuales
 # ---------------------------------------------------------------------------
@@ -120,6 +130,46 @@ HYP_LUMINAIRE = {
 }
 HYP_CONDUIT_DIAMETER = 0.0508
 
+# Iluminacion arquitectonica (realce). Es la que da identidad nocturna a un
+# puente singular y se gobierna por color, no por iluminancia de calzada: por
+# eso va separada del alumbrado vial y no comparte ni circuito ni mando.
+HYP_ARCH_LIGHTING = True
+HYP_STAY_FIXTURE = {
+    "model_ref": "proyector lineal RGBW para tirante (hipotesis de seleccion)",
+    "nominal_power_w": 75.0,
+    "nominal_voltage_v": 208.0,
+    "body_m": (0.90, 0.12, 0.12),
+}
+HYP_TOWER_FLOODLIGHT = {
+    "model_ref": "proyector de gran alcance RGBW para torre (hipotesis de seleccion)",
+    "nominal_power_w": 310.0,
+    "nominal_voltage_v": 208.0,
+    "body_m": (0.36, 0.30, 0.40),
+}
+HYP_FLOODLIGHTS_PER_LEG = 4
+HYP_BARRIER_ACCENT = {
+    "model_ref": "bañador lineal RGB de barrera (hipotesis de seleccion)",
+    "nominal_power_w": 24.0,
+    "nominal_voltage_v": 208.0,
+    "body_m": (1.20, 0.10, 0.08),
+}
+HYP_BARRIER_ACCENT_SPACING = 20.0
+
+# Control y sistemas embebidos del alumbrado.
+HYP_CONTROL = {
+    # Un controlador gobierna un numero limitado de universos DMX; el reparto
+    # real depende del numero de nodos direccionables, que no conocemos.
+    "universes_per_controller": None,
+    "nominal_voltage_v": 208.0,
+    "data_protocol": "Ethernet con DMX512 sobre el bus local",
+    "cabinet_box_m": (0.80, 0.40, 1.20),
+    "controller_box_m": (0.44, 0.22, 0.18),
+    "driver_box_m": (0.36, 0.22, 0.14),
+    "photocell_box_m": (0.12, 0.12, 0.16),
+}
+HYP_CONTROL_ZONES = ("tirantes", "torres", "barreras", "vial")
+HYP_DATA_CONDUIT_DIAMETER = 0.0381
+
 # Senalizacion
 HYP_SIGN_SPACING = 30.0
 HYP_SIGN_SIZE = (0.90, 0.05, 0.90)
@@ -164,6 +214,7 @@ DISCIPLINES = (
     "lighting",         # postes, luminarias, canalizacion
     "signage",          # senales y marcas viales
     "instrumentation",  # sensores estructurales y su cableado
+    "control",          # controladores, fuentes y mando del alumbrado
 )
 
 DISCIPLINE_LABEL = {
@@ -174,11 +225,13 @@ DISCIPLINE_LABEL = {
     "lighting": "Iluminacion",
     "signage": "Senalizacion",
     "instrumentation": "Instrumentacion",
+    "control": "Control y sistemas embebidos",
 }
 
 # Los servicios son las disciplinas que discurren POR la estructura: si una de
 # ellas ocupa el mismo volumen que una viga o una pila, es un error de trazado.
-SERVICE_DISCIPLINES = {"drainage", "lighting", "signage", "instrumentation"}
+SERVICE_DISCIPLINES = {"drainage", "lighting", "signage", "instrumentation",
+                       "control"}
 
 MATERIALS = {
     "concreto_estructural": {
@@ -296,6 +349,76 @@ PENDING_PARAMETERS: List[Dict[str, Any]] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Emplazamiento
+# ---------------------------------------------------------------------------
+
+# Un puente no es un objeto abstracto: su sismo, su viento, su lluvia y hasta
+# la hora a la que se enciende dependen de DONDE esta. Cada campo lleva su
+# procedencia para que nadie confunda un dato publicado con uno levantado en
+# campo, y lo que no se sabe se queda en None.
+SITE: Dict[str, Any] = {
+    "country": None, "region": None, "municipality": None,
+    "description": None, "crosses": None,
+    "latitude_deg": None, "longitude_deg": None,
+    "ground_elevation_m": None, "coordinate_system": None,
+    "seismic_hazard_zone": None, "design_wind_speed_kmh": None,
+    "rainfall_intensity_mm_h": None, "soil_profile_type": None,
+    "provenance": {},
+}
+
+SITE_NUMERIC = {"latitude_deg": (-90.0, 90.0), "longitude_deg": (-180.0, 180.0),
+                "ground_elevation_m": (-500.0, 6000.0),
+                "design_wind_speed_kmh": (0.0, 400.0),
+                "rainfall_intensity_mm_h": (0.0, 500.0)}
+
+
+def apply_site(raw: Any) -> List[str]:
+    """Carga el emplazamiento declarado. No inventa ni completa campos."""
+    notes: List[str] = []
+    if not raw:
+        return notes
+    if not isinstance(raw, dict):
+        raise SpecError("site debe ser un objeto con los datos del emplazamiento.")
+    for key, value in raw.items():
+        if key == "provenance":
+            if not isinstance(value, dict):
+                raise SpecError("site.provenance debe ser un objeto campo -> origen.")
+            SITE["provenance"] = {str(k)[:60]: str(v)[:200] for k, v in value.items()}
+            continue
+        if key not in SITE:
+            notes.append("Campo de emplazamiento ignorado por desconocido: %s." % key)
+            continue
+        if value is None:
+            continue
+        if key in SITE_NUMERIC:
+            lo, hi = SITE_NUMERIC[key]
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                raise SpecError("site.%s debe ser numerico." % key)
+            if not (lo <= number <= hi) or not math.isfinite(number):
+                raise SpecError("site.%s = %r esta fuera del rango %s a %s."
+                                % (key, value, lo, hi))
+            SITE[key] = number
+        else:
+            SITE[key] = str(value)[:300]
+    # Lo que se declara sin decir de donde viene no es trazable.
+    sin_origen = [k for k, v in SITE.items()
+                  if k not in ("provenance",) and v is not None
+                  and k not in SITE["provenance"]]
+    if sin_origen:
+        notes.append(
+            "Emplazamiento: %d campos declarados sin procedencia (%s). Se conservan, "
+            "pero no son trazables." % (len(sin_origen), ", ".join(sorted(sin_origen)[:6])))
+    return notes
+
+
+def site_pending() -> List[str]:
+    """Campos del emplazamiento que siguen sin determinar."""
+    return sorted(k for k, v in SITE.items() if k != "provenance" and v is None)
+
+
+# ---------------------------------------------------------------------------
 # Derivados
 # ---------------------------------------------------------------------------
 
@@ -322,8 +445,18 @@ def _recompute() -> None:
     global DECK_TOP, DECK_BOTTOM, STRUCTURE_BOTTOM, CARRIAGEWAY_WIDTH
     global TOWER_AXES, TOWER_HEIGHT
 
-    SPAN_LENGTH = REQ_LENGTH / REQ_SPAN_COUNT
-    SPAN_EDGES = tuple(round(i * SPAN_LENGTH, 4) for i in range(REQ_SPAN_COUNT + 1))
+    if REQ_SPAN_LENGTHS:
+        edges = [0.0]
+        for length in REQ_SPAN_LENGTHS:
+            edges.append(round(edges[-1] + length, 4))
+        SPAN_EDGES = tuple(edges)
+        # Con vanos desiguales el canto, la altura de torre y las comprobaciones
+        # se gobiernan por el vano MAYOR: es el que manda en el dimensionado.
+        SPAN_LENGTH = max(REQ_SPAN_LENGTHS)
+    else:
+        SPAN_LENGTH = REQ_LENGTH / REQ_SPAN_COUNT
+        SPAN_EDGES = tuple(round(i * SPAN_LENGTH, 4)
+                           for i in range(REQ_SPAN_COUNT + 1))
     PIER_AXES = SPAN_EDGES[1:-1]
 
     DECK_TOP = REQ_DECK_HEIGHT
@@ -351,9 +484,27 @@ def _recompute() -> None:
     CARRIAGEWAY_WIDTH = round(REQ_WIDTH - 2 * edge - 2 * HYP_CURB_WIDTH, 4)
 
     if REQ_TYPE == "cable_stayed":
-        # Dos torres, en los tercios de la longitud total.
-        TOWER_AXES = (round(REQ_LENGTH / 3.0, 4), round(2.0 * REQ_LENGTH / 3.0, 4))
-        TOWER_HEIGHT = round(SPAN_LENGTH * HYP_TOWER_HEIGHT_RATIO * 3.0, 4)
+        if REQ_SPAN_LENGTHS:
+            # Las torres flanquean el vano principal: es donde van en una obra
+            # real, porque son ellas las que lo sostienen. Si el vano mayor
+            # muere en un estribo no hay dos pilas que las reciban y se vuelve
+            # al reparto en tercios.
+            main = max(range(len(REQ_SPAN_LENGTHS)),
+                       key=lambda i: REQ_SPAN_LENGTHS[i])
+            left, right = SPAN_EDGES[main], SPAN_EDGES[main + 1]
+            if left > 0.0 and right < REQ_LENGTH:
+                TOWER_AXES = (left, right)
+            else:
+                TOWER_AXES = (round(REQ_LENGTH / 3.0, 4),
+                              round(2.0 * REQ_LENGTH / 3.0, 4))
+        else:
+            # Dos torres, en los tercios de la longitud total.
+            TOWER_AXES = (round(REQ_LENGTH / 3.0, 4),
+                          round(2.0 * REQ_LENGTH / 3.0, 4))
+        if REQ_TOWER_HEIGHT is not None:
+            TOWER_HEIGHT = float(REQ_TOWER_HEIGHT)
+        else:
+            TOWER_HEIGHT = round(SPAN_LENGTH * HYP_TOWER_HEIGHT_RATIO * 3.0, 4)
     else:
         TOWER_AXES = ()
         TOWER_HEIGHT = 0.0
@@ -371,6 +522,9 @@ SPEC_FIELDS = {
     "project_name": "PROJECT_NAME",
 }
 
+# Campos que no son escalares y se validan aparte en apply_spec.
+SPEC_FIELDS_SPECIAL = ("span_lengths", "tower_height_m")
+
 
 def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     """Aplica una solicitud de puente y recalcula lo derivado.
@@ -381,9 +535,15 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
     global REQ_TYPE, REQ_LENGTH, REQ_WIDTH, REQ_DECK_HEIGHT, REQ_SPAN_COUNT
     global REQ_GIRDER_COUNT, REQ_LANES, REQ_SIDEWALKS, PROJECT_NAME, SPEC_ADJUSTMENTS
+    global REQ_SPAN_LENGTHS, REQ_TOWER_HEIGHT
 
     g = globals()
     adjustments: List[str] = []
+
+    # El emplazamiento no se arrastra de una generacion a la anterior.
+    for key in SITE:
+        SITE[key] = {} if key == "provenance" else None
+    adjustments.extend(apply_site(spec.get("site")))
 
     for key, const in SPEC_FIELDS.items():
         if key in spec and spec[key] is not None:
@@ -396,6 +556,55 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             elif isinstance(current, float):
                 value = float(value)
             g[const] = value
+
+    # --- reparto explicito de vanos -------------------------------------
+    # Se lee antes que nada porque fija a la vez el numero de vanos y la
+    # longitud total, y las comprobaciones posteriores dependen de ambos.
+    if "span_lengths" in spec and spec["span_lengths"]:
+        raw = spec["span_lengths"]
+        if not isinstance(raw, (list, tuple)):
+            raise SpecError("span_lengths debe ser una lista de longitudes de vano.")
+        try:
+            lengths = [float(v) for v in raw]
+        except (TypeError, ValueError):
+            raise SpecError("span_lengths contiene un valor que no es numerico.")
+        if not lengths:
+            raise SpecError("span_lengths esta vacio.")
+        if len(lengths) > MAX_SPANS:
+            raise SpecError(
+                "span_lengths define %d vanos, por encima del limite de %d."
+                % (len(lengths), MAX_SPANS))
+        for i, length in enumerate(lengths, start=1):
+            if not (length > 0.0) or not math.isfinite(length):
+                raise SpecError(
+                    "El vano %d de span_lengths (%r) no es una longitud positiva."
+                    % (i, raw[i - 1]))
+        total = round(sum(lengths), 4)
+        if "length_m" in spec and spec["length_m"] is not None:
+            # No se corrige en silencio: o coinciden, o es un error de la
+            # solicitud que el usuario debe resolver.
+            if abs(total - float(spec["length_m"])) > 0.05:
+                raise SpecError(
+                    "Los vanos suman %.2f m pero la longitud declarada es %.2f m. "
+                    "Corrige uno de los dos datos; el generador no elige por ti."
+                    % (total, float(spec["length_m"])))
+        REQ_LENGTH = total
+        REQ_SPAN_COUNT = len(lengths)
+        REQ_SPAN_LENGTHS = tuple(round(v, 4) for v in lengths)
+    else:
+        REQ_SPAN_LENGTHS = ()
+
+    if "tower_height_m" in spec and spec["tower_height_m"] is not None:
+        try:
+            REQ_TOWER_HEIGHT = float(spec["tower_height_m"])
+        except (TypeError, ValueError):
+            raise SpecError("tower_height_m debe ser un numero en metros.")
+        if not (0.0 < REQ_TOWER_HEIGHT <= 400.0) or not math.isfinite(REQ_TOWER_HEIGHT):
+            raise SpecError(
+                "La altura de torre sobre el tablero (%r m) esta fuera del rango "
+                "admisible de 0 a 400 m." % spec["tower_height_m"])
+    else:
+        REQ_TOWER_HEIGHT = None
 
     if REQ_TYPE not in SUPPORTED_TYPES:
         raise SpecError(
@@ -434,8 +643,17 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         raise SpecError(
             "El numero de vanos debe estar entre %d y %d." % (MIN_SPANS, MAX_SPANS))
     limit = MAX_SPAN_LENGTH[REQ_TYPE]
+    if REQ_SPAN_LENGTHS:
+        # Con reparto explicito no se reajusta el numero de vanos: se comprueba
+        # vano a vano. Repartir de nuevo destruiria el dato que da el usuario.
+        for i, length in enumerate(REQ_SPAN_LENGTHS, start=1):
+            if length > limit:
+                raise SpecError(
+                    "El vano %d mide %.2f m y supera la luz maxima conceptual de "
+                    "%.0f m que este generador resuelve para un %s."
+                    % (i, length, limit, TYPE_LABEL[REQ_TYPE].lower()))
     needed = max(1, int(math.ceil(REQ_LENGTH / limit)))
-    if needed > REQ_SPAN_COUNT:
+    if not REQ_SPAN_LENGTHS and needed > REQ_SPAN_COUNT:
         if needed > MAX_SPANS:
             raise SpecError(
                 "Un %s de %.2f m exigiria %d vanos para no superar la luz maxima "
@@ -487,6 +705,9 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             "deck_height_m": REQ_DECK_HEIGHT,
             "span_count": REQ_SPAN_COUNT,
             "span_length_m": round(SPAN_LENGTH, 4),
+            "span_lengths_m": ([round(v, 3) for v in REQ_SPAN_LENGTHS]
+                               if REQ_SPAN_LENGTHS else None),
+            "span_layout": ("explicito" if REQ_SPAN_LENGTHS else "vanos iguales"),
             "girder_count": REQ_GIRDER_COUNT if REQ_TYPE == "beam" else 0,
             "girder_depth_m": round(GIRDER_DEPTH, 4),
             "pier_axes": [round(v, 3) for v in PIER_AXES],
@@ -497,6 +718,8 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             "sidewalks": REQ_SIDEWALKS,
             "tower_axes": [round(v, 3) for v in TOWER_AXES],
             "tower_height_m": TOWER_HEIGHT,
+            "site": dict(SITE),
+            "site_pending": site_pending(),
         },
         "adjustments": list(SPEC_ADJUSTMENTS),
     }
@@ -506,9 +729,15 @@ def domain_checks() -> List[Tuple[str, bool, Any]]:
     """Comprobaciones dimensionales propias de un puente."""
     return [
         ("unidades de longitud declaradas en metros", UNITS_LENGTH == "m", ""),
+        # Se comprueba sobre los bordes, no sobre luz x numero: con vanos
+        # desiguales ese producto no significa nada.
         ("los vanos suman la longitud total",
-         abs(SPAN_LENGTH * REQ_SPAN_COUNT - REQ_LENGTH) < 1e-6,
-         "%.4f x %d vs %.4f" % (SPAN_LENGTH, REQ_SPAN_COUNT, REQ_LENGTH)),
+         bool(SPAN_EDGES) and abs(SPAN_EDGES[-1] - REQ_LENGTH) < 1e-3,
+         "borde final %.4f vs longitud %.4f"
+         % (SPAN_EDGES[-1] if SPAN_EDGES else -1.0, REQ_LENGTH)),
+        ("hay un borde de vano mas que vanos",
+         len(SPAN_EDGES) == REQ_SPAN_COUNT + 1,
+         "%d bordes, %d vanos" % (len(SPAN_EDGES), REQ_SPAN_COUNT)),
         ("hay una pila menos que vanos",
          len(PIER_AXES) == REQ_SPAN_COUNT - 1,
          "%d pilas, %d vanos" % (len(PIER_AXES), REQ_SPAN_COUNT)),

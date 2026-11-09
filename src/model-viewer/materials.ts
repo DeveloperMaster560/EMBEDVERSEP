@@ -137,6 +137,7 @@ export const DISCIPLINE_COLOR: Record<string, string> = {
   lighting: '#f2b134',
   signage: '#b06ad1',
   instrumentation: '#27b9b0',
+  control: '#7a86f0',
 };
 
 export function presetFor(materialKey: string | null | undefined): MaterialPreset {

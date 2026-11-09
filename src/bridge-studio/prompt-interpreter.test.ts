@@ -5,7 +5,7 @@ import {
   interpretBridgePrompt,
   isReadyToGenerate,
 } from './prompt-interpreter';
-import { toGeneratorSpec, validateSpecification } from './contracts';
+import { ALL_BRIDGE_DISCIPLINES, toGeneratorSpec, validateSpecification } from './contracts';
 
 describe('interpretBridgePrompt', () => {
   it('extrae tipología, dimensiones, vanos, vigas y carriles', () => {
@@ -82,9 +82,9 @@ describe('interpretBridgePrompt', () => {
     expect(interpretBridgePrompt('Puente de 30 m').sidewalks).toBeNull();
   });
 
-  it('genera las siete disciplinas cuando no se nombra ninguna', () => {
+  it('genera todas las disciplinas cuando no se nombra ninguna', () => {
     const spec = interpretBridgePrompt('Puente de 40 m de longitud y 8 m de ancho de tablero.');
-    expect(spec.disciplines).toHaveLength(7);
+    expect(spec.disciplines).toEqual(ALL_BRIDGE_DISCIPLINES);
   });
 
   it('respeta las disciplinas que sí se nombran', () => {
@@ -161,7 +161,8 @@ describe('toGeneratorSpec', () => {
       lanes: 2,
       sidewalks: true,
       disciplines: [
-        'structure', 'deck', 'barriers', 'drainage', 'lighting', 'signage', 'instrumentation',
+        'structure', 'deck', 'barriers', 'drainage', 'lighting', 'signage',
+        'instrumentation', 'control',
       ],
     });
   });

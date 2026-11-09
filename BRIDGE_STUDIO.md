@@ -285,3 +285,59 @@ del dominio que lo invoca.
 
 Pruebas: `npm test` cubre el intérprete, el contrato, el convenio de nombres de
 zonas, la presentación de materiales y la validación del endpoint.
+
+## Obras de referencia documentadas
+
+Un enunciado en lenguaje natural no puede llevar el reparto de vanos de una
+obra concreta, su altura de torre de proyecto ni sus coordenadas: son datos de
+obra, no frases deducibles. `src/bridge-studio/reference-bridges.ts` guarda
+fichas de obras reales con **la fuente de cada dato**; nombrar la obra en el
+enunciado carga su ficha en lugar de interpretar el texto.
+
+Reglas de toda ficha:
+
+1. Cada dato dimensional lleva su fuente en `sources`.
+2. Lo que las fuentes no dicen queda en `null` y el generador lo cuenta como
+   pendiente. Nunca se rellena por simetría ni por analogía.
+3. Una ficha reproduce la geometría **publicada**, que es un punto de partida
+   verificable, no un gemelo digital de lo construido.
+4. Donde las fuentes se contradicen se dice en `caveats`, que viajan a la
+   pantalla como advertencias antes de generar.
+
+Primera ficha: **Viaducto de la Novena** (Bucaramanga). Ver `VIADUCTO_NOVENA.md`.
+
+## Reparto explícito de vanos
+
+`span_lengths` fija el reparto real de la obra y `tower_height_m` la altura de
+torre de proyecto. Sin ellos el generador reparte en partes iguales y coloca
+las torres en los tercios de la longitud, que es una aproximación aceptable
+para un estudio conceptual y **falsa para una obra concreta**: en el Viaducto
+de la Novena desplazaría las torres 46 m.
+
+Con reparto explícito, el generador:
+
+- respeta el reparto y no lo reajusta (reajustarlo destruiría el dato);
+- comprueba **vano a vano** contra la luz máxima de la tipología;
+- rechaza que los vanos no sumen la longitud declarada, en vez de corregir uno
+  de los dos en silencio;
+- coloca las torres del atirantado **flanqueando el vano principal**;
+- gobierna el canto y la altura de torre por el **vano mayor**.
+
+## Disciplina de control
+
+`control` modela el mando del alumbrado: gabinete, fotocelda, reloj
+astronómico, contactor, controladores por zona, fuentes y el troncal de datos,
+separado de la canalización de potencia porque compartir tubo induce ruido en
+el bus. La cadena fotocelda → contactor → circuito queda declarada como
+conexiones del modelo, no como texto.
+
+El realce arquitectónico (`build_architectural_lighting`) no comparte circuito
+ni mando con el alumbrado vial. Cada proyector es una **unidad direccionable**;
+el número de nodos LED que contiene y su dirección DMX quedan pendientes.
+
+## Emplazamiento
+
+`site` declara dónde está la obra, con `provenance` campo a campo. El generador
+avisa de los campos declarados sin procedencia y lista en `site_pending` los
+que faltan. El reloj astronómico hereda de ahí sus coordenadas; sin
+emplazamiento las declara pendientes en vez de inventarlas.

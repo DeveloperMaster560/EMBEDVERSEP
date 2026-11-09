@@ -1,0 +1,46 @@
+{
+  "project_name": "Viaducto Provincial Alejandro Galvis Ramírez (La Novena)",
+  "bridge_type": "cable_stayed",
+  "length_m": 550.8,
+  "width_m": 30,
+  "deck_height_m": 72,
+  "span_count": 3,
+  "lanes": 6,
+  "sidewalks": true,
+  "span_lengths": [
+    129.2,
+    292.4,
+    129.2
+  ],
+  "tower_height_m": 60,
+  "site": {
+    "country": "Colombia",
+    "region": "Santander",
+    "municipality": "Bucaramanga",
+    "description": "Conecta la Calle 45 con la Carrera 9 y la Ciudadela Real de Minas",
+    "crosses": "Cañadas de La Rosita y El Loro",
+    "latitude_deg": 7.10817,
+    "longitude_deg": -73.12984,
+    "coordinate_system": "WGS84 (grados decimales)",
+    "provenance": {
+      "country": "fuentes públicas",
+      "region": "fuentes públicas",
+      "municipality": "fuentes públicas",
+      "description": "prensa local (El Tiempo, El Universal)",
+      "crosses": "memoria de Carlos Fernández Casado S.L.",
+      "latitude_deg": "Structurae, aproximada — PENDIENTE de levantamiento",
+      "longitude_deg": "Structurae, aproximada — PENDIENTE de levantamiento",
+      "coordinate_system": "adoptado"
+    }
+  },
+  "disciplines": [
+    "structure",
+    "deck",
+    "barriers",
+    "drainage",
+    "lighting",
+    "signage",
+    "instrumentation",
+    "control"
+  ]
+}
