@@ -67,6 +67,13 @@ const bridgeDomain: StudioDomainConfig<BridgeSpecification> = {
         value: `${Number(applied.carriageway_width_m ?? 0).toFixed(2)} m · ${applied.lanes ?? '—'} carriles`,
       },
     ];
+    const mass = result.engineering?.totalMassKg ?? 0;
+    if (mass > 0) {
+      stats.push({
+        label: 'Masa estructural',
+        value: `${(mass / 1000).toLocaleString('es', { maximumFractionDigits: 0 })} t`,
+      });
+    }
     const towerHeight = Number(applied.tower_height_m ?? 0);
     if (towerHeight > 0) {
       stats.push({ label: 'Altura de torre', value: `${towerHeight.toFixed(2)} m` });

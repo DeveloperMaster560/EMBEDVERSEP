@@ -500,6 +500,51 @@ export function ModelStudio<S>({
               </div>
             </section>
 
+            {result.engineering && (
+              <section className="bs-section">
+                <h3>Propiedades derivadas</h3>
+                {result.engineering.embedlibAvailable ? (
+                  <>
+                    <ul className="bs-validation">
+                      <li>
+                        Secciones calculadas:{' '}
+                        <strong>{result.engineering.sectionPropertiesAdded}</strong> de{' '}
+                        {result.engineering.componentsExamined} piezas estructurales
+                      </li>
+                      <li>
+                        Peso propio calculado:{' '}
+                        <strong>{result.engineering.selfWeightAdded}</strong> piezas
+                        {result.engineering.skippedNoVolume > 0 &&
+                          ` · ${result.engineering.skippedNoVolume} sin densidad declarada`}
+                      </li>
+                      <li>
+                        Masa estructural:{' '}
+                        <strong>
+                          {(result.engineering.totalMassKg / 1000).toLocaleString('es', {
+                            maximumFractionDigits: 1,
+                          })}{' '}
+                          t
+                        </strong>{' '}
+                        ({result.engineering.totalWeightKN.toLocaleString('es', {
+                          maximumFractionDigits: 0,
+                        })}{' '}
+                        kN)
+                      </li>
+                    </ul>
+                    <p className="bs-hint">
+                      Solo se deduce lo que se sigue de la geometría y de una densidad declarada.
+                      Sigue sin calcularse: {result.engineering.stillPending.join(', ')}.
+                    </p>
+                  </>
+                ) : (
+                  <p className="bs-hint">
+                    No se calcularon secciones ni peso propio porque falta embedlib.{' '}
+                    {result.engineering.reasonUnavailable}
+                  </p>
+                )}
+              </section>
+            )}
+
             <section className="bs-section">
               <h3>Validación</h3>
               <ul className="bs-validation">

@@ -51,10 +51,18 @@ const buildingDomain: StudioDomainConfig<BuildingSpecification> = {
   toGeneratorSpec,
   headlineStats: (result: ModelGenerationResult) => {
     const area = Number(result.applied.total_area_m2 ?? 0);
-    return [
+    const mass = result.engineering?.totalMassKg ?? 0;
+    const stats = [
       { label: 'Recintos', value: String(result.counts.spaces) },
       { label: 'Área construida', value: `${area.toLocaleString('es')} m²` },
     ];
+    if (mass > 0) {
+      stats.push({
+        label: 'Masa estructural',
+        value: `${(mass / 1000).toLocaleString('es', { maximumFractionDigits: 0 })} t`,
+      });
+    }
+    return stats;
   },
 };
 

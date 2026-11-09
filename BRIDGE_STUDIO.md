@@ -198,6 +198,37 @@ host**.
 **No es un servicio de producción.** No tiene sandbox del sistema operativo ni
 cuota de memoria del proceso. No debe publicarse en una red.
 
+## Propiedades derivadas (embedlib)
+
+El generador calcula, para cada pieza estructural, **lo que se sigue de su propia
+geometría** y de una densidad declarada:
+
+| Qué | Cómo |
+|---|---|
+| Área, inercias y módulos resistentes | sección rectangular o circular según el **tipo** de pieza |
+| Propiedades por metro de ancho | en losas, zapatas y placas, que no tienen una sección única |
+| Peso propio | volumen real del sólido × densidad declarada del material |
+
+Los números provienen de `embedlib`, la biblioteca de cálculo del proyecto
+(repositorio aparte), de modo que la fórmula, su unidad y su referencia quedan
+trazadas en un solo sitio.
+
+**Lo que esto NO es.** No hay esfuerzos, flechas, armadura, pretensado ni
+combinaciones de carga: eso exige f'c, módulo elástico, cargas y factores de
+norma que el generador no conoce. Siguen declarados como pendientes en cada
+componente.
+
+El sistema se niega a calcular cuando falta el dato, en vez de inventarlo:
+
+- un apoyo de neopreno o una junta **sin densidad declarada** no recibe peso propio;
+- un tipo de pieza **no clasificado** no recibe sección, y aparece contado en
+  `uncovered_types` para que se vea que falta cubrirlo;
+- un nudo viga-columna, que no tiene geometría propia, no recibe sección.
+
+Si `embedlib` no está disponible no se rellena nada a medias: el informe dice por
+qué falta. Se busca en `EMBEDVERSE_EMBEDLIB`, en `vendor/embedlib/src` y junto al
+proyecto.
+
 ## 6. Alcance y límites
 
 Esto es lo que el módulo **sí** calcula, medido sobre el modelo:

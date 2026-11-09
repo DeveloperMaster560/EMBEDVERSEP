@@ -44,6 +44,29 @@ export interface GeneratedSpace {
   area_m2: number;
 }
 
+/**
+ * Propiedades que el generador dedujo de la geometria ya construida.
+ *
+ * Solo recogen lo que se sigue de la forma y de una densidad declarada:
+ * seccion y peso propio. No hay esfuerzos, flechas, armadura ni combinaciones
+ * de carga; eso exige f'c, cargas y factores de norma que el generador no
+ * conoce y que siguen enumerados en `stillPending`.
+ */
+export interface EngineeringReport {
+  embedlibAvailable: boolean;
+  embedlibVersion: string | null;
+  reasonUnavailable: string | null;
+  componentsExamined: number;
+  sectionPropertiesAdded: number;
+  selfWeightAdded: number;
+  skippedNoSection: number;
+  skippedNoVolume: number;
+  uncoveredTypes: Record<string, number>;
+  totalMassKg: number;
+  totalWeightKN: number;
+  stillPending: string[];
+}
+
 export interface ModelGenerationResult {
   schemaVersion: 1;
   projectId: string;
@@ -75,6 +98,8 @@ export interface ModelGenerationResult {
     nullParameters: number;
     declarations: number;
   };
+  /** Ausente cuando el generador es anterior a esta funcion. */
+  engineering: EngineeringReport | null;
   /** Siempre 'not_reviewed'. Ningún modelo generado está revisado. */
   professionalReview: 'not_reviewed';
   generationMs: number;
@@ -133,7 +158,27 @@ export function normalizeResult(
       nullParameters: Number(pending.null_parameters ?? 0),
       declarations: Number(pending.declarations ?? 0),
     },
+    engineering: normalizeEngineering(payload.engineering),
     professionalReview: 'not_reviewed',
     generationMs: Number(payload.generation_ms ?? 0),
+  };
+}
+
+function normalizeEngineering(value: unknown): EngineeringReport | null {
+  if (!value || typeof value !== 'object') return null;
+  const r = value as Record<string, unknown>;
+  return {
+    embedlibAvailable: r.embedlib_available === true,
+    embedlibVersion: typeof r.embedlib_version === 'string' ? r.embedlib_version : null,
+    reasonUnavailable: typeof r.reason_unavailable === 'string' ? r.reason_unavailable : null,
+    componentsExamined: Number(r.components_examined ?? 0),
+    sectionPropertiesAdded: Number(r.section_properties_added ?? 0),
+    selfWeightAdded: Number(r.self_weight_added ?? 0),
+    skippedNoSection: Number(r.skipped_no_section ?? 0),
+    skippedNoVolume: Number(r.skipped_no_volume ?? 0),
+    uncoveredTypes: (r.uncovered_types as Record<string, number>) ?? {},
+    totalMassKg: Number(r.total_mass_kg ?? 0),
+    totalWeightKN: Number(r.total_weight_kN ?? 0),
+    stillPending: Array.isArray(r.still_pending) ? (r.still_pending as string[]) : [],
   };
 }

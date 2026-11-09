@@ -37,7 +37,7 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
     report = B.apply_spec(spec)
 
     for name in ("catalog", "oplog", "solids", "routing", "mepkit",
-                 "validate", "export_model", "bridge_model"):
+                 "validate", "export_model", "bridge_model", "engineering"):
         if name in sys.modules:
             importlib.reload(sys.modules[name])
 
@@ -59,6 +59,12 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
         clash_roles=B.CLASH_ROLES,
     )
     BM.build(model, chosen)
+
+    # Propiedades que se deducen de la geometria ya construida (seccion y peso
+    # propio). No sustituyen al diseno: lo pendiente sigue declarado.
+    import engineering as ENG
+
+    engineering_report = ENG.enrich_structural(model, B.MATERIALS)
 
     if len(model.components) > MAX_COMPONENTS:
         raise ValueError(
@@ -141,6 +147,7 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
             "actionable_clashes": actionable,
         },
         "pending": {"null_parameters": nulls, "declarations": declarations},
+        "engineering": engineering_report,
         "professional_review": "not_reviewed",
         "generation_ms": int((time.time() - t0) * 1000),
     }
