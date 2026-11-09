@@ -146,6 +146,7 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
             "clashes_by_severity": clash["by_severity"],
             "actionable_clashes": actionable,
         },
+        "lighting_control": BM.lighting_control_report(model),
         "site": dict(B.SITE),
         "site_pending": B.site_pending(),
         "pending": {"null_parameters": nulls, "declarations": declarations},

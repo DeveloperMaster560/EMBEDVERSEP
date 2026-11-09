@@ -12,6 +12,8 @@
  * `not_reviewed`.
  */
 
+import { normalizeLightingControl, type LightingControl } from './lighting-state';
+
 export interface GeneratedComponentSummary {
   component_id: string;
   discipline: string;
@@ -100,6 +102,11 @@ export interface ModelGenerationResult {
   };
   /** Ausente cuando el generador es anterior a esta funcion. */
   engineering: EngineeringReport | null;
+  /**
+   * Cadena de mando del alumbrado, para poder EVALUARLA. Ausente en dominios
+   * o versiones del generador que no la publican.
+   */
+  lightingControl: LightingControl | null;
   /** Siempre 'not_reviewed'. Ningún modelo generado está revisado. */
   professionalReview: 'not_reviewed';
   generationMs: number;
@@ -159,6 +166,7 @@ export function normalizeResult(
       declarations: Number(pending.declarations ?? 0),
     },
     engineering: normalizeEngineering(payload.engineering),
+    lightingControl: normalizeLightingControl(payload.lighting_control),
     professionalReview: 'not_reviewed',
     generationMs: Number(payload.generation_ms ?? 0),
   };

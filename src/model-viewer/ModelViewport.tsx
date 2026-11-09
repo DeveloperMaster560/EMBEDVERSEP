@@ -67,6 +67,12 @@ export interface ModelViewportProps {
   section: SectionState;
   colorMode: ColorMode;
   selectedId: string | null;
+  /**
+   * Componentes encendidos, y de qué color. Lo calcula el evaluador del mando
+   * (`lighting-state`), no el visor: aquí solo se pinta lo que otro decidió.
+   * La identidad del Map es la señal de cambio, así que debe memorizarse.
+   */
+  litComponents?: Map<string, string> | null;
   onSelect: (componentId: string | null) => void;
   onLoaded: (info: { meshes: number; triangles: number; bounds: [number, number, number] }) => void;
   onError: (message: string) => void;
@@ -129,6 +135,7 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
     const keyLightRef = useRef<DirectionalLight | null>(null);
     const groundRef = useRef<Mesh | null>(null);
     const selectedRef = useRef<string | null>(null);
+    const litRef = useRef<Map<string, string> | null>(null);
     const propsRef = useRef(props);
     propsRef.current = props;
 
@@ -611,22 +618,34 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
         });
       }
 
-      if (selectedRef.current !== selectedId) {
+      // La selección y el encendido compiten por el mismo canal emisivo, así
+      // que se resuelven juntos: si se trataran por separado, apagar una luz
+      // borraría el resaltado de la pieza seleccionada.
+      const lit = propsRef.current.litComponents ?? null;
+      if (selectedRef.current !== selectedId || litRef.current !== lit) {
         nodesRef.current.forEach((entry) => {
           const material = (entry.object as Mesh).material as MeshStandardMaterial;
           if (!material || !('emissive' in material)) return;
-          const isSelected = entry.componentId === selectedId;
-          if (isSelected) {
-            material.userData.previousEmissive ??= material.emissive.getHex();
+          // El emisivo propio del material se guarda la primera vez, para poder
+          // volver a él cuando la pieza ni está seleccionada ni encendida.
+          if (material.userData.baseEmissive === undefined) {
+            material.userData.baseEmissive = material.emissive.getHex();
+            material.userData.baseIntensity = material.emissiveIntensity;
+          }
+          const litColor = lit?.get(entry.componentId);
+          if (entry.componentId === selectedId) {
             material.emissive.set('#36e0b0');
             material.emissiveIntensity = 0.75;
-          } else if (material.userData.previousEmissive !== undefined) {
-            material.emissive.setHex(material.userData.previousEmissive as number);
-            material.emissiveIntensity = material.userData.previousIntensity ?? 1;
-            delete material.userData.previousEmissive;
+          } else if (litColor) {
+            material.emissive.set(litColor);
+            material.emissiveIntensity = 2.4;
+          } else {
+            material.emissive.setHex(material.userData.baseEmissive as number);
+            material.emissiveIntensity = (material.userData.baseIntensity as number) ?? 1;
           }
         });
         selectedRef.current = selectedId ?? null;
+        litRef.current = lit;
       }
     }
 
@@ -638,6 +657,7 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       props.visibleLevels,
       props.explode,
       props.section,
+      props.litComponents,
       props.selectedId,
     ]);
 

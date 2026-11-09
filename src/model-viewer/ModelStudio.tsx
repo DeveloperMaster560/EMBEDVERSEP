@@ -24,6 +24,7 @@ import {
   type ViewPreset,
 } from './ModelViewport';
 import { normalizeResult, type ModelGenerationResult } from './contracts';
+import { clock, dayOfYear, evaluateLighting } from './lighting-state';
 import { DISCIPLINE_COLOR } from './materials';
 import { zoneOrder, type ModelDomain } from './scene-graph';
 import { buildEditorHandoff, sendToEditor, type HandoffResult } from './to-editor';
@@ -35,6 +36,18 @@ export interface StudioStat {
 }
 
 /** Todo lo que distingue un dominio del otro. */
+/**
+ * Color con el que se pinta cada zona encendida. Es presentación: no describe
+ * la temperatura de color real de ninguna luminaria.
+ */
+const ZONE_LIGHT_COLOR: Record<string, string> = {
+  vial: '#ffd9a0',
+  tirantes: '#4ea8ff',
+  torres: '#ff9f4e',
+  barreras: '#7ee0c0',
+  default: '#ffe9c4',
+};
+
 export interface StudioDomainConfig<S> {
   domain: ModelDomain;
   eyebrow: string;
@@ -96,10 +109,51 @@ export function ModelStudio<S>({
   const [colorMode, setColorMode] = useState<ColorMode>('material');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Mando del alumbrado. 19:30 por defecto: a esa hora ya es de noche en
+  // cualquier latitud habitada, así que el panel abre mostrando algo.
+  const [minutesOfDay, setMinutesOfDay] = useState(19 * 60 + 30);
+  const [accentZonesOn, setAccentZonesOn] = useState<Set<string>>(
+    () => new Set(['tirantes', 'torres', 'barreras']),
+  );
+  // La fecha se fija una vez al montar. Leer el reloj durante el render haría
+  // que la evaluación cambiara sola entre repintados, y el orto y el ocaso
+  // dependen del día del año, así que no es un detalle menor.
+  const [evaluationDate] = useState(() => new Date());
+
   const [handoff, setHandoff] = useState<HandoffResult | null>(null);
   const [sending, setSending] = useState(false);
 
   const viewportRef = useRef<ModelViewportHandle | null>(null);
+
+  /**
+   * Evaluación del mando. No es una simulación: resuelve la lógica declarada
+   * en el modelo, no la física de la instalación.
+   */
+  const lighting = useMemo(() => {
+    const control = result?.lightingControl;
+    if (!control) return null;
+    return evaluateLighting(control, {
+      minutesOfDay,
+      year: evaluationDate.getUTCFullYear(),
+      dayNumber: dayOfYear(evaluationDate),
+      accentZonesOn,
+    });
+  }, [result, minutesOfDay, accentZonesOn, evaluationDate]);
+
+  /**
+   * Qué piezas se pintan encendidas y de qué color. El Map se memoriza porque
+   * su identidad es la señal de cambio que usa el visor.
+   */
+  const litComponents = useMemo(() => {
+    if (!lighting) return null;
+    const map = new Map<string, string>();
+    for (const zone of lighting.zones) {
+      if (!zone.energized) continue;
+      const color = ZONE_LIGHT_COLOR[zone.zone] ?? ZONE_LIGHT_COLOR.default;
+      for (const fixture of zone.fixtures) map.set(fixture, color);
+    }
+    return map;
+  }, [lighting]);
 
   /** Lleva lo que se está viendo al editor 3D, donde sí se puede modificar. */
   const openInEditor = useCallback(async () => {
@@ -500,6 +554,106 @@ export function ModelStudio<S>({
               </div>
             </section>
 
+            {lighting && result.lightingControl && (
+              <section className="bs-section">
+                <h3>Mando del alumbrado</h3>
+                <p className="bs-note">
+                  Esto <strong>no es una simulación</strong>. Evalúa la lógica de mando
+                  declarada en el modelo y dice por qué cada zona queda encendida o
+                  apagada. No resuelve corrientes ni fotometría.
+                </p>
+
+                <label className="bs-slider">
+                  Hora local <strong>{clock(lighting.minutesOfDay)}</strong>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1439}
+                    step={5}
+                    value={minutesOfDay}
+                    onChange={(event) => setMinutesOfDay(Number(event.target.value))}
+                  />
+                </label>
+
+                <ul className="bs-validation">
+                  <li>
+                    {lighting.night ? 'Es de noche' : 'Es de día'} · orto{' '}
+                    <strong>{clock(lighting.sunriseMinutes)}</strong> · ocaso{' '}
+                    <strong>{clock(lighting.sunsetMinutes)}</strong>
+                  </li>
+                  <li>
+                    Encendidas:{' '}
+                    <strong>{litComponents ? litComponents.size : 0}</strong> de{' '}
+                    {result.lightingControl.totalFixtures} luminarias
+                    {lighting.totalPowerW !== null && (
+                      <>
+                        {' '}· potencia conectada{' '}
+                        <strong>
+                          {(lighting.totalPowerW / 1000).toLocaleString('es', {
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          kW
+                        </strong>
+                      </>
+                    )}
+                  </li>
+                </ul>
+
+                <ul className="bs-zones">
+                  {lighting.zones.map((zone) => (
+                    <li key={zone.zone}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={zone.energized}
+                          disabled={zone.zone === 'vial'}
+                          onChange={(event) => {
+                            const next = new Set(accentZonesOn);
+                            if (event.target.checked) next.add(zone.zone);
+                            else next.delete(zone.zone);
+                            setAccentZonesOn(next);
+                          }}
+                        />
+                        <span
+                          className="bs-zone-dot"
+                          style={{
+                            background:
+                              ZONE_LIGHT_COLOR[zone.zone] ?? ZONE_LIGHT_COLOR.default,
+                            opacity: zone.energized ? 1 : 0.25,
+                          }}
+                        />
+                        <strong>{zone.label}</strong> · {zone.fixtureCount}
+                      </label>
+                      <small>{zone.reason}</small>
+                    </li>
+                  ))}
+                </ul>
+                <p className="bs-note">
+                  El alumbrado vial no se puede conmutar a mano: lo manda el
+                  crepúsculo, que es su razón de existir.
+                </p>
+
+                {lighting.undetermined.length > 0 && (
+                  <>
+                    <h4>No se puede determinar</h4>
+                    <ul className="bs-pending">
+                      {lighting.undetermined.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                <h4>Fuera del alcance de esta evaluación</h4>
+                <ul className="bs-pending">
+                  {lighting.notSimulated.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                <p className="bs-note">{lighting.utcOffsetSource}</p>
+              </section>
+            )}
+
             {result.engineering && (
               <section className="bs-section">
                 <h3>Propiedades derivadas</h3>
@@ -628,6 +782,7 @@ export function ModelStudio<S>({
           section={section}
           colorMode={colorMode}
           selectedId={selectedId}
+          litComponents={litComponents}
           onSelect={setSelectedId}
           onLoaded={setLoadInfo}
           onError={setError}

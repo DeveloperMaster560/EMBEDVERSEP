@@ -1875,6 +1875,126 @@ def build_control(model) -> None:
             model.relate(fid, "driven_by", psu)
 
 
+def lighting_control_report(model) -> Dict[str, Any]:
+    """Describe la cadena de mando del alumbrado para que se pueda EVALUAR.
+
+    No simula nada. Expone qué gobierna a qué, de modo que un evaluador
+    determinista pueda responder "a esta hora, este circuito esta energizado,
+    y por esta razon". Lo que no se puede determinar se dice en `undetermined`
+    en vez de resolverse con un valor por defecto.
+    """
+    comps = model.components
+
+    def ids_of(predicate) -> List[str]:
+        return sorted(c.component_id for c in comps.values() if predicate(c))
+
+    sensor = next(iter(ids_of(lambda c: c.type == "photocell")), None)
+    clock = next(iter(ids_of(lambda c: c.type == "astronomical_timer")), None)
+    contactor = next(iter(ids_of(lambda c: c.type == "contactor")), None)
+    cabinet = next(iter(ids_of(lambda c: c.type == "control_cabinet")), None)
+
+    zones: List[Dict[str, Any]] = []
+    undetermined: List[str] = []
+
+    # --- zona vial: la gobierna el contactor, no un controlador DMX --------
+    road_circuit = next(iter(ids_of(lambda c: c.type == "lighting_circuit")), None)
+    if road_circuit:
+        circuit = comps[road_circuit]
+        fixtures = ids_of(lambda c: c.type == "luminaire")
+        zones.append({
+            "zone": "vial",
+            "label": "Alumbrado vial",
+            "purpose": "seguridad de la circulacion",
+            "circuit_id": road_circuit,
+            "switched_by": contactor,
+            "controller_id": None,
+            "driver_id": None,
+            "fixtures": fixtures,
+            "fixture_count": len(fixtures),
+            "connected_power_w": circuit.parameters.get("connected_power_w"),
+            "nominal_voltage_v": circuit.parameters.get("nominal_voltage_v"),
+            "dimmable": False,
+            "color_capability": None,
+        })
+
+    # --- zonas de realce: cada una con su controlador y su fuente ----------
+    for controller in ids_of(lambda c: c.type == "lighting_controller"):
+        ctrl = comps[controller]
+        zone = ctrl.parameters.get("control_zone")
+        driver = next(iter(ids_of(
+            lambda c: c.type == "led_driver"
+            and c.parameters.get("control_zone") == zone)), None)
+        fixtures = ids_of(lambda c: c.parameters.get("control_zone") == zone
+                          and c.discipline == "lighting")
+        zones.append({
+            "zone": zone,
+            "label": "Realce: %s" % zone,
+            "purpose": "programa de iluminacion arquitectonica",
+            "circuit_id": None,
+            "switched_by": None,
+            "controller_id": controller,
+            "driver_id": driver,
+            "fixtures": fixtures,
+            "fixture_count": len(fixtures),
+            "connected_power_w": (comps[driver].parameters.get("connected_power_w")
+                                  if driver else None),
+            "nominal_voltage_v": (comps[driver].parameters.get("nominal_voltage_v")
+                                  if driver else None),
+            "dimmable": True,
+            "color_capability": next(
+                (comps[f].parameters.get("color_capability") for f in fixtures
+                 if comps[f].parameters.get("color_capability")), None),
+        })
+
+    # --- que se puede evaluar y que no ------------------------------------
+    sensor_thresholds = None
+    if sensor:
+        sensor_thresholds = {
+            "switch_on_lux": comps[sensor].parameters.get("switch_on_lux"),
+            "switch_off_lux": comps[sensor].parameters.get("switch_off_lux"),
+        }
+        if sensor_thresholds["switch_on_lux"] is None:
+            undetermined.append(
+                "La fotocelda %s no tiene umbral de lux declarado, asi que su "
+                "estado no se puede evaluar. El mando se resuelve por el reloj "
+                "astronomico." % sensor)
+
+    latitude = longitude = None
+    if clock:
+        latitude = comps[clock].parameters.get("latitude_deg")
+        longitude = comps[clock].parameters.get("longitude_deg")
+        if latitude is None or longitude is None:
+            undetermined.append(
+                "El reloj astronomico %s no tiene coordenadas cargadas: sin ellas "
+                "no hay orto ni ocaso que calcular." % clock)
+
+    for z in zones:
+        if z["controller_id"] and not z["driver_id"]:
+            undetermined.append(
+                "La zona %s tiene controlador pero no fuente: la cadena esta "
+                "incompleta." % z["zone"])
+
+    return {
+        "cabinet_id": cabinet,
+        "sensor_id": sensor,
+        "sensor_thresholds": sensor_thresholds,
+        "clock_id": clock,
+        "latitude_deg": latitude,
+        "longitude_deg": longitude,
+        "contactor_id": contactor,
+        "zones": zones,
+        "total_fixtures": sum(z["fixture_count"] for z in zones),
+        "undetermined": undetermined,
+        # Deja constancia de lo que esto NO es, dentro del propio dato.
+        "not_simulated": [
+            "corriente y caida de tension reales",
+            "flujo luminoso, iluminancia y uniformidad",
+            "comportamiento termico de fuentes y proyectores",
+            "fallos, arranque y transitorios",
+        ],
+    }
+
+
 BUILDERS = {
     "structure": [build_foundations, build_piers, build_abutments, build_bearings,
                   build_superstructure, build_towers_and_stays, build_joints],

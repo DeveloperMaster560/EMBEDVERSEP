@@ -903,9 +903,14 @@ function SimulationPage({ project }: { project: EmbeddedProject }) {
 
       <div className="summary-grid">
         <article className="summary-card stats-card">
-          <span className="summary-label">Motor</span>
+          <span className="summary-label">Motor de simulación</span>
           <strong>No integrado</strong>
-          <small>La simulación de firmware y nodos sigue en fase de diseño.</small>
+          <small>
+            La simulación de firmware y nodos sigue en fase de diseño. Lo que sí
+            existe es la <strong>evaluación del mando del alumbrado</strong>, en la
+            pestaña Puentes: resuelve la lógica de encendido declarada en el modelo,
+            no la física de la instalación.
+          </small>
         </article>
         <article className="summary-card stats-card">
           <span className="summary-label">Placa</span>

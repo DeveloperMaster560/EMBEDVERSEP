@@ -232,3 +232,54 @@ aritmética y no es una medición de la obra.
 Ninguna de estas fuentes es un documento de proyecto. Para cualquier uso
 técnico, las cifras deben contrastarse contra la documentación oficial de la
 obra.
+
+---
+
+## 10. Encender las luces: evaluación del mando
+
+**Esto no es el motor de simulación**, que sigue sin integrar. Es otra cosa, y
+conviene saber distinguirlas ante el comité:
+
+| | Simulador | Evaluador de mando |
+|---|---|---|
+| Respondería | «la luminaria entrega 11.200 lm» | «el contactor cierra **porque** el reloj dice que ya es de noche» |
+| Necesita | modelo físico y eléctrico | la lógica declarada en el modelo |
+| Existe hoy | **no** | **sí** |
+
+### Cómo se usa
+
+Pestaña **Puentes** → generar el viaducto → panel **«Mando del alumbrado»**.
+Un control de hora recorre el día; las luminarias se encienden en el visor
+cuando su zona queda energizada.
+
+### Qué decide, y con qué
+
+- **Alumbrado vial**: lo manda el crepúsculo. El orto y el ocaso se calculan
+  con el **algoritmo solar de la NOAA** a partir de las coordenadas que el
+  reloj astronómico heredó del emplazamiento. Para Bucaramanga el 9 de
+  noviembre: **orto 05:41, ocaso 17:31**, que son los valores reales. No se
+  puede conmutar a mano, porque obedecer al crepúsculo es su razón de existir.
+- **Realce (tirantes, torres, barreras)**: no se deduce. Depende de un programa
+  que decide el operador y que el modelo no contiene. Se expone como
+  conmutador y cada zona lo dice: *«es una elección del operador, no una
+  deducción del modelo»*.
+
+### Lo que se niega a decidir
+
+- **La fotocelda no se puede evaluar**: sus umbrales de lux están pendientes.
+  El sistema lo dice y resuelve el mando por el reloj astronómico. Esta es
+  justamente la clase de respuesta que distingue al sistema: señala qué parte
+  del diseño es determinable y cuál no.
+- **Sin coordenadas no decide nada**: declara el mando no evaluable en vez de
+  suponer un horario.
+- **El huso horario se deduce de la longitud** porque el reloj lo declara
+  pendiente. Queda dicho que esa deducción ignora husos políticos y horario
+  de verano.
+- **No suma potencias si alguna zona encendida no la declara.** Una suma con
+  un hueco no es una suma.
+
+### Fuera de su alcance
+
+Corriente y caída de tensión reales, flujo luminoso, iluminancia y
+uniformidad, comportamiento térmico, fallos y transitorios. Nada de eso se
+simula ni se insinúa.
