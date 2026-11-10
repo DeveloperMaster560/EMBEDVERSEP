@@ -27,15 +27,17 @@ TOOLS_ROOT="${PROJECT_ROOT}/.tools"
 CLI_DIRECTORY="${TOOLS_ROOT}/arduino-cli"
 CONFIG_DIRECTORY="${TOOLS_ROOT}/arduino-cli-config"
 DOWNLOADS_DIRECTORY="${TOOLS_ROOT}/arduino-downloads"
-DATA_DIRECTORY="${TOOLS_ROOT}/arduino-data"
 USER_DIRECTORY="${TOOLS_ROOT}/arduino-user"
 CLI_PATH="${CLI_DIRECTORY}/arduino-cli"
 CONFIG_PATH="${CONFIG_DIRECTORY}/arduino-cli.yaml"
 
 # --- qué archivo toca para este sistema -------------------------------------
+# PLATFORM nombra el archivo que publica Arduino; NODE_PLATFORM nombra el
+# directorio de datos, y tiene que coincidir con process.platform de Node,
+# porque es lo que busca server/arduinoCompiler.ts.
 case "$(uname -s)" in
-  Darwin) PLATFORM='macOS' ;;
-  Linux)  PLATFORM='Linux' ;;
+  Darwin) PLATFORM='macOS'; NODE_PLATFORM='darwin' ;;
+  Linux)  PLATFORM='Linux'; NODE_PLATFORM='linux' ;;
   *)
     echo "Sistema no contemplado: $(uname -s). Use scripts/setup-arduino.ps1 en Windows." >&2
     exit 1
@@ -50,6 +52,12 @@ case "$(uname -m)" in
     exit 1
     ;;
 esac
+
+# Propio de la plataforma A PROPOSITO. arduino-cli guarda las herramientas por
+# version, no por sistema: instalar aqui el nucleo de macOS sobre el directorio
+# compartido SOBRESCRIBIRIA los binarios de Windows, y quien copie .tools entre
+# equipos perderia el que ya tenia. Separandolos conviven.
+DATA_DIRECTORY="${TOOLS_ROOT}/arduino-data-${NODE_PLATFORM}"
 
 WORKSPACE="$(mktemp -d)"
 trap 'rm -rf "${WORKSPACE}"' EXIT
@@ -120,6 +128,16 @@ PLATFORM_FILE="${DATA_DIRECTORY}/packages/arduino/hardware/avr/1.8.8/platform.tx
 if [ ! -f "${PLATFORM_FILE}" ]; then
   echo "El core quedó instalado donde el servidor no lo busca." >&2
   echo "  esperado: ${PLATFORM_FILE}" >&2
+  exit 1
+fi
+
+# No basta con platform.txt: es un archivo de texto idéntico en todos los
+# sistemas, así que un núcleo instalado en otro equipo lo tiene igual. Lo que
+# delata un núcleo ajeno es el compilador, que sí es un binario nativo.
+if ! find "${DATA_DIRECTORY}/packages/arduino/tools/avr-gcc" \
+     -type f -name 'avr-gcc' -perm -u+x 2>/dev/null | grep -q .; then
+  echo "El núcleo no trae un avr-gcc nativo para este sistema." >&2
+  echo "  buscado en: ${DATA_DIRECTORY}/packages/arduino/tools/avr-gcc/*/bin/avr-gcc" >&2
   exit 1
 fi
 

@@ -64,12 +64,22 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 `.tools\arduino-cli\arduino-cli.exe` ya está en el equipo de origen pero **no
 viaja en git** (`.tools/` está ignorado). Hay dos caminos:
 
-1. **Copiarlo a mano** desde el equipo anterior. Es lo más rápido: la carpeta
-   `.tools` ocupa 437 MB con el core AVR incluido, y así se evita volver a
-   descargarlo.
-2. **Descargarlo de nuevo** desde arduino.cc e instalar el core
-   `arduino:avr@1.8.8`, que es la versión que el servidor espera en
-   `.tools\arduino-data\packages\arduino\hardware\avr\1.8.8`.
+1. **Copiarlo a mano** desde el equipo anterior. Es lo más rápido, pero la
+   carpeta `.tools` ocupa ahora **854 MB**, porque contiene los núcleos AVR de
+   dos sistemas: 330 MB en `arduino-data` (Windows) y 328 MB en
+   `arduino-data-darwin` (macOS). Para llevarlo a Windows basta con copiar
+   `arduino-cli`, `arduino-data` y la configuración; `arduino-data-darwin` no
+   sirve allí y puede quedarse.
+2. **Descargarlo de nuevo** ejecutando `scripts\setup-arduino.ps1`, que instala
+   Arduino CLI y el core `arduino:avr@1.8.8` comprobando el SHA-256.
+
+**Por qué hay un directorio por sistema.** `arduino-cli` guarda las
+herramientas por versión y no por sistema operativo, así que el núcleo de
+macOS instalado sobre el directorio compartido **sobrescribiría** los binarios
+de Windows. Separándolos conviven, y quien copie `.tools` entre equipos no
+pierde el que ya tenía. El servidor prefiere `arduino-data-<plataforma>` y, si
+no existe, usa `arduino-data`, de modo que las instalaciones antiguas siguen
+funcionando.
 
 Sin Arduino CLI el proyecto arranca igual y el laboratorio sigue simulando: el
 panel permite **cargar un `.hex` ya compilado**. Lo que no se puede es compilar

@@ -97,14 +97,14 @@ describe('plantilla del armario del puente', () => {
   });
 
   /**
-   * El .ino es el equivalente legible del .S, que es el que está probado. Si
-   * esa advertencia desaparece, alguien podría creer que el C++ está verificado
-   * cuando no se ha compilado nunca en este entorno.
+   * El .ino es el equivalente legible del .S, que es el que se entrega
+   * compilado. El código debe remitir a los dos sitios donde se comprueba eso,
+   * o quien lo lea no sabría cuál manda ni dónde se verifica.
    */
-  it('advierte de que el C++ no está compilado ni verificado', () => {
+  it('remite al firmware de referencia y a su prueba', () => {
     const source = template.source('arduino-uno');
-    expect(source).toMatch(/NO se ha compilado/);
     expect(source).toMatch(/puente-alumbrado\.S/);
+    expect(source).toMatch(/bridge-firmware-cpp\.test\.ts/);
   });
 });
 

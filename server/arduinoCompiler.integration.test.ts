@@ -1,13 +1,11 @@
-import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createArduinoCompileMiddleware } from './arduinoCompiler';
+import { createArduinoCompileMiddleware, hasUsableToolchain } from './arduinoCompiler';
 
 const root = process.cwd();
-const cliName = process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli';
-const toolchainAvailable =
-  existsSync(`${root}/.tools/arduino-cli/${cliName}`) &&
-  existsSync(`${root}/.tools/arduino-data/packages/arduino/hardware/avr/1.8.8/platform.txt`);
+// Lo decide el propio servidor: comprobarlo aquí a mano daba un «sí» falso en
+// un Mac con el núcleo de Windows copiado en .tools.
+const toolchainAvailable = await hasUsableToolchain(root);
 const servers: ReturnType<typeof createServer>[] = [];
 
 async function startCompileServer(): Promise<string> {

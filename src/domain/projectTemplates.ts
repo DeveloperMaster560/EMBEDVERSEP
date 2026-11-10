@@ -24,16 +24,17 @@ export interface ProjectTemplate {
 /**
  * Firmware del armario, en Arduino C++.
  *
- * ADVERTENCIA IMPORTANTE: esto es el **equivalente legible** del firmware
- * verificado `public/firmware/puente-alumbrado.S`. Ese `.S` se ensambla a un
- * `.hex` que SÍ se ejecuta en las pruebas, con doce comprobaciones de
- * comportamiento. Este `.ino` **no se ha compilado ni verificado** en el
- * entorno donde se escribió, porque allí no había cadena de herramientas
- * Arduino.
+ * Es el **equivalente legible** del firmware de referencia
+ * `public/firmware/puente-alumbrado.S`, que es el `.hex` que se entrega.
  *
- * Si alguna vez discrepan, manda el `.S`: es el que está probado. Al compilar
- * este archivo en una máquina con Arduino CLI, el `.hex` resultante se puede
- * contrastar con las mismas pruebas de `src/simulation/bridge-controller.test.ts`.
+ * Los dos están verificados. `src/simulation/bridge-firmware-cpp.test.ts`
+ * compila este C++ de verdad y ejecuta el `.hex` resultante sobre el mismo
+ * circuito, exigiéndole la misma conducta en los cuatro modos. Esa prueba se
+ * salta cuando no hay cadena de herramientas Arduino para el sistema, así que
+ * en un equipo recién clonado no se comprueba: para tenerla, ejecute
+ * `./scripts/setup-arduino.sh`.
+ *
+ * Si alguna vez discrepan, manda el `.S`: es el que se entrega compilado.
  */
 const BRIDGE_CABINET_SOURCE = `/*
  * Armario de mando del alumbrado · Viaducto de la Novena
@@ -49,10 +50,11 @@ const BRIDGE_CABINET_SOURCE = `/*
  *   D7  zona barreras
  *   D13 testigo: encendido si alguna zona esta energizada
  *
- * NOTA SOBRE LA VERIFICACION: el firmware probado del proyecto es
- * public/firmware/puente-alumbrado.S, ensamblado a .hex y ejecutado por doce
- * pruebas de comportamiento. Este archivo es su equivalente legible en C++ y
- * NO se ha compilado en el entorno donde se escribio. Si discrepan, manda el .S.
+ * NOTA SOBRE LA VERIFICACION: el firmware que se entrega compilado es
+ * public/firmware/puente-alumbrado.S. Este archivo es su equivalente legible
+ * en C++, y se compila y se contrasta contra la misma conducta en
+ * src/simulation/bridge-firmware-cpp.test.ts, siempre que haya cadena de
+ * herramientas Arduino instalada. Si discrepan, manda el .S.
  *
  * Lo que este firmware NO hace: no mide lux (el umbral es un recuento del
  * convertidor, no una medida fotometrica) y no usa temporizadores para el
