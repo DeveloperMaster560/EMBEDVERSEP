@@ -33,6 +33,8 @@ import { categoryLabels, componentCatalog } from './domain/catalog';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
+import { CAPABILITIES } from './simulation/avr-runner';
+import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
 import './App.css';
 
@@ -65,20 +67,6 @@ const boardLabels: Record<BoardId, string> = {
   'arduino-uno': 'Arduino Uno R3',
   'esp32-devkit': 'ESP32 DevKit',
 };
-
-const starterCode = `#include <Arduino.h>
-
-void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
-}
-
-void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000);
-}
-`;
 
 const emptyTemplate = `#include <Arduino.h>
 
@@ -120,6 +108,7 @@ function App() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [boardId, setBoardId] = useState<BoardId>('arduino-uno');
+  const [templateId, setTemplateId] = useState('practica');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<ComponentCategory | 'all'>('all');
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
@@ -182,15 +171,19 @@ function App() {
     }
 
     const now = new Date().toISOString();
-    const firstFile = createFile('src/main.cpp', boardId === 'arduino-uno' ? starterCode : emptyTemplate);
+    // La plantilla manda sobre el código y el circuito: los dos tienen que
+    // corresponderse, o el usuario abriría un firmware que no cuadra con lo
+    // que hay cableado.
+    const template = templateById(templateId);
+    const firstFile = createFile('src/main.cpp', template.source(boardId));
     const project: EmbeddedProject = {
       id: crypto.randomUUID(),
       name: trimmedName,
       boardId,
-      description: 'Proyecto de sistemas embebidos',
+      description: template.description,
       files: [firstFile],
       activeFileId: firstFile.id,
-      electronicLab: createArduinoPracticeCircuit(boardId),
+      electronicLab: template.circuit(boardId),
       createdAt: now,
       updatedAt: now,
     };
@@ -408,7 +401,7 @@ function App() {
 
         <div className="nav-section-label nav-section-spaced">PLATAFORMA</div>
         <button className={`future-nav-item${view === 'workspace' && workspaceTab === 'embedded' ? ' future-nav-active' : ''}`} onClick={() => selectedProject ? openLab(selectedProject) : setIsCreateOpen(true)}><CircuitBoard size={17} /><span>Laboratorio electrónico</span><span className="soon-tag">FASE 2</span></button>
-        <button className={`future-nav-item${view === 'workspace' && workspaceTab === 'simulation' ? ' future-nav-active' : ''}`} onClick={() => openProjectWorkspace('simulation')}><Activity size={17} /><span>Centro de simulación</span><span className="soon-tag">FASE 4</span></button>
+        <button className={`future-nav-item${view === 'workspace' && workspaceTab === 'simulation' ? ' future-nav-active' : ''}`} onClick={() => openProjectWorkspace('simulation')}><Activity size={17} /><span>Centro de simulación</span></button>
         <button className={`future-nav-item${view === 'workspace' && workspaceTab === 'models' ? ' future-nav-active' : ''}`} onClick={() => selectedProject ? openTwin(selectedProject) : setIsCreateOpen(true)}><Box size={17} /><span>Gemelo digital 3D</span><span className="soon-tag">3D</span></button>
         <div className="future-nav-item"><TerminalSquare size={17} /><span>Pruebas e informes</span><span className="soon-tag">FASE 8</span></div>
 
@@ -551,10 +544,31 @@ function App() {
               if (event.key === 'Enter') void createProject();
             }} />
             <label className="field-label" htmlFor="board-select">Placa objetivo</label>
-            <select id="board-select" className="text-input select-input" value={boardId} onChange={(event) => setBoardId(event.target.value as BoardId)}>
+            <select id="board-select" className="text-input select-input" value={boardId} onChange={(event) => {
+              const next = event.target.value as BoardId;
+              setBoardId(next);
+              // Una plantilla que no vale para la placa elegida dejaria el
+              // selector mostrando algo que no esta en la lista.
+              const available = templatesForBoard(next);
+              if (!available.some((template) => template.id === templateId)) {
+                setTemplateId(available[0].id);
+              }
+            }}>
               <option value="arduino-uno">Arduino Uno R3 · ATmega328P</option>
               <option value="esp32-devkit">ESP32 DevKit · ESP32-WROOM-32</option>
             </select>
+            <label className="field-label" htmlFor="template-select">Punto de partida</label>
+            <select
+              id="template-select"
+              className="text-input select-input"
+              value={templateId}
+              onChange={(event) => setTemplateId(event.target.value)}
+            >
+              {templatesForBoard(boardId).map((template) => (
+                <option key={template.id} value={template.id}>{template.label}</option>
+              ))}
+            </select>
+            <p className="modal-description">{templateById(templateId).description}</p>
             <div className="modal-note"><Cpu size={15} /> Arduino Uno puede compilarse con el toolchain AVR instalado localmente. ESP32 aún no está configurado.</div>
             <div className="modal-actions">
               <button className="secondary-button" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
@@ -625,7 +639,7 @@ function Dashboard({ projects, isLoading, onCreate, onOpen, onViewProjects, onVi
       <section className="stats-grid">
         <StatCard icon={<FolderOpen size={17} />} label="Proyectos" value={isLoading ? '—' : `${projects.length}`} detail="Guardados en este dispositivo" />
         <StatCard icon={<Library size={17} />} label="Componentes" value={`${componentCatalog.length}`} detail="Definiciones visuales iniciales" />
-        <StatCard icon={<Activity size={17} />} label="Simulaciones" value="No disponible" detail="Motor aún no integrado" muted />
+        <StatCard icon={<Activity size={17} />} label="Simulación" value={CAPABILITIES.mcu} detail="Motor de firmware integrado" />
       </section>
 
       <section className="recent-section">
@@ -892,6 +906,7 @@ function WorkspaceSummaryPage({
 
 function SimulationPage({ project }: { project: EmbeddedProject }) {
   const digitalTwinLabel = project.digitalTwin ? project.digitalTwin.name : 'Sin modelo importado';
+  const uno = project.boardId === 'arduino-uno';
 
   return (
     <div className="standard-page">
@@ -899,31 +914,99 @@ function SimulationPage({ project }: { project: EmbeddedProject }) {
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> SIMULATION</div>
           <h1>Simulación</h1>
-          <p>Estado del entorno de ejecución y datos asociados del proyecto.</p>
+          <p>Qué se ejecuta de verdad, dónde se usa y qué sigue sin modelarse.</p>
         </div>
       </div>
 
       <div className="summary-grid">
         <article className="summary-card stats-card">
-          <span className="summary-label">Motor de simulación</span>
-          <strong>No integrado</strong>
+          <span className="summary-label">Motor de firmware</span>
+          <strong>{CAPABILITIES.mcu}</strong>
           <small>
-            La simulación de firmware y nodos sigue en fase de diseño. Lo que sí
-            existe es la <strong>evaluación del mando del alumbrado</strong>, en la
-            pestaña Puentes: resuelve la lógica de encendido declarada en el modelo,
-            no la física de la instalación.
+            Ejecuta código máquina AVR real a {(CAPABILITIES.clockHz / 1e6).toFixed(0)} MHz,
+            con {CAPABILITIES.supported.join(', ')}. El avance es por ciclos, así que la
+            misma secuencia da siempre el mismo resultado.
           </small>
         </article>
         <article className="summary-card stats-card">
-          <span className="summary-label">Placa</span>
+          <span className="summary-label">Placa del proyecto</span>
           <strong>{boardLabels[project.boardId]}</strong>
-          <small>Modelo objetivo actual del proyecto.</small>
+          <small>
+            {uno
+              ? 'Compatible con el motor: el laboratorio puede compilar y ejecutar.'
+              : 'El motor ejecuta ATmega328P. Esta placa es otra arquitectura y no se simula.'}
+          </small>
         </article>
         <article className="summary-card stats-card">
           <span className="summary-label">Modelo 3D</span>
           <strong>{digitalTwinLabel}</strong>
-          <small>Disponible para asociar a nodos electrónicos durante la simulación.</small>
+          <small>
+            En el estudio de puentes, el firmware del armario enciende las luminarias
+            del modelo y circula tráfico sobre el tablero.
+          </small>
         </article>
+      </div>
+
+      <div className="page-heading-row">
+        <div>
+          <h2>Dónde se usa</h2>
+        </div>
+      </div>
+      <div className="tests-list">
+        <div className="test-row">
+          <span>
+            <strong>Laboratorio electrónico</strong> · botón «Simular». Compila el
+            proyecto y lo ejecuta sobre el circuito dibujado. Sin Arduino CLI instalado,
+            se puede cargar un <code>.hex</code> ya compilado.
+          </span>
+          <strong>{uno ? 'Disponible' : 'Solo Arduino Uno'}</strong>
+        </div>
+        <div className="test-row">
+          <span>
+            <strong>Puentes</strong> · panel «El puente en marcha». El armario de control
+            gobierna el alumbrado y usted manda los modos con el pulsador.
+          </span>
+          <strong>Disponible</strong>
+        </div>
+      </div>
+
+      <div className="page-heading-row">
+        <div>
+          <h2>Lo que no se simula</h2>
+          <p>
+            Declarado a propósito, para que nadie saque conclusiones que el modelo no
+            sostiene.
+          </p>
+        </div>
+      </div>
+      <div className="tests-list">
+        {CAPABILITIES.unsupported.map((item) => (
+          <div className="test-row" key={item}>
+            <span>{item}</span>
+            <strong>—</strong>
+          </div>
+        ))}
+        <div className="test-row">
+          <span>
+            Modelo eléctrico: no hay tensiones, corrientes ni potencia. Un pin está alto
+            o bajo, y nada más.
+          </span>
+          <strong>—</strong>
+        </div>
+        <div className="test-row">
+          <span>
+            Dispositivos I²C (DS3231, MPU6050): el bus se emula, pero no hay modelo del
+            módulo, así que no contestaría.
+          </span>
+          <strong>—</strong>
+        </div>
+        <div className="test-row">
+          <span>
+            Cargas de tráfico sobre la estructura: los vehículos circulan, pero no pesan
+            sobre el tablero.
+          </span>
+          <strong>—</strong>
+        </div>
       </div>
     </div>
   );
