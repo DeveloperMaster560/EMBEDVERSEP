@@ -40,6 +40,9 @@ export interface StudioStat {
  * Color con el que se pinta cada zona encendida. Es presentación: no describe
  * la temperatura de color real de ninguna luminaria.
  */
+import { BridgeSimulationPanel } from './BridgeSimulationPanel';
+import { useBridgeSimulation } from './useBridgeSimulation';
+
 const ZONE_LIGHT_COLOR: Record<string, string> = {
   vial: '#ffd9a0',
   tirantes: '#4ea8ff',
@@ -112,6 +115,9 @@ export function ModelStudio<S>({
   // Mando del alumbrado. 19:30 por defecto: a esa hora ya es de noche en
   // cualquier latitud habitada, así que el panel abre mostrando algo.
   const [minutesOfDay, setMinutesOfDay] = useState(19 * 60 + 30);
+  // Luz que ve la fotocelda del armario. Arranca de noche cerrada para que al
+  // poner en marcha se vea algo encendido.
+  const [photocellLight, setPhotocellLight] = useState(0.05);
   const [accentZonesOn, setAccentZonesOn] = useState<Set<string>>(
     () => new Set(['tirantes', 'torres', 'barreras']),
   );
@@ -154,6 +160,29 @@ export function ModelStudio<S>({
     }
     return map;
   }, [lighting]);
+
+  /**
+   * El puente en marcha: firmware del armario y tráfico.
+   *
+   * Solo tiene sentido en el dominio de puentes; en un edificio no hay calzada
+   * ni armario de alumbrado vial.
+   */
+  const simulation = useBridgeSimulation(viewportRef, {
+    control: config.domain === 'bridge' ? result?.lightingControl ?? null : null,
+    initialLight: photocellLight,
+  });
+
+  /**
+   * Qué manda sobre las luces del visor.
+   *
+   * Con la simulación en marcha manda el FIRMWARE, porque entonces las zonas
+   * están encendidas porque un pin está alto. Parada, se vuelve al evaluador
+   * de reglas, que es lo que había. No se mezclan: serían dos verdades
+   * distintas sobre la misma luminaria.
+   */
+  const effectiveLit = simulation.running && simulation.lighting
+    ? simulation.lighting.litComponents
+    : litComponents;
 
   /** Lleva lo que se está viendo al editor 3D, donde sí se puede modificar. */
   const openInEditor = useCallback(async () => {
@@ -554,7 +583,22 @@ export function ModelStudio<S>({
               </div>
             </section>
 
-            {lighting && result.lightingControl && (
+            {config.domain === 'bridge' && result.lightingControl && (
+              <BridgeSimulationPanel
+                running={simulation.running}
+                lighting={simulation.lighting}
+                traffic={simulation.traffic}
+                deck={simulation.deck}
+                trafficNote={simulation.trafficNote}
+                light={photocellLight}
+                onStart={simulation.start}
+                onStop={simulation.stop}
+                onPressed={simulation.setPressed}
+                onLight={(value) => { setPhotocellLight(value); simulation.setLight(value); }}
+              />
+            )}
+
+            {lighting && result.lightingControl && !simulation.running && (
               <section className="bs-section">
                 <h3>Mando del alumbrado</h3>
                 <p className="bs-note">
@@ -782,7 +826,7 @@ export function ModelStudio<S>({
           section={section}
           colorMode={colorMode}
           selectedId={selectedId}
-          litComponents={litComponents}
+          litComponents={effectiveLit}
           onSelect={setSelectedId}
           onLoaded={setLoadInfo}
           onError={setError}

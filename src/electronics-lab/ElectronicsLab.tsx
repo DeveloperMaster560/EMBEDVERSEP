@@ -65,7 +65,7 @@ function ComponentGraphic({
   const customWidth = Math.max(70, ...pins.map((pin) => Math.abs(pin.x) * 2 + 24));
   const customHeight = Math.max(54, ...pins.map((pin) => Math.abs(pin.y) * 2 + 24));
   const hitbox: [number, number, number, number] =
-    component.kind === 'board' || component.kind === 'esp32' ? [-72, -58, 144, 116]
+    component.kind === 'board' || component.kind === 'esp32' ? [-72, -78, 144, 156]
       : component.kind === 'custom' ? [-customWidth / 2, -customHeight / 2, customWidth, customHeight]
       : component.kind === 'mpu6050' ? [-43, -37, 86, 74]
         : component.kind === 'resistor' || component.kind === 'capacitor' ? [-53, -20, 106, 40]
@@ -80,13 +80,13 @@ function ComponentGraphic({
       {component.kind === 'board' || component.kind === 'esp32' ? (
         mode === 'assembly' ? (
           <>
-            <rect x="-63" y="-44" width="126" height="88" rx="8" className="el-board-body" />
-            <rect x="-18" y="-20" width="42" height="39" rx="3" className="el-board-chip" />
+            <rect x="-63" y="-68" width="126" height="136" rx="8" className="el-board-body" />
+            <rect x="-21" y="-22" width="48" height="44" rx="3" className="el-board-chip" />
             <text x="3" y="3" className="el-chip-label">{component.kind === 'esp32' ? 'ESP32' : 'ATmega'}</text>
-            <rect x="-8" y="-52" width="24" height="12" rx="2" className="el-usb" />
-            <circle cx="-52" cy="-33" r="3" className="el-mount" /><circle cx="52" cy="-33" r="3" className="el-mount" />
-            <circle cx="-52" cy="33" r="3" className="el-mount" /><circle cx="52" cy="33" r="3" className="el-mount" />
-            <text x="0" y="34" className="el-board-title">{component.kind === 'esp32' ? 'ESP32 DEVKIT' : 'ARDUINO UNO R3'}</text>
+            <rect x="-8" y="-76" width="24" height="12" rx="2" className="el-usb" />
+            <circle cx="-52" cy="-57" r="3" className="el-mount" /><circle cx="52" cy="-57" r="3" className="el-mount" />
+            <circle cx="-52" cy="57" r="3" className="el-mount" /><circle cx="52" cy="57" r="3" className="el-mount" />
+            <text x="0" y="46" className="el-board-title">{component.kind === 'esp32' ? 'ESP32 DEVKIT' : 'ARDUINO UNO R3'}</text>
             {pins.map((pin) => {
               const left = pin.x < 0;
               return <g key={pin.id}>
@@ -97,10 +97,10 @@ function ComponentGraphic({
           </>
         ) : (
           <>
-            <rect x="-65" y="-41" width="130" height="82" rx="4" className="el-schematic-symbol" />
+            <rect x="-65" y="-70" width="130" height="140" rx="4" className="el-schematic-symbol" />
             <text x="0" y="-8" className="el-schematic-label">{component.kind === 'esp32' ? 'ESP32' : 'ARDUINO'}</text>
             <text x="0" y="9" className="el-schematic-sub">{component.label}</text>
-            {pins.map((pin) => <text key={pin.id} x={pin.x < 0 ? -58 : 58} y={pin.y * 0.64 + 2}
+            {pins.map((pin) => <text key={pin.id} x={pin.x < 0 ? -58 : 58} y={pin.y + 3}
               textAnchor={pin.x < 0 ? 'start' : 'end'} className="el-schematic-pin">{pin.label}</text>)}
           </>
         )

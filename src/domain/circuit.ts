@@ -31,6 +31,12 @@ export function createArduinoPracticeCircuit(boardId: BoardId): ElectronicCircui
   };
 }
 
+/** Separación vertical entre pines de la cabecera, en unidades del lienzo. */
+export const BOARD_PIN_PITCH = 15;
+
+/** Distancia de la cabecera al eje de la placa. */
+export const BOARD_PIN_X = 76;
+
 export interface CircuitPin {
   id: string;
   label: string;
@@ -51,18 +57,44 @@ export function getCircuitPins(
   switch (component.kind) {
     case 'board':
     case 'esp32': {
-      const inputs = component.kind === 'esp32'
-        ? [['GND', 'ground'], ['3V3', 'power'], ['5V/VIN', 'power'], ['GPIO21/SDA', 'signal'], ['GPIO22/SCL', 'signal'], ['GPIO18', 'signal'], ['GPIO19', 'signal']]
-        : boardId === 'arduino-uno'
-        ? [['GND', 'ground'], ['5V', 'power'], ['3V3', 'power'], ['D2', 'signal'], ['D13', 'signal'], ['A4/SDA', 'signal'], ['A5/SCL', 'signal']]
-        : [['GND', 'ground'], ['3V3', 'power'], ['5V/VIN', 'power'], ['GPIO21/SDA', 'signal'], ['GPIO22/SCL', 'signal'], ['GPIO18', 'signal'], ['GPIO19', 'signal']];
-      return inputs.map(([label, type], index) => ({
+      /**
+       * Cabecera de la placa.
+       *
+       * Se exponen los pines que un mando real necesita, no una muestra: un
+       * alumbrado de cuatro zonas con fotocelda y pulsador ya consume seis
+       * señales, y con la cabecera reducida anterior no se podía cablear.
+       *
+       * Los identificadores de los pines que ya existían (`GND`, `5V`, `3V3`,
+       * `D2`, `D13`, `A4/SDA`, `A5/SCL`) **no cambian**, para que los circuitos
+       * guardados sigan resolviéndose.
+       */
+      const esp = component.kind === 'esp32';
+      const uno = !esp && boardId === 'arduino-uno';
+      const left: [string, CircuitPin['type']][] = uno
+        ? [['GND', 'ground'], ['5V', 'power'], ['3V3', 'power'],
+           ['A0', 'signal'], ['A1', 'signal'], ['A4/SDA', 'signal'], ['A5/SCL', 'signal']]
+        : [['GND', 'ground'], ['3V3', 'power'], ['5V/VIN', 'power'],
+           ['GPIO34', 'signal'], ['GPIO35', 'signal'], ['GPIO21/SDA', 'signal'], ['GPIO22/SCL', 'signal']];
+      const right: [string, CircuitPin['type']][] = uno
+        ? [['D2', 'signal'], ['D3', 'signal'], ['D4', 'signal'], ['D5', 'signal'],
+           ['D6', 'signal'], ['D7', 'signal'], ['D8', 'signal'], ['D9', 'signal'], ['D13', 'signal']]
+        : [['GPIO18', 'signal'], ['GPIO19', 'signal'], ['GPIO23', 'signal'], ['GPIO25', 'signal'],
+           ['GPIO26', 'signal'], ['GPIO27', 'signal'], ['GPIO32', 'signal'], ['GPIO33', 'signal'], ['GPIO13', 'signal']];
+
+      // Cada columna se centra sobre el eje del componente: así la placa queda
+      // simétrica y las etiquetas no se solapan con el cuerpo.
+      const place = (
+        entries: [string, CircuitPin['type']][],
+        x: number,
+      ): CircuitPin[] => entries.map(([label, type], index) => ({
         id: label,
         label,
-        x: index < 3 ? -76 : 76,
-        y: -35 + (index < 3 ? index : index - 3) * 14,
-        type: type as CircuitPin['type'],
+        x,
+        y: Math.round((index - (entries.length - 1) / 2) * BOARD_PIN_PITCH),
+        type,
       }));
+
+      return [...place(left, -BOARD_PIN_X), ...place(right, BOARD_PIN_X)];
     }
     case 'resistor':
     case 'capacitor':

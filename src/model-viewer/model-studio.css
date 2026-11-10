@@ -633,3 +633,57 @@
   text-transform: uppercase;
   color: var(--bs-muted, #8d94a3);
 }
+
+/* ---- Panel del puente en marcha --------------------------------------- */
+
+.bsim-controls { display: flex; gap: 7px; margin: 9px 0; }
+.bsim-controls button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+  border: 1px solid #32404d; border-radius: 5px; background: #1d2731;
+  color: #c9d6e0; font-size: 11px; cursor: pointer;
+}
+.bsim-controls button:hover { background: #26323e; }
+.bsim-controls .bsim-primary { background: #2f6d4c; border-color: #3c8a60; color: #eafaf0; }
+.bsim-controls .bsim-primary:hover { background: #37805a; }
+
+.bsim-mode { display: flex; align-items: center; gap: 9px; margin: 10px 0; }
+.bsim-mode-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 58px; padding: 4px 7px; border-radius: 4px;
+  background: #223040; border: 1px solid #32424f;
+  color: #9fc4e0; font-size: 9px; letter-spacing: .05em; text-transform: uppercase;
+}
+.bsim-mode strong { display: block; font-size: 11px; color: #e6eef5; }
+.bsim-mode small { color: #8699a8; font-size: 9px; line-height: 1.45; }
+
+.bsim-press {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 11px; margin-bottom: 4px;
+  border: 1px solid #3c5568; border-radius: 5px; background: #233040;
+  color: #dbe7f0; font-size: 11px; cursor: pointer;
+  user-select: none; touch-action: none;
+}
+.bsim-press:active { background: #2f6d4c; border-color: #3c8a60; color: #eafaf0; }
+.bsim-hint { margin-top: 0; }
+
+.bsim-zones { display: flex; flex-direction: column; gap: 5px; margin: 9px 0; }
+.bsim-zone {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  border: 1px solid #28333e; border-radius: 4px; background: #182029;
+}
+.bsim-zone-dot { width: 9px; height: 9px; border-radius: 50%; background: #3a4650; flex: none; }
+.bsim-zone.on { border-color: #4b6b4f; background: #1a241c; }
+.bsim-zone.on .bsim-zone-dot { background: #8be0a4; box-shadow: 0 0 8px #8be0a4aa; }
+.bsim-zone strong { display: block; font-size: 10px; color: #e2eaf1; }
+.bsim-zone small { font-size: 9px; color: #82939f; }
+
+.bsim-serial { margin-top: 9px; font-size: 9px; color: #8699a8; }
+.bsim-serial summary { cursor: pointer; }
+.bsim-serial pre {
+  margin: 6px 0 0; padding: 7px 9px; max-height: 110px; overflow-y: auto;
+  border: 1px solid #28333e; border-radius: 4px; background: #121a21;
+  color: #a9c4b4; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9px; line-height: 1.5; white-space: pre-wrap;
+}
+
+.bs-section-divider { height: 1px; margin: 13px 0; background: #26313b; }

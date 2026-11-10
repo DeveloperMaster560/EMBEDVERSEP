@@ -15,11 +15,14 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
   ACESFilmicToneMapping,
   Box3,
+  BoxGeometry,
   Color,
   DirectionalLight,
   DoubleSide,
   Group,
   HemisphereLight,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
@@ -45,6 +48,10 @@ import { DISCIPLINE_COLOR, presetFor } from './materials';
 import { explodeOffset, LEVELLESS, parseNodeName } from './scene-graph';
 import type { ModelDomain } from './scene-graph';
 import type { GeneratedComponentSummary } from './contracts';
+import {
+  DECK_DISCIPLINE, WEARING_COURSE_ID, deckReferenceFromBox, vehicleTransform,
+  type DeckReference,
+} from './traffic-placement';
 
 export type ColorMode = 'material' | 'discipline';
 export type ViewPreset = 'iso' | 'top' | 'front' | 'side';
@@ -96,6 +103,38 @@ export interface ModelViewportHandle {
   focus: (componentId: string) => void;
   /** Geometría de lo que está visible ahora mismo, en coordenadas de mundo. */
   extractVisible: () => ExtractedComponent[];
+  /**
+   * Referencia del tablero MEDIDA del modelo cargado, o null si no se pudo
+   * medir. Quien quiera poner tráfico tiene que preguntar por ella: sin esta
+   * medida no hay forma honrada de saber dónde está la calzada.
+   */
+  deckReference: () => DeckReference | null;
+  /**
+   * Dibuja los vehículos. Es imperativo a propósito: la circulación se
+   * actualiza decenas de veces por segundo y pasarla como propiedad de React
+   * provocaría otros tantos renderizados del árbol entero.
+   *
+   * Con `null` se retira el tráfico de la escena.
+   */
+  renderTraffic: (state: TrafficRenderState | null) => void;
+}
+
+/** Lo que el visor necesita para dibujar un vehículo. */
+export interface TrafficRenderItem {
+  id: string;
+  classId: string;
+  /** Abscisa sobre el tablero, en metros desde el estribo de origen. */
+  positionM: number;
+  /** Desplazamiento lateral del carril, en metros. */
+  offsetM: number;
+  lengthM: number;
+  widthM: number;
+  heightM: number;
+  color: string;
+}
+
+export interface TrafficRenderState {
+  items: readonly TrafficRenderItem[];
 }
 
 interface NodeEntry {
@@ -134,6 +173,11 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
     const planesRef = useRef<Plane[]>([]);
     const keyLightRef = useRef<DirectionalLight | null>(null);
     const groundRef = useRef<Mesh | null>(null);
+    const trafficGroupRef = useRef<Group | null>(null);
+    const deckReferenceRef = useRef<DeckReference | null>(null);
+    // Un conjunto instanciado por clase de vehículo: con decenas de vehículos
+    // actualizándose a cada fotograma, una malla por vehículo sería derrochar.
+    const fleetRef = useRef<Map<string, InstancedMesh>>(new Map());
     const selectedRef = useRef<string | null>(null);
     const litRef = useRef<Map<string, string> | null>(null);
     const propsRef = useRef(props);
@@ -198,6 +242,13 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       ground.receiveShadow = true;
       scene.add(ground);
       groundRef.current = ground;
+
+      // El tráfico vive en su propio grupo para poder retirarlo de golpe sin
+      // tocar el modelo.
+      const trafficGroup = new Group();
+      trafficGroup.name = 'trafico';
+      scene.add(trafficGroup);
+      trafficGroupRef.current = trafficGroup;
 
       const camera = new PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 6000);
       camera.position.set(44, 34, 46);
@@ -271,11 +322,116 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    /**
+     * Dibuja el tráfico sobre la calzada medida.
+     *
+     * Un conjunto instanciado por clase de vehículo. Los conjuntos se
+     * reconstruyen solo cuando cambia el número de vehículos de una clase o su
+     * tamaño; en el caso corriente únicamente se reescriben las matrices, que
+     * es lo que permite sostener el ritmo de refresco.
+     */
+    const renderTraffic = (state: TrafficRenderState | null) => {
+      const group = trafficGroupRef.current;
+      if (!group) return;
+      const reference = deckReferenceRef.current;
+      const fleet = fleetRef.current;
+
+      // Sin medida de la calzada no se dibuja nada: colocar vehículos a ojo
+      // los dejaría flotando o enterrados, y eso engaña más que no verlos.
+      if (!state || !reference) {
+        for (const mesh of fleet.values()) {
+          group.remove(mesh);
+          mesh.geometry.dispose();
+          (mesh.material as Material).dispose();
+        }
+        fleet.clear();
+        return;
+      }
+
+      const byClass = new Map<string, TrafficRenderItem[]>();
+      for (const item of state.items) {
+        const list = byClass.get(item.classId);
+        if (list) list.push(item);
+        else byClass.set(item.classId, [item]);
+      }
+
+      // Clases que ya no tienen vehículos: fuera de la escena.
+      for (const [classId, mesh] of [...fleet.entries()]) {
+        if (byClass.has(classId)) continue;
+        group.remove(mesh);
+        mesh.geometry.dispose();
+        (mesh.material as Material).dispose();
+        fleet.delete(classId);
+      }
+
+      const matrix = new Matrix4();
+      const basisLength = new Vector3();
+      const basisHeight = new Vector3();
+      const basisWidth = new Vector3();
+
+      for (const [classId, items] of byClass) {
+        const sample = items[0];
+        let mesh = fleet.get(classId);
+        // La capacidad se redondea al alza para no reconstruir el conjunto en
+        // cada vehículo que entra o sale.
+        const capacity = Math.max(8, Math.ceil(items.length / 8) * 8);
+        if (!mesh || mesh.count !== capacity || mesh.userData.classId !== classId) {
+          if (mesh) {
+            group.remove(mesh);
+            mesh.geometry.dispose();
+            (mesh.material as Material).dispose();
+          }
+          mesh = new InstancedMesh(
+            new BoxGeometry(sample.lengthM, sample.heightM, sample.widthM),
+            new MeshStandardMaterial({
+              color: sample.color,
+              metalness: 0.25,
+              roughness: 0.45,
+            }),
+            capacity,
+          );
+          mesh.userData.classId = classId;
+          mesh.castShadow = true;
+          mesh.frustumCulled = false;
+          group.add(mesh);
+          fleet.set(classId, mesh);
+        }
+
+        for (let index = 0; index < capacity; index += 1) {
+          const item = items[index];
+          if (!item) {
+            // Las plazas sobrantes se encogen a cero en vez de quedarse con la
+            // matriz del vehículo anterior, que dejaría coches fantasma.
+            matrix.makeScale(0, 0, 0);
+            mesh.setMatrixAt(index, matrix);
+            continue;
+          }
+          const placement = vehicleTransform(
+            reference, item.positionM, item.offsetM, item.heightM,
+          );
+          // La base viene de la medida del tablero, que puede estar orientado
+          // de cualquier forma: se aplica tal cual en vez de girar sobre Y.
+          basisLength.fromArray(placement.basis.length);
+          basisHeight.fromArray(placement.basis.height);
+          basisWidth.fromArray(placement.basis.width);
+          matrix.makeBasis(basisLength, basisHeight, basisWidth);
+          matrix.setPosition(
+            placement.position[0], placement.position[1], placement.position[2],
+          );
+          mesh.setMatrixAt(index, matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+      }
+    };
+
     useImperativeHandle(ref, () => ({
       frameAll: () => frameBounds(),
       setView: (preset) => applyView(preset),
       focus: (componentId) => focusComponent(componentId),
       extractVisible: () => extractVisible(),
+      deckReference: () => deckReferenceRef.current,
+      renderTraffic: (state) => renderTraffic(state),
     }));
 
     /**
@@ -517,6 +673,28 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
             scene.add(root);
             modelRef.current = root;
             nodesRef.current = entries;
+
+            // Se MIDE la calzada del modelo cargado. No se supone: según cómo
+            // se exporte, el tablero puede ir en X o en Z, y a distinta cota.
+            const surface = entries.filter(
+              (entry) => entry.componentId === WEARING_COURSE_ID,
+            );
+            const fallback = entries.filter((entry) => entry.discipline === DECK_DISCIPLINE);
+            const measured = surface.length > 0 ? surface : fallback;
+            if (measured.length > 0) {
+              const deckBox = new Box3();
+              for (const entry of measured) deckBox.expandByObject(entry.object);
+              deckReferenceRef.current = deckBox.isEmpty()
+                ? null
+                : deckReferenceFromBox(
+                  { min: deckBox.min, max: deckBox.max },
+                  surface.length > 0
+                    ? `carpeta de rodadura (${WEARING_COURSE_ID})`
+                    : `envolvente de la disciplina «${DECK_DISCIPLINE}»`,
+                );
+            } else {
+              deckReferenceRef.current = null;
+            }
 
             const bounds = new Box3().setFromObject(root);
             boundsRef.current = bounds;

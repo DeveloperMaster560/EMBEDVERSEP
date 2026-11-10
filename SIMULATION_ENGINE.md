@@ -173,3 +173,27 @@ se exige un mínimo para hablar de PWM. Hay prueba de regresión.
   El servidor lo detecta y lo dice con claridad; para compilar fuera de Windows
   hay que instalar Arduino CLI y el core AVR de ese sistema. La carga directa
   de `.hex` existe precisamente por esto.
+
+## Actualización — 10 de noviembre de 2026
+
+El motor ya no solo ejecuta firmware sobre un circuito de laboratorio: gobierna
+el alumbrado de un puente y convive con tráfico vehicular sobre el tablero.
+
+Lo nuevo está documentado en
+[SISTEMA_EMBEBIDO_PUENTE.md](SISTEMA_EMBEBIDO_PUENTE.md):
+
+- el armario de control del Viaducto de la Novena, con firmware propio
+  (`public/firmware/puente-alumbrado.S`) y cuatro modos que el operador recorre
+  con un pulsador;
+- el firmware encendiendo **las luminarias concretas del modelo 3D**, no un
+  contador abstracto;
+- tráfico de automóviles, motocicletas, buses y camiones con el modelo IDM.
+
+Dos cosas de este documento que cambian:
+
+- La cabecera de la placa del laboratorio **ya no expone solo siete pines**. Era
+  una de las carencias declaradas. Ahora expone A0, A1, A4, A5 y D2–D9 más D13,
+  manteniendo los identificadores antiguos.
+- Los **dispositivos I²C siguen sin modelo**, pero ya no son la única carencia
+  pendiente que importa: lo que falta de verdad es la comprobación visual en
+  navegador, que sigue sin hacerse.

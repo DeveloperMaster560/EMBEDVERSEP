@@ -23,19 +23,43 @@ const firmware = import.meta.glob('../../public/firmware/*.hex', {
 
 const entries = Object.entries(firmware);
 
-describe('firmware de demostración publicado', () => {
+/** Nombre corto del archivo, para que los nombres de las pruebas se lean. */
+const basename = (path: string) => path.split('/').pop() ?? path;
+
+describe('firmware publicado', () => {
   it('hay al menos uno', () => {
     expect(entries.length).toBeGreaterThan(0);
   });
 
-  it.each(entries)('%s se carga y conmuta el LED del circuito de ejemplo', (_path, hex) => {
+  /**
+   * Afirmación válida para TODOS: cualquier .hex publicado tiene que poder
+   * leerse y cargarse. Lo que cada uno hace después es cosa suya, y se
+   * comprueba por separado: el del armario del puente, en
+   * `bridge-controller.test.ts`.
+   */
+  it.each(entries)('%s se lee y arranca sin reventar', (_path, hex) => {
     const circuit = createArduinoPracticeCircuit('arduino-uno');
     const session = SimulationSession.fromHex(hex, circuit, { maxStepMillis: 400 });
-
-    // El circuito de ejemplo tiene el LED en una salida digital y el MPU6050
-    // en el bus I²C: uno se simula y el otro queda declarado sin simular.
     expect(session.simulable).toBe(true);
+    expect(() => session.advance(50)).not.toThrow();
+    // El circuito de ejemplo lleva el MPU6050 en el bus I²C, que no se simula:
+    // tiene que quedar declarado, no descartado en silencio.
     expect(session.unresolved.map((item) => item.reason).join(' ')).toMatch(/MPU6050/);
+  });
+});
+
+describe('firmware de demostración', () => {
+  const demo = entries.find(([path]) => basename(path) === 'alumbrado-demo.hex');
+
+  it('está publicado', () => {
+    expect(demo).toBeDefined();
+  });
+
+  it('conmuta el LED del circuito de ejemplo y habla por el puerto serie', () => {
+    if (!demo) throw new Error('No está publicado alumbrado-demo.hex');
+    const session = SimulationSession.fromHex(
+      demo[1], createArduinoPracticeCircuit('arduino-uno'), { maxStepMillis: 400 },
+    );
 
     // El semiciclo son unos 0,5 s por retardo de bucle. Recorriendo 1,2 s en
     // tramos hay que ver el LED encendido en algún momento y apagado en otro.
@@ -47,8 +71,6 @@ describe('firmware de demostración publicado', () => {
       seen.add(led!.active);
     }
     expect([...seen].sort()).toEqual([false, true]);
-
-    // Y tiene que haber hablado por el puerto serie, que es la otra mitad.
     expect(session.report().serial).toMatch(/[01]/);
   });
 });
