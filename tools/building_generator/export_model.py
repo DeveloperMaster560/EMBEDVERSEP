@@ -250,21 +250,81 @@ def _build_scene(model, include: Optional[Sequence[str]] = None):
     return scene, added, failed
 
 
+# ---------------------------------------------------------------------------
+# Orientacion de glTF
+# ---------------------------------------------------------------------------
+
+
+def gltf_bytes(scene) -> bytes:
+    """Serializa la escena a GLB con la orientacion que exige la norma.
+
+    El modelo se construye con Z hacia arriba: es la convencion de ingenieria y
+    la que usan IFC y STEP. glTF 2.0 obliga a +Y arriba (seccion 3.5,
+    "Coordinate System and Units"), asi que hay que rotarlo al exportar.
+
+    Sin esta conversion el GLB es valido pero se abre TUMBADO en cualquier
+    visor que respete la norma: en un puente atirantado los pilonos salen
+    horizontales y los tirantes se abanican en plano; en un edificio las
+    plantas quedan de canto. Afectaba por igual al visor del propio sistema y a
+    cualquier programa externo (Blender, el visor 3D de Windows).
+
+    EXISTE COMO FUNCION UNICA A PROPOSITO. Habia cuatro sitios exportando GLB
+    por su cuenta, y arreglar uno dejaba los otros tres torcidos. Todo lo que
+    escriba glTF debe pasar por aqui.
+
+    IFC y STEP mantienen Z arriba, porque sus propias normas lo establecen.
+    """
+    import trimesh
+
+    rotated = scene.copy()
+    # -90 grados sobre X: (x, y, z) -> (x, z, -y). El vertical del modelo,
+    # (0,0,1), pasa a ser (0,1,0), que es el vertical de glTF.
+    rotated.apply_transform(
+        trimesh.transformations.rotation_matrix(-math.pi / 2.0, (1.0, 0.0, 0.0)))
+    return rotated.export(file_type="glb")
+
+
 def write_glb(model, path: str) -> Dict[str, Any]:
+    """Escribe el GLB, convirtiendo a la orientacion que exige la norma.
+
+    El modelo se construye con Z hacia arriba, que es la convencion de
+    ingenieria y la que usan IFC y STEP. glTF 2.0 obliga a +Y arriba
+    (seccion 3.5, "Coordinate System and Units"), asi que el archivo hay que
+    rotarlo al exportar.
+
+    Sin esta conversion el GLB es valido pero se abre TUMBADO en cualquier
+    visor que respete la norma: en un puente atirantado los pilonos salen
+    horizontales y los tirantes se abanican en plano; en un edificio, las
+    plantas quedan de canto. Afectaba por igual al visor del propio sistema y
+    a cualquier programa externo (Blender, el visor 3D de Windows), que es
+    justamente lo que debia evitarse.
+
+    Solo se aplica al GLB. IFC y STEP mantienen Z arriba porque sus propias
+    normas asi lo establecen, y el OBJ se deja como estaba para no cambiar en
+    silencio un formato que nadie ha pedido tocar.
+    """
     import trimesh
 
     scene, added, failed = _build_scene(model)
-    data = scene.export(file_type="glb")
+    data = gltf_bytes(scene)
     with open(path, "wb") as fh:
         fh.write(data)
 
     reopened = trimesh.load(path, force="scene")
+    # Se comprueba sobre el archivo ya escrito, no sobre la escena en memoria:
+    # si la rotacion no hubiera llegado al GLB, esto lo delata.
+    bounds = reopened.bounds
+    height_y = float(bounds[1][1] - bounds[0][1])
+    depth_z = float(bounds[1][2] - bounds[0][2])
     return {
         "path": path, "nodes_written": added, "failed": failed,
         "geometries_on_reopen": len(reopened.geometry),
         "triangles": int(sum(len(g.faces) for g in reopened.geometry.values())),
         "bytes": os.path.getsize(path),
         "verified_by_reopen": True,
+        "up_axis": "Y",
+        "extent_y_m": round(height_y, 3),
+        "extent_z_m": round(depth_z, 3),
     }
 
 
@@ -350,7 +410,7 @@ def write_discipline_glb(model, directory: str) -> List[Dict[str, Any]]:
             continue
         path = os.path.join(directory, "%s.glb" % disc)
         with open(path, "wb") as fh:
-            fh.write(scene.export(file_type="glb"))
+            fh.write(gltf_bytes(scene))
         reopened = trimesh.load(path, force="scene")
         out.append({"discipline": disc, "path": path, "nodes": added,
                     "geometries_on_reopen": len(reopened.geometry),

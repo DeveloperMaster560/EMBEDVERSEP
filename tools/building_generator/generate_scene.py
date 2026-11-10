@@ -136,7 +136,7 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
     import validate as VAL
 
     scene, nodes, failed = XM._build_scene(model)
-    glb = scene.export(file_type="glb")
+    glb = XM.gltf_bytes(scene)  # convierte Z-arriba a Y-arriba, como exige glTF
 
     clash, clashes = VAL.clash_report(model)
     cons = VAL.consistency_report(model)
