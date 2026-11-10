@@ -168,6 +168,8 @@ Dos cosas que salieron de esa comprobación y conviene saber:
 
 ### Lo que sigue sin verificarse
 
+Para compilar en macOS o Linux: `./scripts/setup-arduino.sh`.
+
 **No hay comprobación visual en navegador.** Las 323 pruebas se ejecutan sin
 navegador. En este equipo la extensión de Chrome no consigue abrir el servidor
 de desarrollo —devuelve página de error con `localhost`, con `127.0.0.1` y con

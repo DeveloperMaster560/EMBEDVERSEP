@@ -129,9 +129,13 @@ forma confusa.
 ## Lo que sigue dependiendo del sistema
 
 - **Compilar firmware** necesita Arduino CLI instalado para ese sistema. El
-  binario que hay en `.tools` es de Windows (`arduino-cli.exe`), así que en
-  macOS o Linux hay que instalar el propio. La carga directa de `.hex` existe
-  precisamente para no depender de esto.
+  binario que hay en `.tools` es de Windows (`arduino-cli.exe`). En macOS o
+  Linux hay que instalar el propio, y para eso está `scripts/setup-arduino.sh`,
+  equivalente del `setup-arduino.ps1` de Windows: descarga Arduino CLI del
+  repositorio oficial, **comprueba el SHA-256** contra las sumas publicadas e
+  instala el core AVR 1.8.8 dentro de `.tools`, sin tocar el sistema ni pedir
+  privilegios de administrador. La carga directa de `.hex` sigue existiendo
+  para quien no quiera instalar nada.
 - **Las salidas en STEP** necesitan `cadquery`, que no tiene rueda para todas
   las combinaciones de Python y sistema operativo. `setup_generator.ps1 -Full`
   avisa si no la consigue instalar en vez de dejar un entorno a medias.
