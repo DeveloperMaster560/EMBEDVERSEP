@@ -15,7 +15,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import {
   ACESFilmicToneMapping,
   Box3,
-  BoxGeometry,
   Color,
   DirectionalLight,
   DoubleSide,
@@ -44,6 +43,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+import { createVehicleGeometry } from '../traffic/vehicle-geometry';
+import { VEHICLE_CLASSES, type VehicleClassId } from '../traffic/vehicles';
 import { DISCIPLINE_COLOR, presetFor } from './materials';
 import { explodeOffset, LEVELLESS, parseNodeName } from './scene-graph';
 import type { ModelDomain } from './scene-graph';
@@ -370,7 +371,6 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       const basisWidth = new Vector3();
 
       for (const [classId, items] of byClass) {
-        const sample = items[0];
         let mesh = fleet.get(classId);
         // La capacidad se redondea al alza para no reconstruir el conjunto en
         // cada vehículo que entra o sale.
@@ -382,9 +382,14 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
             (mesh.material as Material).dispose();
           }
           mesh = new InstancedMesh(
-            new BoxGeometry(sample.lengthM, sample.heightM, sample.widthM),
+            // La silueta se construye en codigo y mide exactamente lo que la
+            // clase declara, asi que lo que se ve no desmiente al IDM.
+            createVehicleGeometry(VEHICLE_CLASSES[classId as VehicleClassId]),
             new MeshStandardMaterial({
-              color: sample.color,
+              // El color va por vertice: ruedas oscuras y cristales sin
+              // multiplicar materiales, que con InstancedMesh obligaria a un
+              // conjunto por pieza.
+              vertexColors: true,
               metalness: 0.25,
               roughness: 0.45,
             }),
