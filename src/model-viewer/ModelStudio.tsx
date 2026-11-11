@@ -831,6 +831,9 @@ export function ModelStudio<S>({
           colorMode={colorMode}
           selectedId={selectedId}
           litComponents={effectiveLit}
+          // La fotocelda ya no gobierna solo al firmware: tambien anochece la
+          // escena. Un alumbrado encendido a pleno dia no se ve.
+          ambientLight={config.domain === 'bridge' ? photocellLight : 1}
           onSelect={setSelectedId}
           onLoaded={setLoadInfo}
           onError={setError}

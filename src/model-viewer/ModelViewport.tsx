@@ -27,7 +27,13 @@ import {
   MeshStandardMaterial,
   PCFSoftShadowMap,
   PMREMGenerator,
+  AdditiveBlending,
+  BufferGeometry,
+  CanvasTexture,
+  Float32BufferAttribute,
   PerspectiveCamera,
+  Points,
+  PointsMaterial,
   Sphere,
   Plane,
   PlaneGeometry,
@@ -45,6 +51,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { clippingPlanes, fitDistance } from './camera-fit';
+import { skyFor } from './night-sky';
 import { createVehicleGeometry } from '../traffic/vehicle-geometry';
 import { VEHICLE_CLASSES, type VehicleClassId } from '../traffic/vehicles';
 import { DISCIPLINE_COLOR, presetFor } from './materials';
@@ -83,6 +90,13 @@ export interface ModelViewportProps {
    * La identidad del Map es la señal de cambio, así que debe memorizarse.
    */
   litComponents?: Map<string, string> | null;
+  /**
+   * Luz natural, de 0 (noche cerrada) a 1 (pleno dia).
+   *
+   * Sin esto la escena estaba siempre a pleno dia y el alumbrado encendido no
+   * se veia: un alumbrado solo se aprecia cuando es de noche.
+   */
+  ambientLight?: number;
   onSelect: (componentId: string | null) => void;
   onLoaded: (info: { meshes: number; triangles: number; bounds: [number, number, number] }) => void;
   onError: (message: string) => void;
@@ -175,6 +189,13 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
     const boundsRef = useRef<Box3 | null>(null);
     const planesRef = useRef<Plane[]>([]);
     const keyLightRef = useRef<DirectionalLight | null>(null);
+    const hemisphereRef = useRef<HemisphereLight | null>(null);
+    const fillLightRef = useRef<DirectionalLight | null>(null);
+    // Halos de los puntos de luz encendidos: sin ellos, una luminaria de
+    // centimetros no se ve desde los cientos de metros a los que hay que
+    // ponerse para abarcar el puente entero.
+    const glowRef = useRef<Points | null>(null);
+    const glowTextureRef = useRef<CanvasTexture | null>(null);
     const groundRef = useRef<Mesh | null>(null);
     const trafficGroupRef = useRef<Group | null>(null);
     const deckReferenceRef = useRef<DeckReference | null>(null);
@@ -217,7 +238,9 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       const pmrem = new PMREMGenerator(renderer);
       scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-      scene.add(new HemisphereLight('#dceaff', '#2a2b30', 1.0));
+      const hemisphere = new HemisphereLight('#dceaff', '#2a2b30', 1.0);
+      scene.add(hemisphere);
+      hemisphereRef.current = hemisphere;
       const key = new DirectionalLight('#fff4e2', 2.6);
       key.position.set(28, 44, 22);
       key.castShadow = true;
@@ -235,6 +258,7 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       const fill = new DirectionalLight('#9dc2ff', 0.7);
       fill.position.set(-32, 22, -26);
       scene.add(fill);
+      fillLightRef.current = fill;
 
       const ground = new Mesh(
         new PlaneGeometry(2000, 2000),
@@ -575,6 +599,110 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       controls.update();
     }
 
+    /** Textura del halo: un degradado radial que se desvanece al borde. */
+    function glowTexture(): CanvasTexture {
+      if (glowTextureRef.current) return glowTextureRef.current;
+      const lado = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = lado;
+      canvas.height = lado;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const g = ctx.createRadialGradient(lado / 2, lado / 2, 0, lado / 2, lado / 2, lado / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.3, 'rgba(255,255,255,0.6)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, lado, lado);
+      }
+      const texture = new CanvasTexture(canvas);
+      glowTextureRef.current = texture;
+      return texture;
+    }
+
+    /**
+     * Rehace los halos de los puntos de luz encendidos.
+     *
+     * Se dibujan como puntos con mezcla aditiva, no como geometria: son 163
+     * luminarias en el viaducto, y lo que importa es que se vean desde lejos,
+     * no su forma. El tamano se ata al del modelo, para que valga igual en un
+     * puente de 550 m que en un edificio de 30.
+     */
+    function rebuildGlow(lit: Map<string, string> | null): void {
+      const scene = sceneRef.current;
+      if (!scene) return;
+      const anterior = glowRef.current;
+      if (anterior) {
+        scene.remove(anterior);
+        anterior.geometry.dispose();
+        (anterior.material as PointsMaterial).dispose();
+        glowRef.current = null;
+      }
+      if (!lit || lit.size === 0) return;
+
+      const posiciones: number[] = [];
+      const colores: number[] = [];
+      const caja = new Box3();
+      const centro = new Vector3();
+      const color = new Color();
+      for (const entry of nodesRef.current) {
+        const tono = lit.get(entry.componentId);
+        // Una luminaria de una disciplina oculta no debe dejar su halo
+        // flotando sin la pieza.
+        if (!tono || !entry.object.visible) continue;
+        caja.setFromObject(entry.object);
+        if (caja.isEmpty()) continue;
+        caja.getCenter(centro);
+        posiciones.push(centro.x, centro.y, centro.z);
+        color.set(tono);
+        colores.push(color.r, color.g, color.b);
+      }
+      if (posiciones.length === 0) return;
+
+      const geometry = new BufferGeometry();
+      geometry.setAttribute('position', new Float32BufferAttribute(posiciones, 3));
+      geometry.setAttribute('color', new Float32BufferAttribute(colores, 3));
+      const bounds = boundsRef.current;
+      const radio = bounds && !bounds.isEmpty()
+        ? bounds.getBoundingSphere(new Sphere()).radius
+        : 20;
+      const material = new PointsMaterial({
+        size: Math.min(Math.max(radio * 0.022, 0.4), 14),
+        map: glowTexture(),
+        vertexColors: true,
+        transparent: true,
+        blending: AdditiveBlending,
+        // Sin esto los halos se taparian entre si y con el tablero.
+        depthWrite: false,
+        sizeAttenuation: true,
+      });
+      const points = new Points(geometry, material);
+      points.name = 'halos-alumbrado';
+      points.frustumCulled = false;
+      scene.add(points);
+      glowRef.current = points;
+    }
+
+    /** Lleva la escena del dia a la noche segun la fotocelda. */
+    function applySky(): void {
+      const sky = skyFor(propsRef.current.ambientLight ?? 1);
+      const scene = sceneRef.current;
+      if (scene && scene.background instanceof Color) scene.background.set(sky.background);
+      if (scene) scene.environmentIntensity = sky.environment;
+      if (hemisphereRef.current) hemisphereRef.current.intensity = sky.hemisphere;
+      if (keyLightRef.current) keyLightRef.current.intensity = sky.key;
+      if (fillLightRef.current) fillLightRef.current.intensity = sky.fill;
+      const ground = groundRef.current;
+      if (ground) (ground.material as ShadowMaterial).opacity = sky.groundOpacity;
+      const glow = glowRef.current;
+      if (glow) {
+        // De dia el alumbrado puede estar encendido (modo «Todo encendido»),
+        // pero el halo se atenua: a pleno sol una farola no deslumbra.
+        const luz = Math.min(1, Math.max(0, propsRef.current.ambientLight ?? 1));
+        (glow.material as PointsMaterial).opacity = 0.35 + 0.65 * (1 - luz);
+      }
+    }
+
     function frameBounds(): void {
       const bounds = boundsRef.current;
       if (!bounds || bounds.isEmpty()) return;
@@ -847,7 +975,9 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
         });
         selectedRef.current = selectedId ?? null;
         litRef.current = lit;
+        rebuildGlow(lit);
       }
+      applySky();
     }
 
     useEffect(() => {
@@ -860,6 +990,8 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       props.section,
       props.litComponents,
       props.selectedId,
+      // Sin esto la escena no anochecia al mover la fotocelda.
+      props.ambientLight,
     ]);
 
     // Cambiar el modo de color exige reconstruir los materiales.
