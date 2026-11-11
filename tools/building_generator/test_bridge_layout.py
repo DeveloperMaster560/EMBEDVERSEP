@@ -26,9 +26,16 @@ class TestRepartoDeVanos(unittest.TestCase):
         self.assertAlmostEqual(B.REQ_LENGTH, 550.8, places=6)
 
     def test_no_ajusta_el_numero_de_vanos(self):
-        """Un reparto explicito no se puede repartir de nuevo: destruiria el dato."""
+        """Un reparto explicito no se puede repartir de nuevo: destruiria el dato.
+
+        Se mira si hay algun ajuste SOBRE LOS VANOS, no si la lista esta vacia.
+        Afirmar que esta vacia ataba esta prueba a cualquier otro ajuste que el
+        generador llegara a emitir por motivos ajenos al reparto.
+        """
         report = B.apply_spec(dict(NOVENA))
-        self.assertEqual(report["adjustments"], [])
+        sobre_vanos = [a for a in report["adjustments"]
+                       if "vano" in a.lower() or "luz" in a.lower()]
+        self.assertEqual(sobre_vanos, [])
 
     def test_las_torres_flanquean_el_vano_principal(self):
         B.apply_spec(dict(NOVENA))

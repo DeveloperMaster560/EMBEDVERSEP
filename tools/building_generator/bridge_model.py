@@ -77,12 +77,17 @@ def girder_bottom() -> float:
 
 
 def bearing_top() -> float:
-    """Cota superior del apoyo: justo bajo el fondo de la estructura."""
-    return round(girder_bottom() - 0.01, 4)
+    """Cota superior del apoyo: justo bajo el fondo de la estructura.
+
+    Se lee de `bridge_params` y no se recalcula aqui: la cota de arranque del
+    estribo se deriva de ella, y dos formulas equivalentes en archivos
+    distintos acabarian divergiendo.
+    """
+    return B.BEARING_TOP
 
 
 def cap_top() -> float:
-    return round(bearing_top() - B.HYP_BEARING_SIZE[2], 4)
+    return B.CAP_TOP
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +98,15 @@ def cap_top() -> float:
 def build_foundations(model) -> None:
     fw, fl = B.HYP_FOOTING_PLAN
     ft = B.HYP_FOOTING_THICKNESS
-    top = -B.HYP_FOOTING_DEPTH
-    base = round(top - ft, 4)
 
     for tag, x in support_axes():
+        # Las PILAS bajan al fondo del cruce; los ESTRIBOS se cimientan donde
+        # arrancan, que es donde el terreno encuentra al tablero. En un
+        # viaducto sobre vaguada esos dos sitios no estan a la misma cota, y
+        # tratarlos igual era lo que producia muros de decenas de metros.
+        es_estribo = tag in ("EA", "EB")
+        top = B.ABUTMENT_BASE_Z if es_estribo else -B.HYP_FOOTING_DEPTH
+        base = round(top - ft, 4)
         cid = "EST-ZAP-%s" % tag
         sid = "SOL-%s" % cid
         prism = S.box_prism(x - fl / 2, -fw / 2, x + fl / 2, fw / 2, base, top)
@@ -242,7 +252,7 @@ def build_abutments(model) -> None:
     wl = B.HYP_ABUTMENT_WINGWALL_LENGTH
     wt = B.HYP_ABUTMENT_WINGWALL_THICKNESS
     top = cap_top()
-    base = -B.HYP_FOOTING_DEPTH
+    base = B.ABUTMENT_BASE_Z
 
     for tag, x, sign in (("EA", 0.0, 1.0), ("EB", B.REQ_LENGTH, -1.0)):
         # --- muro frontal ---
@@ -259,7 +269,7 @@ def build_abutments(model) -> None:
             component_id=cid, solid_id=sid,
             inputs={"axis": tag, "x": x, "thickness": t, "z0": base, "z1": top},
             outputs={"height_m": round(top - base, 4), "length_m": B.REQ_WIDTH},
-            derived_from=["HYP_ABUTMENT_THICKNESS", "HYP_FOOTING_DEPTH", "REQ_WIDTH"],
+            derived_from=["HYP_ABUTMENT_THICKNESS", "ABUTMENT_BASE_Z", "REQ_WIDTH"],
             implementation="solids.Prism (extrusion en Z)",
         )
         _register(model, Component(
@@ -272,11 +282,19 @@ def build_abutments(model) -> None:
             parameters={
                 "support_axis": tag, "thickness_m": t,
                 "height_m": round(top - base, 4),
+                "base_elevation_m": base,
+                # La cota del terreno en el estribo es lo que de verdad fija su
+                # altura, y no se conoce. Si la altura se ha acotado, la cifra
+                # de arriba DEPENDE de suponer que el terreno sube a su
+                # encuentro; se deja dicho en vez de presentarla como medida.
+                "ground_elevation_m": None,
+                "ground_level_assumed": B.ABUTMENT_GROUND_ASSUMED,
                 "earth_pressure_kPa": None, "backfill_specification": None,
                 "specified_concrete_strength_fc": None, "reinforcement_layout": None,
                 "sliding_check": None, "overturning_check": None,
             },
             requires_calculation=CONCRETE_PENDING + [
+                "ground_elevation_m",
                 "earth_pressure_kPa", "backfill_specification",
                 "sliding_check", "overturning_check"],
             provenance="hypothesis", tags=["estribo", "conceptual"],

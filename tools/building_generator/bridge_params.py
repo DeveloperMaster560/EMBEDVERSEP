@@ -55,6 +55,8 @@ REQ_SPAN_LENGTHS: Tuple[float, ...] = ()
 # Altura de torre SOBRE EL TABLERO. None = se deduce de la luz. Se admite
 # explicita porque en una obra real es un dato de proyecto, no una proporcion.
 REQ_TOWER_HEIGHT: Any = None
+# La altura del estribo es un dato del TERRENO. None = no declarada.
+REQ_ABUTMENT_HEIGHT: Any = None
 
 # ---------------------------------------------------------------------------
 # HYP_* — hipotesis geometricas conceptuales
@@ -98,6 +100,17 @@ HYP_FOOTING_DEPTH = 2.00            # profundidad de la cara superior bajo el te
 
 # Apoyos y juntas
 HYP_BEARING_SIZE = (0.45, 0.45, 0.08)
+HYP_BEARING_GAP = 0.01              # holgura entre el apoyo y el fondo de estructura
+
+# Altura maxima de un estribo macizo convencional. Por encima de esto no se
+# construyen asi: un estribo es una estructura de contencion que se situa donde
+# el terreno encuentra al tablero, y en un viaducto sobre vaguada eso ocurre en
+# el BORDE de la vaguada, no en su fondo. Las pilas si bajan al fondo.
+#
+# Sin esta cota, un tablero a 72 m producia un muro macizo de 71 m de altura,
+# y los dos estribos sumaban el 29 % de la masa del modelo. Esa pieza no existe
+# en ningun puente.
+HYP_ABUTMENT_MAX_HEIGHT = 12.0
 HYP_JOINT_GAP = 0.06
 HYP_JOINT_DEPTH = 0.22   # igual al espesor de losa: la junta no invade las vigas
 
@@ -459,6 +472,16 @@ SPAN_EDGES: Tuple[float, ...] = ()
 PIER_AXES: Tuple[float, ...] = ()
 GIRDER_DEPTH = 0.0
 GIRDER_OFFSETS: Tuple[float, ...] = ()
+BEARING_TOP = 0.0
+CAP_TOP = 0.0
+ABUTMENT_BASE_Z = 0.0
+ABUTMENT_HEIGHT = 0.0
+# True cuando la altura del estribo se ha acotado y, por tanto, se SUPONE que
+# el terreno sube a su encuentro. Es una suposicion sobre el terreno, y como
+# tal se declara entre los pendientes del emplazamiento.
+ABUTMENT_GROUND_ASSUMED = False
+# Aviso que _recompute deja listo para que apply_spec lo publique.
+ABUTMENT_ADJUSTMENT: Any = None
 DECK_TOP = 0.0
 DECK_BOTTOM = 0.0
 STRUCTURE_BOTTOM = 0.0
@@ -475,6 +498,8 @@ class SpecError(ValueError):
 def _recompute() -> None:
     global SPAN_LENGTH, SPAN_EDGES, PIER_AXES, GIRDER_DEPTH, GIRDER_OFFSETS
     global DECK_TOP, DECK_BOTTOM, STRUCTURE_BOTTOM, CARRIAGEWAY_WIDTH
+    global BEARING_TOP, CAP_TOP, ABUTMENT_BASE_Z, ABUTMENT_HEIGHT
+    global ABUTMENT_GROUND_ASSUMED, ABUTMENT_ADJUSTMENT
     global TOWER_AXES, TOWER_HEIGHT
     global ARCH_SPAN, ARCH_RISE, ARCH_CROWN_Z, ARCH_RIB_OFFSETS
 
@@ -510,6 +535,38 @@ def _recompute() -> None:
         GIRDER_OFFSETS = tuple(
             round(-usable / 2 + step * (i + 0.5), 4) for i in range(count))
         STRUCTURE_BOTTOM = round(DECK_BOTTOM - GIRDER_DEPTH, 4)
+
+    # --- cotas de apoyo y arranque del estribo ---
+    BEARING_TOP = round(STRUCTURE_BOTTOM - HYP_BEARING_GAP, 4)
+    CAP_TOP = round(BEARING_TOP - HYP_BEARING_SIZE[2], 4)
+
+    # El estribo es una estructura de CONTENCION: su altura la fija el terreno
+    # donde el tablero lo encuentra, no la cota del tablero. Llevarlo siempre
+    # hasta el plano de cota 0 produce, en un viaducto alto, un muro macizo de
+    # decenas de metros que no existe en ninguna obra.
+    natural_base = -HYP_FOOTING_DEPTH
+    natural_height = round(CAP_TOP - natural_base, 4)
+    ABUTMENT_GROUND_ASSUMED = False
+    ABUTMENT_ADJUSTMENT = None
+    if REQ_ABUTMENT_HEIGHT is not None:
+        # Declarada por quien conoce el emplazamiento: se respeta.
+        ABUTMENT_HEIGHT = round(min(REQ_ABUTMENT_HEIGHT, natural_height), 4)
+    elif natural_height > HYP_ABUTMENT_MAX_HEIGHT:
+        ABUTMENT_HEIGHT = HYP_ABUTMENT_MAX_HEIGHT
+        ABUTMENT_GROUND_ASSUMED = True
+        # No se toca SPEC_ADJUSTMENTS aqui: apply_spec la REASIGNA despues de
+        # llamar a _recompute, asi que un append se perderia. Se deja el aviso
+        # en una variable y lo recoge quien publica la lista.
+        ABUTMENT_ADJUSTMENT = (
+            "El estribo se ha acotado a %.2f m de altura. Con el tablero a %.2f m "
+            "sobre el plano de referencia, llevarlo hasta ese plano daria un muro "
+            "macizo de %.2f m, que no es como se construye: un estribo se situa "
+            "donde el terreno encuentra al tablero. SE SUPONE que el terreno sube "
+            "a su encuentro, y esa suposicion no esta verificada."
+            % (HYP_ABUTMENT_MAX_HEIGHT, DECK_TOP, natural_height))
+    else:
+        ABUTMENT_HEIGHT = natural_height
+    ABUTMENT_BASE_Z = round(CAP_TOP - ABUTMENT_HEIGHT, 4)
 
     # La calzada util descuenta lo que ocupa el borde: la acera si la hay y,
     # si no, la propia barrera, que tambien se apoya sobre el tablero.
@@ -602,7 +659,7 @@ SPEC_FIELDS = {
 }
 
 # Campos que no son escalares y se validan aparte en apply_spec.
-SPEC_FIELDS_SPECIAL = ("span_lengths", "tower_height_m")
+SPEC_FIELDS_SPECIAL = ("span_lengths", "tower_height_m", "abutment_height_m")
 
 
 def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
@@ -614,7 +671,7 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
     global REQ_TYPE, REQ_LENGTH, REQ_WIDTH, REQ_DECK_HEIGHT, REQ_SPAN_COUNT
     global REQ_GIRDER_COUNT, REQ_LANES, REQ_SIDEWALKS, PROJECT_NAME, SPEC_ADJUSTMENTS
-    global REQ_SPAN_LENGTHS, REQ_TOWER_HEIGHT
+    global REQ_SPAN_LENGTHS, REQ_TOWER_HEIGHT, REQ_ABUTMENT_HEIGHT
 
     g = globals()
     adjustments: List[str] = []
@@ -684,6 +741,21 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
                 "admisible de 0 a 400 m." % spec["tower_height_m"])
     else:
         REQ_TOWER_HEIGHT = None
+
+    # La altura del estribo la fija el TERRENO, no el tablero. Se admite
+    # declararla; si no se declara, se acota (vease HYP_ABUTMENT_MAX_HEIGHT).
+    if "abutment_height_m" in spec and spec["abutment_height_m"] is not None:
+        try:
+            REQ_ABUTMENT_HEIGHT = float(spec["abutment_height_m"])
+        except (TypeError, ValueError):
+            raise SpecError("abutment_height_m debe ser un numero en metros.")
+        if not math.isfinite(REQ_ABUTMENT_HEIGHT) or not (
+                0.5 <= REQ_ABUTMENT_HEIGHT <= 60.0):
+            raise SpecError(
+                "La altura de estribo (%r m) esta fuera del rango admisible de "
+                "0,5 a 60 m." % spec["abutment_height_m"])
+    else:
+        REQ_ABUTMENT_HEIGHT = None
 
     if REQ_TYPE not in SUPPORTED_TYPES:
         raise SpecError(
@@ -773,6 +845,9 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             "Con el tablero a %.2f m, el fondo de la estructura queda a %.2f m y no "
             "deja espacio para apoyos, cabezal y pila. Sube la altura del tablero."
             % (REQ_DECK_HEIGHT, STRUCTURE_BOTTOM))
+
+    if ABUTMENT_ADJUSTMENT:
+        adjustments.append(ABUTMENT_ADJUSTMENT)
 
     SPEC_ADJUSTMENTS = adjustments
     return {

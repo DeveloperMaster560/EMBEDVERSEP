@@ -104,7 +104,9 @@ tools\venv\Scripts\python.exe -m unittest discover -s tools\building_generator -
 
 Pasan **41 pruebas** y aparece **un error**, que es anterior a este traspaso:
 
-`test_build_arch.py` no es un módulo de `unittest` sino un script que termina
+`check_build_arch.py` (renombrado el 11/11/2026: llamándose `test_…` la
+descubierta de `unittest` lo recogía y la suite terminaba siempre en error)
+no es un módulo de `unittest` sino un script que termina
 con `sys.exit(1)` cuando su comprobación falla, así que `unittest discover` lo
 muestra como `ImportError: Failed to import test module`. El fallo de fondo es
 «hay ventanas en fachada» y sigue sin resolverse. Está comprobado que no lo
@@ -112,7 +114,7 @@ introdujo este trabajo: no hay ningún cambio en `tools/building_generator/`.
 Para verlo por separado:
 
 ```powershell
-tools\venv\Scripts\python.exe tools\building_generator\test_build_arch.py
+tools\venv\Scripts\python.exe tools\building_generator\check_build_arch.py
 ```
 
 ## Diferencias de plataforma que ya están resueltas

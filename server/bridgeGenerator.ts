@@ -84,6 +84,7 @@ export interface BridgeGeneratorSpec {
   disciplines?: string[];
   span_lengths?: number[];
   tower_height_m?: number;
+  abutment_height_m?: number;
   site?: Record<string, unknown>;
 }
 
@@ -192,6 +193,14 @@ export function validateBridgeSpec(value: unknown): BridgeGeneratorSpec {
   if (input.tower_height_m !== undefined) {
     spec.tower_height_m = requireFiniteInRange(
       input.tower_height_m, 'La altura de torre sobre el tablero', 0.5, MAX_TOWER_HEIGHT_M,
+    );
+  }
+  // La altura del estribo es un dato del TERRENO, no del tablero. Si no se
+  // declara, el generador la acota y lo advierte, en vez de llevar el muro
+  // hasta el plano de referencia.
+  if (input.abutment_height_m !== undefined) {
+    spec.abutment_height_m = requireFiniteInRange(
+      input.abutment_height_m, 'La altura del estribo', 0.5, 60,
     );
   }
   if (input.site !== undefined) {

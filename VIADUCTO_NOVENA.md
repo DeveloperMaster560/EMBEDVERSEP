@@ -186,7 +186,7 @@ aplicable, no de una fuente periodística.
 | Pruebas del núcleo geométrico | todas correctas |
 | Tipos, lint y compilación | limpios |
 
-Queda **un fallo preexistente** en `test_build_arch` («hay ventanas en
+Queda **un fallo preexistente** en `check_build_arch` («hay ventanas en
 fachada»), del generador de edificación. Se comprobó revirtiendo los cambios
 que ya fallaba antes de este trabajo; no lo ha causado el viaducto y no lo he
 tocado.
@@ -203,12 +203,34 @@ de lo modelado»**, nunca «masa estructural», y lleva pegada la salvedad. Ante
 se mostraba el número a secas, que ante un comité se lee como el peso del
 puente.
 
-El modelo reporta **23.287 t**. La prensa publica **7.536 t** para la obra real.
+El modelo reporta **13.871 t**. La prensa publica **7.536 t** para la obra real.
 **No son comparables y no debe presentarse esa cifra como el peso del
 viaducto.** El modelo construye vigas macizas y fustes macizos; la obra tiene un
 cajón hueco postesado. Nuestra cifra es la masa de *nuestra* geometría
 hipotética, calculada como volumen real × densidad declarada. Es correcta como
 aritmética y no es una medición de la obra.
+
+#### Corrección del 11/11/2026: eran 23.287 t, y 9.400 de ellas no existían
+
+Hasta esa fecha el modelo reportaba **23.287 t**, y este documento afirmaba que
+la discrepancia venía del cajón hueco. **Se midió, y era falso.** El desglose
+puso el **29 % de la masa en los dos estribos**: 4.265 m³ de hormigón.
+
+La causa: el estribo se construía desde la cota del tablero hasta el plano de
+referencia a cota 0. Con el tablero a 72 m, eso es un muro **macizo** de
+71 m de alto, 30 m de ancho y 2 m de espesor. Esa pieza no existe en ninguna
+obra. En un cruce de vaguada la geometría es la contraria: las **pilas** bajan
+al fondo y los **estribos** se quedan en el borde, cerca de la cota del
+tablero.
+
+Corregido, los estribos pasan de 10.237 t a 1.728 t y el total a 13.871 t. La
+altura del estribo se puede declarar (`abutment_height_m`); si no se declara,
+se acota a 12 m y **se advierte** que eso supone que el terreno sube a su
+encuentro, suposición que no está verificada.
+
+Lo que sigue sin tocarse es el cajón: el tablero continúa macizo. Las
+thicknesses de un cajón serían hipótesis, y **no se van a ajustar para que la
+cifra se acerque a 7.536 t**: eso sería encajar el modelo en la respuesta.
 
 ---
 
