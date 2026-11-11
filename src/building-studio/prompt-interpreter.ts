@@ -15,6 +15,7 @@ import {
   type DisciplineKey,
   type RoomUse,
 } from './contracts';
+import { matchReferenceBuilding, specificationForBuilding } from './reference-buildings';
 
 const NUMBER_WORDS: Record<string, number> = {
   un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
@@ -164,6 +165,11 @@ export function interpretBuildingPrompt(prompt: string): BuildingSpecification {
     text,
     'altura entre niveles|entre niveles|entrepiso|altura de piso a piso|piso a piso',
   );
+
+  // Un edificio real nombrado carga su ficha; del enunciado solo se toman las
+  // alturas, que las fuentes públicas no dan y el usuario puede medir.
+  const reference = matchReferenceBuilding(prompt);
+  if (reference) return specificationForBuilding(reference, { clearHeightM, floorToFloorM });
   if (clearHeightM !== null && floorToFloorM === null) {
     assumptions.push(
       'Solo se indicó la altura libre; la altura entre niveles la deduce el generador sumando el canto de viga y losa.',
