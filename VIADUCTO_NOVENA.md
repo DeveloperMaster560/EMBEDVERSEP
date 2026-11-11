@@ -186,7 +186,7 @@ aplicable, no de una fuente periodística.
 | Pruebas del núcleo geométrico | todas correctas |
 | Tipos, lint y compilación | limpios |
 
-Queda **un fallo preexistente** en `check_build_arch` («hay ventanas en
+Hubo **un fallo preexistente** en `check_build_arch` («hay ventanas en
 fachada»), del generador de edificación. Se comprobó revirtiendo los cambios
 que ya fallaba antes de este trabajo; no lo ha causado el viaducto y no lo he
 tocado.

@@ -554,6 +554,24 @@ def service_x_range() -> Tuple[float, float]:
     return lo, hi
 
 
+def light_pole_axes() -> List[Tuple[float, str]]:
+    """Abscisas y lado de los postes de alumbrado.
+
+    Esta es la UNICA fuente de esas posiciones: las usan el alumbrado para
+    construir los postes y la senalizacion para no ponerse encima de ellos.
+    Cuando la senalizacion las deducia por su cuenta a partir de la separacion
+    NOMINAL, el desfase no correspondia a la separacion real y acababan
+    coincidiendo (vease build_signage).
+    """
+    n = max(2, int(math.ceil(B.REQ_LENGTH / B.HYP_LIGHT_SPACING)) + 1)
+    out: List[Tuple[float, str]] = []
+    for k in range(n):
+        x = B.REQ_LENGTH * k / (n - 1)
+        x = min(max(x, 1.5), B.REQ_LENGTH - 1.5)
+        out.append((round(x, 4), "L" if k % 2 == 0 else "R"))
+    return out
+
+
 def _clear_of_supports(x: float, clearance: float = 1.4) -> float:
     """Aparta una abscisa de los ejes de apoyo.
 
@@ -1289,7 +1307,8 @@ def build_drainage(model) -> None:
 def build_lighting(model) -> None:
     half = B.REQ_WIDTH / 2
     base = round(B.DECK_TOP + (B.HYP_SIDEWALK_RISE if B.REQ_SIDEWALKS else 0.0), 4)
-    n = max(2, int(math.ceil(B.REQ_LENGTH / B.HYP_LIGHT_SPACING)) + 1)
+    pole_axes = light_pole_axes()
+    n = len(pole_axes)
     lum = B.HYP_LUMINAIRE
     # El poste se monta sobre la barrera: en la calzada invadiria la carpeta.
     y_pole = round(half - B.HYP_BARRIER_WIDTH / 2, 4)
@@ -1313,10 +1332,7 @@ def build_lighting(model) -> None:
         derived_from=["HYP_CONDUIT_DIAMETER", "HYP_BARRIER_WIDTH"],
     )
 
-    for k in range(n):
-        x = B.REQ_LENGTH * k / (n - 1)
-        x = min(max(x, 1.5), B.REQ_LENGTH - 1.5)
-        side = "L" if k % 2 == 0 else "R"
+    for k, (x, side) in enumerate(pole_axes):
         y = -y_pole if side == "L" else y_pole
         top = round(pole_base + B.HYP_LIGHT_POLE_HEIGHT, 4)
 
@@ -1481,12 +1497,29 @@ def build_signage(model) -> None:
     sign_base = round(barrier_base + B.HYP_BARRIER_HEIGHT, 4)
     y_sign = round(B.REQ_WIDTH / 2 - B.HYP_BARRIER_WIDTH / 2, 4)
 
+    # Las senales comparten la coronacion de la barrera con los postes de
+    # alumbrado, asi que hay que apartarlas de ellos. Se situan en los PUNTOS
+    # MEDIOS entre postes reales: asi no pueden coincidir por construccion.
+    #
+    # Antes se desfasaban media separacion NOMINAL (10 m, de los 20 de la
+    # regla). Pero los postes se reparten para encajar en la longitud y su
+    # separacion real era de 19,671 m, de modo que el desfase no correspondia a
+    # nada. El error se acumulaba hasta que una senal caia a 0,35 m de un
+    # poste, en el mismo lado del tablero: el poste atravesaba la senal.
+    pole_axes = light_pole_axes()
+    huecos = [round((pole_axes[i][0] + pole_axes[i + 1][0]) / 2.0, 4)
+              for i in range(len(pole_axes) - 1)]
+    # Se descartan los puntos medios que caen sobre un apoyo. Apartarlos como
+    # se hacia antes volveria a acercarlos a un poste.
+    libres = [x for x in huecos
+              if abs(_clear_of_supports(x, clearance=1.0) - x) < 1e-6]
+    if not libres:
+        libres = huecos
+    n = min(n, len(libres))
+
     for k in range(n):
-        x = B.REQ_LENGTH * (k + 0.5) / n
-        # Desfasadas media separacion respecto a los postes de alumbrado, que
-        # comparten la coronacion de la barrera.
-        x = _clear_of_supports(min(max(x + B.HYP_LIGHT_SPACING / 2.0, 1.5),
-                                   B.REQ_LENGTH - 1.5), clearance=1.0)
+        # Repartidas por el tablero entre los huecos disponibles.
+        x = libres[round(k * (len(libres) - 1) / max(1, n - 1))] if n > 1 else libres[0]
         side = "L" if k % 2 == 0 else "R"
         y = -y_sign if side == "L" else y_sign
         top = round(sign_base + B.HYP_SIGN_POST_HEIGHT, 4)
