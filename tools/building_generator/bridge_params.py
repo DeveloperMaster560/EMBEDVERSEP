@@ -192,15 +192,44 @@ MIN_WIDTH = 4.0
 MAX_WIDTH = 40.0
 MIN_SPANS = 1
 MAX_SPANS = 20
-MAX_SPAN_LENGTH = {"beam": 45.0, "slab": 25.0, "cable_stayed": 300.0}
+MAX_SPAN_LENGTH = {"beam": 45.0, "slab": 25.0, "cable_stayed": 300.0,
+                   # Los arcos de hormigon construidos superan los 400 m
+                   # (Wanxian, 420 m). Se acota ahi.
+                   "arch": 420.0}
 MIN_DECK_HEIGHT = 1.5
 
-SUPPORTED_TYPES = ("beam", "slab", "cable_stayed")
+SUPPORTED_TYPES = ("beam", "slab", "cable_stayed", "arch")
 TYPE_LABEL = {
     "beam": "Puente de vigas",
     "slab": "Puente de losa",
     "cable_stayed": "Puente atirantado",
+    "arch": "Puente en arco",
 }
+
+# ---------------------------------------------------------------------------
+# Arco (tablero superior)
+# ---------------------------------------------------------------------------
+#
+# Se construye UN arco sobre el vano mayor y se mantienen vigas en los vanos
+# restantes, que hacen de viaductos de acceso. Es la disposicion habitual: el
+# arco salva el obstaculo y el resto se resuelve con vigas.
+
+HYP_ARCH_RIB_SECTION = (1.80, 2.40)     # ancho x canto del arco, en metros
+HYP_ARCH_CLEARANCE = 0.60               # holgura entre la clave y el tablero
+HYP_ARCH_SEGMENTS = 28                  # tramos rectos que aproximan la curva
+HYP_ARCH_COLUMN_SECTION = (0.90, 0.90)  # montantes entre arco y tablero
+HYP_ARCH_COLUMN_SPACING = 12.0          # separacion objetivo entre montantes
+HYP_ARCH_SPRINGING_Z = 0.0              # los arranques nacen a cota de terreno
+# Por debajo de esta flecha el arco deja de trabajar como tal y la pieza seria
+# una viga curva. Si la cota del tablero no da para mas, se rechaza en vez de
+# entregar un arco que no lo es.
+HYP_ARCH_MIN_RISE_RATIO = 0.08
+
+# Derivados en apply_spec. Vacios mientras no se pida un arco.
+ARCH_SPAN = None            # (x_arranque_izq, x_arranque_der)
+ARCH_RISE = 0.0             # flecha, de arranque a clave
+ARCH_CROWN_Z = 0.0          # cota de la clave
+ARCH_RIB_OFFSETS = ()       # separacion transversal de los nervios
 
 # ---------------------------------------------------------------------------
 # Disciplinas y materiales
@@ -297,8 +326,11 @@ MATERIALS = {
 }
 
 CLASH_ROLES = {
+    # El arco y sus montantes son estructura de hormigon unida monoliticamente
+    # a pilas y tablero: que se toquen es la union, no un choque. Sin
+    # declararlo aqui, cada arranque de arco se contaba como error a revisar.
     "frame": {"EST-VIGAS", "EST-PILAS", "EST-ESTRIBOS", "EST-CIMENTACION",
-              "EST-TORRES", "EST-TIRANTES", "EST-DIAFRAGMAS"},
+              "EST-TORRES", "EST-TIRANTES", "EST-DIAFRAGMAS", "EST-ARCO"},
     # La losa maciza se atraviesa con pasatubos, igual que la losa del
     # tablero: una perforacion ahi es un pase previsto, no un error.
     "slab": {"TAB-LOSA", "EST-LOSA-MACIZA"},
@@ -444,6 +476,7 @@ def _recompute() -> None:
     global SPAN_LENGTH, SPAN_EDGES, PIER_AXES, GIRDER_DEPTH, GIRDER_OFFSETS
     global DECK_TOP, DECK_BOTTOM, STRUCTURE_BOTTOM, CARRIAGEWAY_WIDTH
     global TOWER_AXES, TOWER_HEIGHT
+    global ARCH_SPAN, ARCH_RISE, ARCH_CROWN_Z, ARCH_RIB_OFFSETS
 
     if REQ_SPAN_LENGTHS:
         edges = [0.0]
@@ -508,6 +541,52 @@ def _recompute() -> None:
     else:
         TOWER_AXES = ()
         TOWER_HEIGHT = 0.0
+
+    # --- arco -------------------------------------------------------------
+    # La flecha NO se adopta de una proporcion: la fija la cota del tablero.
+    # Un arco de tablero superior llena el hueco que hay bajo el tablero, asi
+    # que inventar una flecha y luego forzarla a caber seria al reves.
+    if REQ_TYPE == "arch":
+        # El arco va sobre el vano mayor, pero entre dos PILAS, no muriendo en
+        # un estribo: el estribo es un muro de tierras y no recibe el empuje
+        # del arco. Con vanos iguales el criterio del mayor elegiria el
+        # primero, que arranca en el estribo; por eso, a igualdad de luz, se
+        # prefiere el mas centrado. Es el mismo razonamiento que ya hacian las
+        # torres del atirantado.
+        centro_puente = REQ_LENGTH / 2.0
+        candidatos = list(range(len(SPAN_EDGES) - 1))
+        interiores = [i for i in candidatos
+                      if SPAN_EDGES[i] > 0.0 and SPAN_EDGES[i + 1] < REQ_LENGTH]
+        elegibles = interiores or candidatos
+        main = max(
+            elegibles,
+            key=lambda i: (
+                round(SPAN_EDGES[i + 1] - SPAN_EDGES[i], 6),
+                -abs((SPAN_EDGES[i] + SPAN_EDGES[i + 1]) / 2.0 - centro_puente),
+            ),
+        )
+        ARCH_SPAN = (SPAN_EDGES[main], SPAN_EDGES[main + 1])
+        ARCH_CROWN_Z = round(
+            DECK_BOTTOM - GIRDER_DEPTH - HYP_ARCH_CLEARANCE - HYP_ARCH_RIB_SECTION[1], 4)
+        ARCH_RISE = round(ARCH_CROWN_Z - HYP_ARCH_SPRINGING_Z, 4)
+        luz = ARCH_SPAN[1] - ARCH_SPAN[0]
+        if ARCH_RISE <= 0.0 or ARCH_RISE / luz < HYP_ARCH_MIN_RISE_RATIO:
+            raise SpecError(
+                "Con el tablero a %.2f m y una luz de %.2f m, el arco tendria una "
+                "flecha de %.2f m (relacion 1:%.0f). Por debajo de 1:%.0f la pieza "
+                "deja de trabajar como arco y seria una viga curva: suba la cota del "
+                "tablero o reduzca la luz."
+                % (REQ_DECK_HEIGHT, luz, max(ARCH_RISE, 0.0),
+                   (luz / ARCH_RISE) if ARCH_RISE > 0 else 999,
+                   1.0 / HYP_ARCH_MIN_RISE_RATIO))
+        # Los nervios van bajo los bordes del tablero, apartados de las vigas.
+        offset = round(REQ_WIDTH / 2.0 - HYP_ARCH_RIB_SECTION[0] / 2.0 - 0.40, 4)
+        ARCH_RIB_OFFSETS = (-offset, offset)
+    else:
+        ARCH_SPAN = None
+        ARCH_RISE = 0.0
+        ARCH_CROWN_Z = 0.0
+        ARCH_RIB_OFFSETS = ()
 
 
 SPEC_FIELDS = {

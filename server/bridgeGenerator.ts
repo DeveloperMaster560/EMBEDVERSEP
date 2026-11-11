@@ -38,7 +38,7 @@ const MAX_DECK_HEIGHT_M = 120;
 const MIN_SPANS = 1;
 const MAX_SPANS = 20;
 
-const ALLOWED_TYPES = new Set(['beam', 'slab', 'cable_stayed']);
+const ALLOWED_TYPES = new Set(['beam', 'slab', 'cable_stayed', 'arch']);
 
 const MAX_TOWER_HEIGHT_M = 400;
 
@@ -147,7 +147,8 @@ export function validateBridgeSpec(value: unknown): BridgeGeneratorSpec {
     const type = input.bridge_type;
     if (typeof type !== 'string' || !ALLOWED_TYPES.has(type)) {
       throw new GenerateRequestError(
-        `Tipología de puente no reconocida: ${String(type)}. El generador cubre vigas, losa y atirantado.`,
+        `Tipología de puente no reconocida: ${String(type)}. `
+        + 'El generador cubre vigas, losa, atirantado y arco.',
         400,
         'INVALID_BRIDGE_TYPE',
       );

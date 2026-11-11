@@ -796,6 +796,153 @@ def build_towers_and_stays(model) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Arco (tablero superior)
+# ---------------------------------------------------------------------------
+
+
+def arch_z_at(x: float) -> float:
+    """Cota del eje del arco en la abscisa x.
+
+    Parabola de segundo grado entre los dos arranques, con la clave en el
+    centro del vano. Se usa parabola y no circunferencia porque es la
+    directriz que sigue la linea de presiones bajo carga uniforme repartida:
+    con ella el arco trabaja a compresion casi pura, que es la razon de ser de
+    un arco.
+    """
+    x0, x1 = B.ARCH_SPAN
+    luz = x1 - x0
+    centro = (x0 + x1) / 2.0
+    t = (2.0 * (x - centro)) / luz          # -1 en un arranque, +1 en el otro
+    return B.HYP_ARCH_SPRINGING_Z + B.ARCH_RISE * (1.0 - t * t)
+
+
+def build_arch(model) -> None:
+    """Dos nervios de arco bajo los bordes del tablero, con sus montantes.
+
+    Se construye UN arco, sobre el vano mayor; los demas vanos conservan sus
+    vigas y hacen de viaductos de acceso. Es la disposicion habitual: el arco
+    salva el obstaculo y el resto se resuelve con vigas.
+    """
+    if B.REQ_TYPE != "arch" or not B.ARCH_SPAN:
+        return
+
+    x0, x1 = B.ARCH_SPAN
+    luz = x1 - x0
+    ancho, canto = B.HYP_ARCH_RIB_SECTION
+    tramos = max(8, int(B.HYP_ARCH_SEGMENTS))
+    # El fondo del tablero: es hasta donde suben los montantes.
+    fondo_tablero = round(B.DECK_BOTTOM - B.GIRDER_DEPTH, 4)
+
+    for lado, y in (("L", B.ARCH_RIB_OFFSETS[0]), ("R", B.ARCH_RIB_OFFSETS[1])):
+        puntos = []
+        for i in range(tramos + 1):
+            x = x0 + luz * i / tramos
+            puntos.append((round(x, 4), round(y, 4), round(arch_z_at(x), 4)))
+        cid = "EST-ARC-%s" % lado
+        sid = "SOL-%s" % cid
+        barridos = S.polyline_duct(puntos, ancho, canto)
+        solid = _solid(sid, barridos, "concreto_estructural", "structure", "ARC",
+                       "EST-ARCO")
+        desarrollo = S.polyline_length(puntos)
+        op = model.oplog.record(
+            "sweep", "creation",
+            "Nervio %s del arco: luz %.2f m, flecha %.2f m (relacion 1:%.1f), "
+            "seccion %.2f x %.2f m, aproximado con %d tramos rectos. La directriz "
+            "es parabolica, que es la linea de presiones bajo carga repartida."
+            % (lado, luz, B.ARCH_RISE, luz / B.ARCH_RISE, ancho, canto, tramos),
+            component_id=cid, solid_id=sid,
+            inputs={"span": [x0, x1], "rise_m": B.ARCH_RISE, "y": y,
+                    "section": [ancho, canto], "segments": tramos,
+                    "directrix": "parabola de 2o grado"},
+            outputs={"developed_length_m": round(desarrollo, 4),
+                     "crown_z_m": B.ARCH_CROWN_Z},
+            derived_from=["ARCH_SPAN", "ARCH_RISE", "HYP_ARCH_RIB_SECTION",
+                          "HYP_ARCH_SEGMENTS"],
+            implementation="solids.polyline_duct (barridos rectos consecutivos)",
+        )
+        _register(model, Component(
+            component_id=cid, discipline="structure", type="arch_rib",
+            name="Nervio %s del arco" % lado, level_id="ARC",
+            material="concreto_estructural", ifc_class="IfcMember",
+            position=[x0, y, B.HYP_ARCH_SPRINGING_Z],
+            dimensions={"span": round(luz, 4), "rise": B.ARCH_RISE,
+                        "width": ancho, "depth": canto},
+            parameters={
+                "span_m": round(luz, 4), "rise_m": B.ARCH_RISE,
+                "rise_to_span": round(B.ARCH_RISE / luz, 5),
+                "section_m": [ancho, canto],
+                "transverse_offset_m": y,
+                "directrix": "parabolica",
+                "segments": tramos,
+                "developed_length_m": round(desarrollo, 4),
+                # Un arco se dimensiona por pandeo y por la excentricidad de la
+                # linea de presiones. Nada de eso se calcula aqui.
+                "specified_concrete_strength_fc": None,
+                "axial_thrust_kN": None, "buckling_check": None,
+                "springing_reaction_kN": None, "reinforcement_layout": None,
+            },
+            requires_calculation=CONCRETE_PENDING + [
+                "axial_thrust_kN", "buckling_check", "springing_reaction_kN"],
+            provenance="hypothesis", tags=["superestructura", "arco", "conceptual"],
+            validation_notes=[
+                "La directriz es parabolica por hipotesis, no por un calculo de la "
+                "linea de presiones con las cargas reales.",
+                "La flecha la impone la cota del tablero; no se ha comprobado el "
+                "pandeo del arco, que es lo que suele dimensionarlo."],
+        ), solid, op)
+
+        # --- montantes entre el arco y el tablero ---
+        cw, cd = B.HYP_ARCH_COLUMN_SECTION
+        # Separacion real: se reparte el vano en un numero entero de huecos
+        # para que los montantes queden simetricos respecto a la clave.
+        huecos = max(2, int(round(luz / B.HYP_ARCH_COLUMN_SPACING)))
+        for k in range(1, huecos):
+            x = x0 + luz * k / huecos
+            base = round(arch_z_at(x) + canto / 2.0, 4)
+            if fondo_tablero - base < 0.60:
+                # Cerca de la clave no cabe montante: el arco toca el tablero.
+                continue
+            ccid = "EST-ARM-%s-%02d" % (lado, k)
+            csid = "SOL-%s" % ccid
+            prisma = S.box_prism(x - cd / 2, y - cw / 2, x + cd / 2, y + cw / 2,
+                                 base, fondo_tablero)
+            csolid = _solid(csid, [prisma], "concreto_estructural", "structure",
+                            "ARC", "EST-ARCO")
+            cop = model.oplog.record(
+                "extrude", "creation",
+                "Montante %d del nervio %s: desde el arco en z=%.2f hasta el fondo "
+                "del tablero en z=%.2f, seccion %.2f x %.2f m."
+                % (k, lado, base, fondo_tablero, cw, cd),
+                component_id=ccid, solid_id=csid,
+                inputs={"x": round(x, 4), "y": y, "z0": base, "z1": fondo_tablero,
+                        "section": [cw, cd]},
+                outputs={"height_m": round(fondo_tablero - base, 4)},
+                derived_from=["ARCH_SPAN", "ARCH_RISE",
+                              "HYP_ARCH_COLUMN_SECTION", "HYP_ARCH_COLUMN_SPACING"],
+                implementation="solids.Prism (extrusion en Z)",
+            )
+            _register(model, Component(
+                component_id=ccid, discipline="structure", type="spandrel_column",
+                name="Montante %d, nervio %s" % (k, lado), level_id="ARC",
+                material="concreto_estructural", ifc_class="IfcColumn",
+                position=[round(x, 4), y, base],
+                dimensions={"height": round(fondo_tablero - base, 4),
+                            "width": cw, "depth": cd},
+                parameters={
+                    "height_m": round(fondo_tablero - base, 4),
+                    "section_m": [cw, cd], "transverse_offset_m": y,
+                    "specified_concrete_strength_fc": None,
+                    "axial_load_kN": None, "buckling_check": None,
+                    "reinforcement_layout": None,
+                },
+                requires_calculation=CONCRETE_PENDING + [
+                    "axial_load_kN", "buckling_check"],
+                provenance="hypothesis",
+                tags=["superestructura", "arco", "montante", "conceptual"],
+            ), csolid, cop)
+
+
+# ---------------------------------------------------------------------------
 # Tablero
 # ---------------------------------------------------------------------------
 
@@ -1997,7 +2144,8 @@ def lighting_control_report(model) -> Dict[str, Any]:
 
 BUILDERS = {
     "structure": [build_foundations, build_piers, build_abutments, build_bearings,
-                  build_superstructure, build_towers_and_stays, build_joints],
+                  build_superstructure, build_towers_and_stays, build_arch,
+                  build_joints],
     "deck": [build_deck],
     "barriers": [build_barriers],
     "drainage": [build_drainage],

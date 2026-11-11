@@ -183,3 +183,31 @@ describe('describeSpecification', () => {
     expect(lines.some((l) => l.includes('dimensiones sin definir'))).toBe(true);
   });
 });
+
+describe('tipología en arco', () => {
+  /**
+   * El generador cubría vigas, losa y atirantado. El cliente puede pedir un
+   * arco, así que el enunciado tiene que reconocerlo escrito de varias formas.
+   */
+  for (const frase of [
+    'puente en arco de 300 m',
+    'un puente de arco sobre el río',
+    'arco de hormigón de 240 m de luz',
+    'puente tipo arco con tablero superior',
+  ]) {
+    it(`reconoce «${frase}»`, () => {
+      expect(interpretBridgePrompt(frase).bridgeType).toBe('arch');
+    });
+  }
+
+  it('no confunde un atirantado con un arco', () => {
+    expect(interpretBridgePrompt('puente atirantado de 500 m').bridgeType)
+      .toBe('cable_stayed');
+  });
+
+  it('sigue sin inventar tipología cuando no se dice', () => {
+    const spec = interpretBridgePrompt('un puente de 120 m');
+    expect(spec.bridgeType).toBe('beam');
+    expect(spec.assumptions.join(' ')).toMatch(/viga/i);
+  });
+});

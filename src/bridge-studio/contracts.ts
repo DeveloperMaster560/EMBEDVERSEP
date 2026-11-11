@@ -11,12 +11,13 @@
  * multidisciplinario de `tools/building_generator/bridge_model.py`.
  */
 
-export type BridgeType = 'beam' | 'slab' | 'cable_stayed';
+export type BridgeType = 'beam' | 'slab' | 'cable_stayed' | 'arch';
 
 export const BRIDGE_TYPE_LABEL: Record<BridgeType, string> = {
   beam: 'Puente de vigas',
   slab: 'Puente de losa',
   cable_stayed: 'Puente atirantado',
+  arch: 'Puente en arco',
 };
 
 export type BridgeDisciplineKey =
@@ -61,7 +62,8 @@ export const BRIDGE_LIMITS = {
   minSpans: 1,
   maxSpans: 20,
   /** Luz máxima conceptual por tipología, en metros. */
-  maxSpanLengthM: { beam: 45, slab: 25, cable_stayed: 300 } as Record<BridgeType, number>,
+  // El arco de hormigon construido mas largo (Wanxian) mide 420 m.
+  maxSpanLengthM: { beam: 45, slab: 25, cable_stayed: 300, arch: 420 } as Record<BridgeType, number>,
 } as const;
 
 /**

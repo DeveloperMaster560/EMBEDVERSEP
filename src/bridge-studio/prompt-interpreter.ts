@@ -148,6 +148,8 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   let typeStated = true;
   if (/\b(?:atirantad[oa]s?|cable[- ]stayed|tirantes?)\b/.test(text)) {
     bridgeType = 'cable_stayed';
+  } else if (/\b(?:en arco|de arco|arco de |tipo arco|arch)\b/.test(text)) {
+    bridgeType = 'arch';
   } else if (/\b(?:de losa|losa maciza|tipo losa)\b/.test(text)) {
     bridgeType = 'slab';
   } else if (/\b(?:de vigas?|vigas? postensad|vigas? pretensad|tipo viga)\b/.test(text)) {
