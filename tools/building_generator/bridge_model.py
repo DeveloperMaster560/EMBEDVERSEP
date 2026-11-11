@@ -1565,7 +1565,225 @@ def build_signage(model) -> None:
 # ---------------------------------------------------------------------------
 
 
+SHM_DESIGN_REF = "Planos/Diseno_SHM_Viaducto_Novena"
+SHM_SENSOR_BOX = (0.10, 0.10, 0.05)      # base rigida + carrier; HIPOTESIS de tamano
+SHM_ENCLOSURE_BOX = (0.30, 0.20, 0.40)   # gabinete de estacion; HIPOTESIS de tamano
+SHM_GATEWAY_BOX = (0.40, 0.25, 0.60)
+SHM_PROBE_BOX = (0.06, 0.04, 0.03)
+SHM_ANTENNA_BOX = (0.15, 0.15, 0.10)
+
+
+def _shm_main_span() -> int:
+    lengths = [B.SPAN_EDGES[i + 1] - B.SPAN_EDGES[i] for i in range(B.REQ_SPAN_COUNT)]
+    return max(range(len(lengths)), key=lambda i: lengths[i])
+
+
+def build_instrumentation_shm(model) -> None:
+    """Estaciones SHM segun el diseno del area de ingenierias.
+
+    Reglas tomadas del diseno (diseno_tecnico.md §4):
+      - SD en L/4, L/2 y 3L/4 de cada vano, bajo una viga longitudinal;
+      - una SD duplicada a media luz en otra viga, para estimar torsion;
+      - SS de temperatura en apoyos y extremos;
+      - SR (antena GNSS) en cielo despejado y GW con backhaul.
+    Cada estacion SD tiene su propio gabinete en soporte independiente: el
+    diseno prohibe montar el sensor en el panel del gabinete.
+
+    Lo que el diseno NO fija y aqui es hipotesis declarada: la viga elegida,
+    el vano de la SD duplicada (el mas largo), la posicion de SR y GW, y el
+    tamano de bases y gabinetes. Las posiciones son PARAMETRICAS: el propio
+    diseno exige planos conforme a obra y analisis modal antes de fijarlas.
+    """
+    x_lo, x_hi = service_x_range()
+    corridor_y = -round(service_corridor_y() + 0.45, 4)
+    structure_ref = B.DECK_BOTTOM if B.REQ_TYPE != "slab" else B.STRUCTURE_BOTTOM
+    trunk_z = round(structure_ref - 0.70, 4)
+    sensor_z = round(B.STRUCTURE_BOTTOM - SHM_SENSOR_BOX[2] / 2 - 0.02, 4)
+    girders = list(B.GIRDER_OFFSETS) or [0.0]
+    main = _shm_main_span()
+
+    common_notes = ["Posicion parametrica del diseno SHM; requiere planos conforme a obra, "
+                    "inspeccion y analisis modal antes de instalar (diseno_tecnico.md §4.2, R1-R2)."]
+
+    gw_x = round(x_lo + 0.5, 4)
+    K.add_device(
+        model, component_id="SHM-GW-001", discipline="instrumentation",
+        type="shm_gateway", name="Gateway SHM (backhaul)", level_id="TAB",
+        xyz=(gw_x, corridor_y, trunk_z), box=SHM_GATEWAY_BOX,
+        material="acero_galvanizado", ifc_class="IfcCommunicationsAppliance",
+        layer="INS-SENSORES", provenance="hypothesis",
+        parameters={"station_kind": "GW",
+                    "raw_backhaul": "Ethernet o LTE (por confirmar cobertura)",
+                    "summary_link": "LoRaWAN solo estado y resumen (banda pendiente ANE/CRC)",
+                    "lte_coverage_rssi_dbm": None, "lorawan_band": None,
+                    "design_reference": SHM_DESIGN_REF + "/diseno_tecnico.md §4.1, §9"},
+        requires_calculation=["lte_coverage_rssi_dbm", "lorawan_band"],
+        tags=["instrumentacion", "shm", "gateway"],
+        op_description="Gateway SHM junto al estribo inicial. La ubicacion es hipotesis: "
+                       "el diseno pide un sitio con cobertura comprobada.",
+        derived_from=["REQ_INSTRUMENTATION_LAYOUT"],
+        validation_notes=["Ubicacion sin estudio de cobertura (riesgo R7)."],
+    )
+
+    # Antena GNSS de referencia: sobre la acera, apartada de los postes.
+    side = B.HYP_SIDEWALK_WIDTH if B.REQ_SIDEWALKS else 0.0
+    sr_y = round(B.REQ_WIDTH / 2 - max(side, 0.6) / 2, 4)
+    sr_x = round((B.SPAN_EDGES[main] + B.SPAN_EDGES[main + 1]) / 2, 4)
+    poles = [x for x, s in light_pole_axes() if s == "L"]
+    while any(abs(sr_x - p) < 2.0 for p in poles):
+        sr_x = round(sr_x + 2.0, 4)
+    sr_z = round(B.DECK_TOP + (B.HYP_SIDEWALK_RISE if B.REQ_SIDEWALKS else 0.0)
+                 + SHM_ANTENNA_BOX[2] / 2, 4)
+    K.add_device(
+        model, component_id="SHM-SR-001", discipline="instrumentation",
+        type="gnss_reference", name="Referencia GNSS-PPS (SR)", level_id="TAB",
+        xyz=(sr_x, sr_y, sr_z), box=SHM_ANTENNA_BOX,
+        material="equipo_generico", ifc_class="IfcCommunicationsAppliance",
+        layer="INS-SENSORES", provenance="hypothesis",
+        parameters={"station_kind": "SR", "receiver_model": None,
+                    "pps_distribution": None, "sky_view_check": None,
+                    "design_reference": SHM_DESIGN_REF + "/diseno_tecnico.md §4.1, §10"},
+        requires_calculation=["receiver_model", "pps_distribution", "sky_view_check"],
+        tags=["instrumentacion", "shm", "gnss"],
+        op_description="Antena GNSS en cielo despejado sobre la acera, a media luz del vano principal.",
+        derived_from=["REQ_INSTRUMENTATION_LAYOUT", "HYP_SIDEWALK_WIDTH"],
+        validation_notes=["Como llega el PPS a cada estacion no esta disenado (riesgo R4)."],
+    )
+    K.link(model, connection_id="CNX-SHM-SR-GW", discipline="instrumentation",
+           type="time_reference", origin="SHM-SR-001", destination="SHM-GW-001",
+           medium="coaxial_gnss", technology="GNSS + PPS",
+           parameters={"cable_delay_ns": None}, requires_calculation=["cable_delay_ns"],
+           flow_direction="referencia_hacia_estaciones")
+
+    enclosures: List[Tuple[str, Point3]] = []
+
+    def station(code: str, span: int, frac: float, girder_y: float, rule: str, duplicate: bool):
+        x0, x1 = B.SPAN_EDGES[span], B.SPAN_EDGES[span + 1]
+        x = round(x0 + (x1 - x0) * frac, 4)
+        sid = "SHM-%s" % code
+        K.add_device(
+            model, component_id=sid + "-ACC", discipline="instrumentation",
+            type="accelerometer", name="Acelerometro ADXL355 %s" % code, level_id="V%d" % (span + 1),
+            xyz=(x, girder_y, sensor_z), box=SHM_SENSOR_BOX,
+            material="equipo_generico", ifc_class="IfcSensor", layer="INS-SENSORES",
+            provenance="derived",
+            parameters={"station_id": code, "station_kind": "SD",
+                        "part_number": "ADXL355BCCZ", "part_status": "seleccionado preliminar",
+                        "position_rule": rule, "span_index": span + 1,
+                        "axes": "X longitudinal, Y transversal, Z vertical",
+                        "sample_rate_hz": 200, "sensor_odr_min_hz": 500,
+                        "analysis_band_hz": [0.1, 40],
+                        "range_g": None, "filter_id": None, "calibration_reference": None,
+                        "mounting_method": None, "alarm_threshold": None,
+                        "design_reference": SHM_DESIGN_REF + "/diseno_tecnico.md §3.1, §4.2, §5"},
+            requires_calculation=["range_g", "filter_id", "calibration_reference",
+                                  "mounting_method", "alarm_threshold"],
+            tags=["instrumentacion", "shm", "acelerometro"] + (["torsion"] if duplicate else []),
+            op_description=("Estacion dinamica %s en %s del vano %d, bajo la viga en y=%.2f m."
+                            % (code, rule, span + 1, girder_y)),
+            derived_from=["SPAN_EDGES", "GIRDER_OFFSETS", "REQ_INSTRUMENTATION_LAYOUT"],
+            validation_notes=common_notes + (
+                ["Duplicada para torsion. El diseno la pide en el vano 'de mayor demanda "
+                 "modal o de interes'; aqui se toma el vano mas largo como HIPOTESIS."]
+                if duplicate else
+                ["La viga elegida es HIPOTESIS: el diseno pide la de mayor observabilidad "
+                 "del modo vertical segun modelo/inspeccion."]),
+        )
+        # Gabinete en soporte independiente, en el corredor de servicios.
+        # La duplicada comparte abscisa con la de media luz: su gabinete va al
+        # otro lado para no ocupar el mismo sitio.
+        offset = -0.8 if duplicate else 0.8
+        ex = round(min(max(_clear_of_supports(x + offset, clearance=2.0), x_lo + 0.5), x_hi - 0.5), 4)
+        K.add_device(
+            model, component_id=sid + "-GAB", discipline="instrumentation",
+            type="acquisition_station", name="Estacion %s (STM32H743)" % code,
+            level_id="V%d" % (span + 1), xyz=(ex, corridor_y, trunk_z), box=SHM_ENCLOSURE_BOX,
+            material="acero_galvanizado", ifc_class="IfcCommunicationsAppliance",
+            layer="INS-SENSORES", provenance="derived",
+            parameters={"station_id": code, "controller": "STM32H743VIT6",
+                        "storage": "microSD industrial o eMMC", "retention_days": 7,
+                        "event_window_s": [30, 120], "supply": "24 VDC (12/24 VDC nominal)",
+                        "ip_rating_verified": None, "power_avg_w": None,
+                        "design_reference": SHM_DESIGN_REF + "/diseno_tecnico.md §6, §7.2, §10"},
+            requires_calculation=["ip_rating_verified", "power_avg_w"],
+            tags=["instrumentacion", "shm", "estacion"],
+            op_description="Gabinete de la estacion %s, en soporte propio que no transmite "
+                           "vibracion al acelerometro." % code,
+            derived_from=["REQ_INSTRUMENTATION_LAYOUT"],
+            validation_notes=["Tamano del gabinete supuesto; la potencia media de 5 W del "
+                              "diseno es un presupuesto a medir con prototipo."],
+        )
+        K.link(model, connection_id="CNX-%s-ACC-GAB" % sid, discipline="instrumentation",
+               type="signal_link", origin=sid + "-ACC", destination=sid + "-GAB",
+               medium="cable_apantallado_corto", technology="SPI local (conector J1)",
+               parameters={"connector": "J1", "cable_type": None},
+               requires_calculation=["cable_type"], flow_direction="sensor_hacia_adquisicion")
+        enclosures.append((sid + "-GAB", (ex, corridor_y, trunk_z)))
+
+    fractions = [(0.25, "Q1", "L/4"), (0.5, "M", "L/2"), (0.75, "Q3", "3L/4")]
+    for s in range(B.REQ_SPAN_COUNT):
+        for frac, tag, rule in fractions:
+            station("SD-V%d-%s" % (s + 1, tag), s, frac, girders[0], rule, False)
+    if len(girders) > 1:
+        station("SD-V%d-M-T" % (main + 1), main, 0.5, girders[-1], "L/2 (segunda viga)", True)
+
+    # SS: temperatura en apoyos y extremos (diseno §4.2). Inclinometro, galgas
+    # y desplazamiento NO se instalan: el diseno los condiciona a justificacion.
+    for tag, ax in support_axes():
+        inward = 1.5 if ax < B.REQ_LENGTH / 2 else -1.5
+        px = round(min(max(ax + inward, x_lo + 0.3), x_hi - 0.3), 4)
+        code = "SS-%s" % tag
+        K.add_device(
+            model, component_id="SHM-%s-RTD" % code, discipline="instrumentation",
+            type="temperature_probe", name="Pt100 4 hilos %s" % code, level_id="TAB",
+            xyz=(px, corridor_y, round(structure_ref - SHM_PROBE_BOX[2] / 2, 4)), box=SHM_PROBE_BOX,
+            material="equipo_generico", ifc_class="IfcSensor", layer="INS-SENSORES",
+            provenance="derived",
+            parameters={"station_id": code, "station_kind": "SS",
+                        "sensor": "Pt100 IEC 60751 clase A, 4 hilos", "part_number": None,
+                        "sample_rate_hz": "1-10 (ajustable)", "connector": "J4",
+                        "inclinometer": "no instalado: condicionado a objetivo de rotacion",
+                        "strain": "no instalado: condicionado a modelo estructural",
+                        "joint_displacement": "no instalado: condicionado a carrera medida",
+                        "design_reference": SHM_DESIGN_REF + "/diseno_tecnico.md §4.2, §5"},
+            requires_calculation=["part_number"],
+            tags=["instrumentacion", "shm", "temperatura"],
+            op_description="Temperatura de tablero junto al apoyo %s." % tag,
+            derived_from=["support_axes", "REQ_INSTRUMENTATION_LAYOUT"],
+            validation_notes=common_notes,
+        )
+        K.link(model, connection_id="CNX-SHM-%s-GW" % code, discipline="instrumentation",
+               type="signal_link", origin="SHM-%s-RTD" % code, destination="SHM-GW-001",
+               medium="cable_apantallado_4_hilos", technology="RTD 4 hilos o transmisor 4-20 mA",
+               parameters={"cable_type": None}, requires_calculation=["cable_type"],
+               flow_direction="sensor_hacia_adquisicion")
+
+    # Backhaul: cada gabinete al gateway por el corredor de servicios.
+    routes = [[pos, (gw_x, corridor_y, trunk_z)] for _cid, pos in enclosures]
+    _, length = K.add_route(
+        model, component_id="SHM-NET-001", discipline="instrumentation",
+        type="data_backhaul", name="Backhaul SHM (Ethernet)",
+        polylines=routes, diameter=0.012, material="pvc",
+        ifc_class="IfcCableCarrierSegment", layer="INS-CABLEADO", level_id="TAB",
+        parameters={"station_count": len(enclosures), "cable_type": "Cat 6A apantallado (si el tendido lo permite)",
+                    "surge_protection": None, "max_run_m": None},
+        requires_calculation=["surge_protection", "max_run_m"],
+        tags=["instrumentacion", "shm", "backhaul"],
+        op_description="Backhaul Ethernet de %d estaciones hasta el gateway." % len(enclosures),
+        derived_from=["REQ_INSTRUMENTATION_LAYOUT"],
+        flow_direction="estacion_hacia_gateway",
+    )
+    for cid, _pos in enclosures:
+        K.link(model, connection_id="CNX-%s-GW" % cid, discipline="instrumentation",
+               type="data_link", origin=cid, destination="SHM-GW-001",
+               medium="ethernet", technology="10/100BASE-T, archivos crudos",
+               geometry_reference="SOL-SHM-NET-001", flow_direction="estacion_hacia_gateway")
+
+
 def build_instrumentation(model) -> None:
+    if B.REQ_INSTRUMENTATION_LAYOUT == "shm-novena-2026-11":
+        build_instrumentation_shm(model)
+        return
     # El gabinete y el troncal van bajo la losa, en una franja sin vigas:
     # arriba competirian con los postes de alumbrado y la baranda, y al fondo
     # de las vigas cruzarian los cabezales de pila.

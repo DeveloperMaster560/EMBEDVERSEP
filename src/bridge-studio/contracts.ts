@@ -113,6 +113,12 @@ export interface BridgeSpecification {
   spanLengthsM: number[] | null;
   /** Altura de torre sobre el tablero. `null` = se deduce de la luz. */
   towerHeightM: number | null;
+  /**
+   * Disposición de la instrumentación. Sin declarar, el generador reparte
+   * sensores genéricos. `shm-novena-2026-11` aplica el diseño SHM del área de
+   * ingenierías (Planos/Diseno_SHM_Viaducto_Novena).
+   */
+  instrumentationLayout?: 'generic' | 'shm-novena-2026-11';
   /** Emplazamiento declarado. `null` = no se ha dicho dónde está el puente. */
   site: BridgeSite | null;
   /** Supuestos adoptados para poder construir el modelo. */
@@ -138,6 +144,7 @@ export function toGeneratorSpec(spec: BridgeSpecification): Record<string, unkno
   if (spec.sidewalks !== null) out.sidewalks = spec.sidewalks;
   if (spec.spanLengthsM !== null) out.span_lengths = spec.spanLengthsM;
   if (spec.towerHeightM !== null) out.tower_height_m = spec.towerHeightM;
+  if (spec.instrumentationLayout) out.instrumentation_layout = spec.instrumentationLayout;
   if (spec.site !== null) out.site = toGeneratorSite(spec.site);
   out.disciplines = spec.disciplines;
   return out;

@@ -193,6 +193,12 @@ HYP_LANE_MARK_WIDTH = 0.12
 HYP_SENSOR_PER_SPAN = 2
 HYP_SENSOR_BOX = (0.12, 0.10, 0.06)
 
+# Disposicion de la instrumentacion. "generic" reparte sensores por vano;
+# "shm-novena-2026-11" aplica el diseno SHM del area de ingenierias
+# (Planos/Diseno_SHM_Viaducto_Novena, 11/11/2026).
+INSTRUMENTATION_LAYOUTS = ("generic", "shm-novena-2026-11")
+REQ_INSTRUMENTATION_LAYOUT = "generic"
+
 HYP_POWER_FACTOR = 0.90
 
 # ---------------------------------------------------------------------------
@@ -659,7 +665,8 @@ SPEC_FIELDS = {
 }
 
 # Campos que no son escalares y se validan aparte en apply_spec.
-SPEC_FIELDS_SPECIAL = ("span_lengths", "tower_height_m", "abutment_height_m")
+SPEC_FIELDS_SPECIAL = ("span_lengths", "tower_height_m", "abutment_height_m",
+                       "instrumentation_layout")
 
 
 def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
@@ -672,6 +679,7 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     global REQ_TYPE, REQ_LENGTH, REQ_WIDTH, REQ_DECK_HEIGHT, REQ_SPAN_COUNT
     global REQ_GIRDER_COUNT, REQ_LANES, REQ_SIDEWALKS, PROJECT_NAME, SPEC_ADJUSTMENTS
     global REQ_SPAN_LENGTHS, REQ_TOWER_HEIGHT, REQ_ABUTMENT_HEIGHT
+    global REQ_INSTRUMENTATION_LAYOUT
 
     g = globals()
     adjustments: List[str] = []
@@ -692,6 +700,13 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             elif isinstance(current, float):
                 value = float(value)
             g[const] = value
+
+    # Como el emplazamiento, no se arrastra de una generacion a otra.
+    layout = spec.get("instrumentation_layout") or "generic"
+    if layout not in INSTRUMENTATION_LAYOUTS:
+        raise SpecError("instrumentation_layout %r no existe. Opciones: %s."
+                        % (layout, ", ".join(INSTRUMENTATION_LAYOUTS)))
+    REQ_INSTRUMENTATION_LAYOUT = layout
 
     # --- reparto explicito de vanos -------------------------------------
     # Se lee antes que nada porque fija a la vez el numero de vanos y la
@@ -874,6 +889,7 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
             "tower_height_m": TOWER_HEIGHT,
             "site": dict(SITE),
             "site_pending": site_pending(),
+            "instrumentation_layout": REQ_INSTRUMENTATION_LAYOUT,
         },
         "adjustments": list(SPEC_ADJUSTMENTS),
     }

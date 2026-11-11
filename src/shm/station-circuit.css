@@ -1,0 +1,75 @@
+/* Circuito de la estación SHM: mismo tema oscuro que los Studios. */
+
+.sc-root {
+  --sc-fg: #e3ebe8;
+  --sc-muted: #93a59f;
+  --sc-line: #2c3a35;
+  --sc-panel: #121a1f;
+  --sc-wire: #4fbf9f;
+  --sc-bus: #7fdcc1;
+  --sc-chg: #f0a050;
+  --sc-prop: #d9b84f;
+  --sc-pwr: #e07a66;
+  color: var(--sc-fg);
+  display: grid;
+  gap: 18px;
+}
+
+.sc-head { display: grid; gap: 6px; }
+.sc-head h3 { margin: 0; font-size: 1.1rem; }
+.sc-head p { margin: 0; color: var(--sc-muted); font-size: 0.85rem; line-height: 1.5; max-width: 80ch; }
+.sc-eyebrow { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-muted); }
+
+.sc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.78rem; color: var(--sc-muted); }
+.sc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sc-legend i { width: 22px; height: 3px; display: inline-block; }
+
+.sc-scroll { overflow-x: auto; }
+.sc-svg { display: block; min-width: 1000px; width: 100%; height: auto; background: var(--sc-panel); border: 1px solid var(--sc-line); border-radius: 8px; }
+.sc-svg text { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; fill: var(--sc-fg); }
+.sc-svg .sc-t { font-family: system-ui, sans-serif; font-weight: 700; font-size: 14px; }
+.sc-svg .sc-m { fill: var(--sc-muted); }
+.sc-svg .sc-s { font-size: 11px; }
+.sc-svg .sc-xs { font-size: 10px; }
+.sc-svg .sc-chg { fill: var(--sc-chg); font-weight: 600; }
+.sc-svg .sc-prop { fill: var(--sc-prop); }
+.sc-box { fill: var(--sc-panel); stroke: var(--sc-fg); stroke-width: 1.4; }
+.sc-mcu { fill: var(--sc-panel); stroke: var(--sc-bus); stroke-width: 2.5; }
+.sc-dash { fill: none; stroke: var(--sc-prop); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.sc-w { stroke: var(--sc-wire); stroke-width: 1.6; fill: none; }
+.sc-wp { stroke: var(--sc-prop); }
+.sc-bus { stroke: var(--sc-bus); stroke-width: 5; fill: none; }
+.sc-busc { stroke: var(--sc-chg); stroke-width: 5; fill: none; }
+.sc-bundle { stroke: var(--sc-wire); stroke-width: 5; fill: none; }
+.sc-p { stroke: var(--sc-pwr); stroke-width: 1.8; fill: none; }
+.sc-dot { fill: var(--sc-bus); }
+
+.sc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 20px; }
+.sc-grid section { min-width: 0; }
+.sc-grid h4 { margin: 0 0 8px; font-size: 0.92rem; }
+.sc-table { border-collapse: collapse; width: 100%; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.sc-table th, .sc-table td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--sc-line); vertical-align: top; }
+.sc-table th { color: var(--sc-muted); font-weight: 600; }
+.sc-table tr.sc-chg td { color: var(--sc-chg); }
+.sc-table tr.sc-prop td { color: var(--sc-prop); }
+.sc-mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+.sc-note, .sc-muted { color: var(--sc-muted); font-size: 0.78rem; }
+.sc-note { margin: 6px 0 0; }
+.sc-list { margin: 0 0 0 18px; padding: 0; display: grid; gap: 6px; font-size: 0.8rem; line-height: 1.45; }
+
+/* Capa sobre el visor 3D en el Studio. */
+.bs-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: auto;
+  padding: 18px 20px 28px;
+  background: #0b0e13;
+}
+.bs-overlay-bar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.bs-overlay-bar button {
+  background: #19222e; border: 1px solid #28374a; color: #dfe6f0;
+  border-radius: 8px; padding: 7px 12px; font: inherit; font-size: 0.82rem; cursor: pointer;
+}
+.bs-overlay-bar button:hover { border-color: #3d8b7a; }
+.bs-overlay-bar button:focus-visible { outline: 2px solid #7fdcc1; outline-offset: 2px; }

@@ -34,6 +34,7 @@ import { PhotoIdentifier } from './vision/PhotoIdentifier';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
+import { ShmEmbeddedView } from './shm/ShmEmbeddedView';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
@@ -712,6 +713,9 @@ function WorkspacePanel({
 }) {
   const circuit = normalizeElectronicCircuit(project.electronicLab ?? createArduinoPracticeCircuit(project.boardId), project.boardId);
   const circuitStatus = validateCircuit(circuit);
+  // Dentro de «Sistema embebido»: el laboratorio emulado del proyecto o la
+  // estación SHM de La Novena, que solo se muestra (no se emula).
+  const [embeddedView, setEmbeddedView] = useState<'lab' | 'shm'>('lab');
 
   return (
     <div className="workspace-shell">
@@ -753,14 +757,40 @@ function WorkspacePanel({
       )}
 
       {activeTab === 'embedded' && (
-        <ElectronicsLab
-          circuit={circuit}
-          boardId={project.boardId}
-          onChange={onChangeCircuit}
-          onReset={onResetLab}
-          saveState={saveState}
-          files={project.files}
-        />
+        <div>
+          <div className="embedded-switch" role="tablist" aria-label="Sistema que se muestra">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={embeddedView === 'lab'}
+              className={`workspace-tab${embeddedView === 'lab' ? ' active' : ''}`}
+              onClick={() => setEmbeddedView('lab')}
+            >
+              Laboratorio del proyecto (emulado)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={embeddedView === 'shm'}
+              className={`workspace-tab${embeddedView === 'shm' ? ' active' : ''}`}
+              onClick={() => setEmbeddedView('shm')}
+            >
+              Estación SHM La Novena · STM32H743 (sin emulación)
+            </button>
+          </div>
+          {embeddedView === 'lab' ? (
+            <ElectronicsLab
+              circuit={circuit}
+              boardId={project.boardId}
+              onChange={onChangeCircuit}
+              onReset={onResetLab}
+              saveState={saveState}
+              files={project.files}
+            />
+          ) : (
+            <ShmEmbeddedView />
+          )}
+        </div>
       )}
 
       {activeTab === 'models' && (

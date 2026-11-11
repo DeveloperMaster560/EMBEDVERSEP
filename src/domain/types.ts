@@ -106,7 +106,8 @@ export type ComponentCategory =
   | 'environmental'
   | 'distance'
   | 'actuators'
-  | 'displays';
+  | 'displays'
+  | 'acquisition';
 
 export interface ComponentDefinition {
   id: string;

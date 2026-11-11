@@ -92,4 +92,10 @@ describe('validateBridgeSpec', () => {
     expect(spec).toEqual({ length_m: 60 });
     expect(Object.keys(spec)).not.toContain('comando');
   });
+
+  it('acepta solo las disposiciones de instrumentación que conoce el generador', () => {
+    expect(validateBridgeSpec({ instrumentation_layout: 'shm-novena-2026-11' }).instrumentation_layout)
+      .toBe('shm-novena-2026-11');
+    expect(() => validateBridgeSpec({ instrumentation_layout: 'inventada' })).toThrow(GenerateRequestError);
+  });
 });

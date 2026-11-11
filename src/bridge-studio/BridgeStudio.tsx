@@ -22,6 +22,7 @@ import {
   validateSpecification,
   type BridgeSpecification,
 } from './contracts';
+import { StationCircuit } from '../shm/StationCircuit';
 import {
   describeSpecification,
   interpretBridgePrompt,
@@ -85,6 +86,12 @@ const bridgeDomain: StudioDomainConfig<BridgeSpecification> = {
       stats.push({ label: 'Altura de torre', value: `${towerHeight.toFixed(2)} m` });
     }
     return stats;
+  },
+  extraView: {
+    label: 'Circuito de la estación SHM',
+    // Solo los puentes con el diseño SHM de La Novena tienen este circuito.
+    available: (result) => result.applied.instrumentation_layout === 'shm-novena-2026-11',
+    render: () => <StationCircuit />,
   },
 };
 

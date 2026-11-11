@@ -85,6 +85,7 @@ export interface BridgeGeneratorSpec {
   span_lengths?: number[];
   tower_height_m?: number;
   abutment_height_m?: number;
+  instrumentation_layout?: string;
   site?: Record<string, unknown>;
 }
 
@@ -137,6 +138,9 @@ function requireSite(value: unknown): Record<string, unknown> {
 }
 
 /** Valida y normaliza la especificación. Rechaza todo lo que no reconoce. */
+/** Debe coincidir con INSTRUMENTATION_LAYOUTS de bridge_params.py. */
+const INSTRUMENTATION_LAYOUTS = ['generic', 'shm-novena-2026-11'];
+
 export function validateBridgeSpec(value: unknown): BridgeGeneratorSpec {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new GenerateRequestError('El cuerpo de la solicitud no es válido.', 400, 'INVALID_REQUEST');
@@ -202,6 +206,15 @@ export function validateBridgeSpec(value: unknown): BridgeGeneratorSpec {
     spec.abutment_height_m = requireFiniteInRange(
       input.abutment_height_m, 'La altura del estribo', 0.5, 60,
     );
+  }
+  if (input.instrumentation_layout !== undefined) {
+    if (!INSTRUMENTATION_LAYOUTS.includes(input.instrumentation_layout as string)) {
+      throw new GenerateRequestError(
+        `instrumentation_layout debe ser uno de: ${INSTRUMENTATION_LAYOUTS.join(', ')}.`,
+        400, 'INVALID_INSTRUMENTATION_LAYOUT',
+      );
+    }
+    spec.instrumentation_layout = input.instrumentation_layout as string;
   }
   if (input.site !== undefined) {
     spec.site = requireSite(input.site);

@@ -61,6 +61,7 @@ export const REFERENCE_BRIDGES: ReferenceBridge[] = [
       'Ancho de 30 m y 6 carriles: El Tiempo.',
       'Coordenadas 7,10817 N / −73,12984 W: base de datos Structurae.',
       'Tipología atirantada con tablero de cajón de hormigón postesado: Carlos Fernández Casado S.L.',
+      'Instrumentación SHM según el diseño preliminar del área de ingenierías (11/11/2026, Planos/Diseno_SHM_Viaducto_Novena): estaciones dinámicas ADXL355 en L/4, L/2 y 3L/4 de cada vano, una duplicada a media luz para torsión, temperatura Pt100 en apoyos, referencia GNSS y gateway.',
     ],
     caveats: [
       'Las fuentes discrepan en la altura: 130 m y 132 m según el medio. Se adopta el par 112/132 m porque es el único que viene acompañado de la altura hasta el tablero (52 y 72 m) y cierra con la geometría.',
@@ -68,6 +69,7 @@ export const REFERENCE_BRIDGES: ReferenceBridge[] = [
       'El tablero real es un cajón de hormigón postesado con un eje CENTRAL de tirantes. Este generador construye vigas y dos planos laterales de tirantes: la silueta y el reparto son los de la obra, la sección transversal no.',
       'Las 7.820 luminarias LED publicadas no se modelan una a una. Cada proyector del modelo es una UNIDAD DIRECCIONABLE; cuántos nodos LED lleva dentro queda pendiente.',
       'Ninguna dimensión procede de planos de proyecto ni de un levantamiento. Son cifras publicadas, verificables pero no contrastadas en campo.',
+      'Las estaciones SHM aplican la REGLA del diseño sobre los vanos publicados. El propio diseño exige planos conforme a obra y análisis modal antes de fijar posiciones. La viga instrumentada, el vano de la estación duplicada (se toma el mayor) y la ubicación del gateway y de la antena GNSS son hipótesis.',
     ],
     specification: {
       schemaVersion: 1,
@@ -83,6 +85,7 @@ export const REFERENCE_BRIDGES: ReferenceBridge[] = [
       sidewalks: true,
       spanLengthsM: [129.2, 292.4, 129.2],
       towerHeightM: 60,
+      instrumentationLayout: 'shm-novena-2026-11',
       site: {
         country: 'Colombia',
         region: 'Santander',

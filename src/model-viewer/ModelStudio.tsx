@@ -77,6 +77,15 @@ export interface StudioDomainConfig<S> {
   toGeneratorSpec: (spec: S) => Record<string, unknown>;
   /** Estadísticas de cabecera propias del dominio. */
   headlineStats: (result: ModelGenerationResult) => StudioStat[];
+  /**
+   * Vista propia del dominio que se abre sobre el visor 3D cuando el modelo la
+   * tiene (p. ej. el circuito de las estaciones SHM de un puente instrumentado).
+   */
+  extraView?: {
+    label: string;
+    available: (result: ModelGenerationResult) => boolean;
+    render: () => React.ReactNode;
+  };
 }
 
 interface LoadInfo {
@@ -106,6 +115,7 @@ export function ModelStudio<S>({
   const [status, setStatus] = useState<'idle' | 'generating'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [loadInfo, setLoadInfo] = useState<LoadInfo | null>(null);
+  const [extraOpen, setExtraOpen] = useState(false);
 
   const [visibleDisciplines, setVisibleDisciplines] = useState<Set<string>>(() => new Set());
   const [visibleLevels, setVisibleLevels] = useState<Set<string>>(() => new Set());
@@ -265,6 +275,8 @@ export function ModelStudio<S>({
       }
       const generated = normalizeResult(payload, config.domain);
       setResult(generated);
+      // Se abre sola al generar un modelo que la tiene; se cierra para ver el 3D.
+      setExtraOpen(Boolean(config.extraView?.available(generated)));
       setVisibleDisciplines(new Set(Object.keys(generated.counts.byDiscipline)));
       setVisibleLevels(new Set());
       setSelectedId(null);
@@ -436,6 +448,19 @@ export function ModelStudio<S>({
                 </div>
               )}
             </section>
+
+            {config.extraView?.available(result) && (
+              <section className="bs-section">
+                <h3>{config.extraView.label}</h3>
+                <button
+                  type="button"
+                  className="bs-button bs-wide"
+                  onClick={() => setExtraOpen((open) => !open)}
+                >
+                  {extraOpen ? 'Volver al modelo 3D' : `Ver ${config.extraView.label.toLowerCase()}`}
+                </button>
+              </section>
+            )}
 
             <section className="bs-section">
               <h3>Editar el modelo</h3>
@@ -802,6 +827,17 @@ export function ModelStudio<S>({
             </div>
           )}
         </div>
+
+        {extraOpen && result && config.extraView?.available(result) && (
+          <div className="bs-overlay" role="region" aria-label={config.extraView.label}>
+            <div className="bs-overlay-bar">
+              <button type="button" onClick={() => setExtraOpen(false)}>
+                Volver al modelo 3D
+              </button>
+            </div>
+            {config.extraView.render()}
+          </div>
+        )}
 
         {!result && status !== 'generating' && (
           <div className="bs-empty">

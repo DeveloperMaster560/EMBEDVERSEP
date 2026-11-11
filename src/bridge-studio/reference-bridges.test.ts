@@ -75,4 +75,16 @@ describe('catálogo de obras de referencia', () => {
     expect((sent.site as Record<string, unknown>).latitude_deg).toBeCloseTo(7.10817, 5);
     expect(sent.disciplines).toContain('control');
   });
+
+  it('La Novena se genera con las estaciones del diseño SHM, y lo dice', () => {
+    const spec = interpretBridgePrompt('Viaducto de la Novena, Bucaramanga.');
+    expect(toGeneratorSpec(spec).instrumentation_layout).toBe('shm-novena-2026-11');
+    expect(spec.assumptions.join(' ')).toMatch(/Diseno_SHM_Viaducto_Novena/);
+    expect(spec.questions.join(' ')).toMatch(/hipótesis/);
+  });
+
+  it('un puente cualquiera no recibe el diseño SHM de La Novena', () => {
+    const spec = interpretBridgePrompt('Puente de vigas de 90 m de longitud y 3 vanos.');
+    expect(toGeneratorSpec(spec).instrumentation_layout).toBeUndefined();
+  });
 });
