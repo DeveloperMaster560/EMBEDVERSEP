@@ -281,6 +281,27 @@ export class TrafficSimulation {
  * borde que se le indique. No decide cuántos carriles tiene el puente: eso lo
  * dice el modelo, y si no lo dice, lo dice quien llama.
  */
+/**
+ * Carriles por sentido, a partir de los que declara el puente generado.
+ *
+ * Estaba fijo en dos. El Viaducto de la Novena declara SEIS carriles, asi que
+ * la simulacion circulaba por cuatro en un puente de seis: menos trafico del
+ * que el propio modelo dice que cabe.
+ *
+ * Con un numero impar se redondea a la BAJA. Un reparto 2+1, una via
+ * reversible o un carril de servicio no son deducibles del total, y repartir
+ * de mas pondria vehiculos en un carril que quiza no existe en ese sentido.
+ */
+export function lanesPerDirectionFrom(
+  totalLanes: number | null | undefined,
+  fallback = 2,
+): number {
+  if (typeof totalLanes !== 'number' || !Number.isFinite(totalLanes) || totalLanes < 2) {
+    return fallback;
+  }
+  return Math.max(1, Math.floor(totalLanes / 2));
+}
+
 export function laneLayout(
   lanesPerDirection: number,
   laneWidthM: number,

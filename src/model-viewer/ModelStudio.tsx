@@ -40,6 +40,7 @@ export interface StudioStat {
  * Color con el que se pinta cada zona encendida. Es presentación: no describe
  * la temperatura de color real de ninguna luminaria.
  */
+import { lanesPerDirectionFrom } from '../traffic/simulation';
 import { MASS_BASIS_NOTE, MODELLED_MASS_LABEL, formatModelledMass } from './mass-report';
 import { BridgeSimulationPanel } from './BridgeSimulationPanel';
 import { useBridgeSimulation } from './useBridgeSimulation';
@@ -171,6 +172,11 @@ export function ModelStudio<S>({
   const simulation = useBridgeSimulation(viewportRef, {
     control: config.domain === 'bridge' ? result?.lightingControl ?? null : null,
     initialLight: photocellLight,
+    // Los carriles los declara el puente generado, no una constante: el
+    // Viaducto de la Novena tiene seis y se circulaba por cuatro.
+    lanesPerDirection: lanesPerDirectionFrom(
+      typeof result?.applied?.lanes === 'number' ? result.applied.lanes : null,
+    ),
   });
 
   /**

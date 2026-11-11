@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { IDM_DELTA, idmAcceleration, idmEquilibriumGap, idmStep, kmhToMs, msToKmh } from './idm';
-import { TrafficSimulation, laneLayout, type Lane } from './simulation';
+import {
+  TrafficSimulation, laneLayout, lanesPerDirectionFrom, type Lane,
+} from './simulation';
 import { DEFAULT_MIX, VEHICLE_CLASSES, pickClass } from './vehicles';
 
 const car = VEHICLE_CLASSES.automovil;
@@ -231,5 +233,34 @@ describe('circulación sobre el tablero', () => {
       expect(Number.isFinite(vehicle.positionM)).toBe(true);
       expect(msToKmh(vehicle.speedMs)).toBeLessThan(120);
     }
+  });
+});
+
+describe('carriles por sentido a partir de los declarados', () => {
+  it('reparte los seis carriles del viaducto', () => {
+    // Estaba fijo en dos: se circulaba por cuatro carriles en un puente de
+    // seis, menos tráfico del que el propio modelo dice que cabe.
+    expect(lanesPerDirectionFrom(6)).toBe(3);
+  });
+
+  it('con un número impar redondea a la baja', () => {
+    // Un reparto 2+1 o un carril reversible no se deducen del total: repartir
+    // de más pondría vehículos en un carril que quizá no existe.
+    expect(lanesPerDirectionFrom(3)).toBe(1);
+    expect(lanesPerDirectionFrom(5)).toBe(2);
+  });
+
+  it('sin dato fiable se queda en el valor por defecto', () => {
+    expect(lanesPerDirectionFrom(null)).toBe(2);
+    expect(lanesPerDirectionFrom(undefined)).toBe(2);
+    expect(lanesPerDirectionFrom(Number.NaN)).toBe(2);
+    expect(lanesPerDirectionFrom(1)).toBe(2);
+  });
+
+  it('el reparto resultante produce ese número de carriles por sentido', () => {
+    const lanes = laneLayout(lanesPerDirectionFrom(6), 3.5, 700);
+    expect(lanes).toHaveLength(6);
+    expect(lanes.filter((lane) => lane.direction === 1)).toHaveLength(3);
+    expect(lanes.filter((lane) => lane.direction === -1)).toHaveLength(3);
   });
 });
