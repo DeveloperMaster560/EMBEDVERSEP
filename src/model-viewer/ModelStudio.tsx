@@ -40,6 +40,7 @@ export interface StudioStat {
  * Color con el que se pinta cada zona encendida. Es presentación: no describe
  * la temperatura de color real de ninguna luminaria.
  */
+import { MASS_BASIS_NOTE, MODELLED_MASS_LABEL, formatModelledMass } from './mass-report';
 import { BridgeSimulationPanel } from './BridgeSimulationPanel';
 import { useBridgeSimulation } from './useBridgeSimulation';
 
@@ -716,17 +717,14 @@ export function ModelStudio<S>({
                           ` · ${result.engineering.skippedNoVolume} sin densidad declarada`}
                       </li>
                       <li>
-                        Masa estructural:{' '}
-                        <strong>
-                          {(result.engineering.totalMassKg / 1000).toLocaleString('es', {
-                            maximumFractionDigits: 1,
-                          })}{' '}
-                          t
-                        </strong>{' '}
+                        {MODELLED_MASS_LABEL}:{' '}
+                        <strong>{formatModelledMass(result.engineering.totalMassKg)}</strong>{' '}
                         ({result.engineering.totalWeightKN.toLocaleString('es', {
                           maximumFractionDigits: 0,
                         })}{' '}
                         kN)
+                        <br />
+                        <small>{MASS_BASIS_NOTE}</small>
                       </li>
                     </ul>
                     <p className="bs-hint">

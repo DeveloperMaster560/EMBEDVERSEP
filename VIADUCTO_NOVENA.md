@@ -198,6 +198,11 @@ debajo del punto más bajo del abanico.
 
 ### Una advertencia sobre la masa
 
+Desde el 11/11/2026 la propia interfaz lo advierte: la cifra se rotula **«Masa
+de lo modelado»**, nunca «masa estructural», y lleva pegada la salvedad. Antes
+se mostraba el número a secas, que ante un comité se lee como el peso del
+puente.
+
 El modelo reporta **23.287 t**. La prensa publica **7.536 t** para la obra real.
 **No son comparables y no debe presentarse esa cifra como el peso del
 viaducto.** El modelo construye vigas macizas y fustes macizos; la obra tiene un

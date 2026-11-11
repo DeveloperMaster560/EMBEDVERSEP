@@ -12,6 +12,9 @@
  */
 
 import { ModelStudio, type StudioDomainConfig } from '../model-viewer/ModelStudio';
+import {
+  MASS_BASIS_SHORT, MODELLED_MASS_LABEL, formatModelledMass,
+} from '../model-viewer/mass-report';
 import type { ModelGenerationResult } from '../model-viewer/contracts';
 import {
   BRIDGE_DISCIPLINE_LABEL,
@@ -73,8 +76,8 @@ const bridgeDomain: StudioDomainConfig<BridgeSpecification> = {
     const mass = result.engineering?.totalMassKg ?? 0;
     if (mass > 0) {
       stats.push({
-        label: 'Masa estructural',
-        value: `${(mass / 1000).toLocaleString('es', { maximumFractionDigits: 0 })} t`,
+        label: MODELLED_MASS_LABEL,
+        value: `${formatModelledMass(mass, 0)} · ${MASS_BASIS_SHORT}`,
       });
     }
     const towerHeight = Number(applied.tower_height_m ?? 0);
