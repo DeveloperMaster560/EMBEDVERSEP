@@ -28,6 +28,7 @@ import {
   PCFSoftShadowMap,
   PMREMGenerator,
   PerspectiveCamera,
+  Sphere,
   Plane,
   PlaneGeometry,
   Raycaster,
@@ -43,6 +44,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+import { clippingPlanes, fitDistance } from './camera-fit';
 import { createVehicleGeometry } from '../traffic/vehicle-geometry';
 import { VEHICLE_CLASSES, type VehicleClassId } from '../traffic/vehicles';
 import { DISCIPLINE_COLOR, presetFor } from './materials';
@@ -536,37 +538,53 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       camera.updateProjectionMatrix();
     }
 
-    function frameBounds(): void {
-      const bounds = boundsRef.current;
+    /** Direcciones de mirada de cada vista, sin normalizar. */
+    const VIEW_DIRECTIONS: Record<ViewPreset, [number, number, number]> = {
+      iso: [0.72, 0.55, 0.72],
+      // Una cenital exactamente vertical deja la cámara sin orientación
+      // definida; el sesgo mínimo evita ese caso degenerado.
+      top: [0, 1, 0.0001],
+      front: [0, 0.18, 1],
+      side: [1, 0.18, 0],
+    };
+
+    /**
+     * Coloca la cámara mirando al centro desde una dirección dada, a la
+     * distancia que hace que el modelo entre entero. La matemática está en
+     * `camera-fit`, probada aparte.
+     */
+    function placeCamera(
+      sphere: Sphere,
+      direction: [number, number, number],
+      margin?: number,
+    ): void {
       const camera = cameraRef.current;
       const controls = controlsRef.current;
-      if (!bounds || !camera || !controls) return;
-      const size = bounds.getSize(new Vector3());
-      const center = bounds.getCenter(new Vector3());
-      const radius = Math.max(size.x, size.y, size.z) * 0.78;
-      const distance = radius / Math.tan((camera.fov * Math.PI) / 360);
-      camera.position.set(center.x + distance * 0.72, center.y + distance * 0.55, center.z + distance * 0.72);
-      controls.target.copy(center);
+      if (!camera || !controls) return;
+      const distance = fitDistance(sphere.radius, camera.fov, camera.aspect, margin);
+      if (distance <= 0) return;
+      const dir = new Vector3(...direction).normalize();
+      camera.position.copy(sphere.center).addScaledVector(dir, distance);
+      // Los planos de recorte se ajustan al modelo: fijos, parten por la mitad
+      // un puente de 550 m o se comen una pieza de pocos centímetros.
+      const { near, far } = clippingPlanes(distance, sphere.radius);
+      camera.near = near;
+      camera.far = far;
+      camera.updateProjectionMatrix();
+      controls.target.copy(sphere.center);
       controls.update();
+    }
+
+    function frameBounds(): void {
+      const bounds = boundsRef.current;
+      if (!bounds || bounds.isEmpty()) return;
+      placeCamera(bounds.getBoundingSphere(new Sphere()), VIEW_DIRECTIONS.iso);
     }
 
     function applyView(preset: ViewPreset): void {
       const bounds = boundsRef.current;
-      const camera = cameraRef.current;
-      const controls = controlsRef.current;
-      if (!bounds || !camera || !controls) return;
-      const size = bounds.getSize(new Vector3());
-      const center = bounds.getCenter(new Vector3());
-      const d = Math.max(size.x, size.y, size.z) * 1.6;
-      const positions: Record<ViewPreset, [number, number, number]> = {
-        iso: [center.x + d * 0.7, center.y + d * 0.55, center.z + d * 0.7],
-        top: [center.x, center.y + d * 1.3, center.z + 0.001],
-        front: [center.x, center.y + size.y * 0.3, center.z + d],
-        side: [center.x + d, center.y + size.y * 0.3, center.z],
-      };
-      camera.position.set(...positions[preset]);
-      controls.target.copy(center);
-      controls.update();
+      if (!bounds || bounds.isEmpty()) return;
+      placeCamera(bounds.getBoundingSphere(new Sphere()), VIEW_DIRECTIONS[preset]);
     }
 
     function focusComponent(componentId: string): void {
@@ -576,12 +594,12 @@ export const ModelViewport = forwardRef<ModelViewportHandle, ModelViewportProps>
       if (!entry || !camera || !controls) return;
       const box = new Box3().setFromObject(entry.object);
       if (box.isEmpty()) return;
-      const center = box.getCenter(new Vector3());
-      const size = box.getSize(new Vector3());
-      const d = Math.max(size.x, size.y, size.z, 1.5) * 4.2;
-      camera.position.set(center.x + d, center.y + d * 0.7, center.z + d);
-      controls.target.copy(center);
-      controls.update();
+      const sphere = box.getBoundingSphere(new Sphere());
+      // Una pieza diminuta no debe meter la cámara dentro de ella.
+      sphere.radius = Math.max(sphere.radius, 0.75);
+      // Más aire que al encuadrar el conjunto, para ver la pieza en su sitio
+      // y no pegada a la lente.
+      placeCamera(sphere, VIEW_DIRECTIONS.iso, 2.6);
     }
 
     // --- carga del modelo --------------------------------------------------

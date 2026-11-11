@@ -29,3 +29,8 @@ EMBEDVERSE_BUILDING_001/
 *.njsproj
 *.sln
 *.sw?
+
+# Modelos generados: se reproducen con «Generar modelo» y pesan casi 1 MB.
+# La solicitud que los produjo (viaducto-novena-solicitud.json) SÍ se guarda:
+# es el registro de con qué parámetros se hizo, y ocupa 1 KB.
+Planos/*.glb
