@@ -30,6 +30,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { categoryLabels, componentCatalog } from './domain/catalog';
+import { PhotoIdentifier } from './vision/PhotoIdentifier';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
@@ -1146,6 +1147,7 @@ function ComponentsPage({ search, setSearch, activeCategory, setActiveCategory, 
     <div className="standard-page">
       <div className="page-heading-row catalog-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> COMPONENT LIBRARY</div><h1>Catálogo de componentes</h1><p>Definiciones iniciales para planificar proyectos embebidos.</p></div><span className="catalog-count">{componentCatalog.length} COMPONENTES</span></div>
       <div className="catalog-notice"><ShieldCheck size={16} /><span>El catálogo es descriptivo: los componentes aún no están conectados a un simulador ni tienen modelos de comportamiento ejecutables.</span></div>
+      <PhotoIdentifier />
       <div className="catalog-toolbar">
         <label className="search-field"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre o referencia…" /></label>
         <select className="category-select" value={activeCategory} onChange={(event) => setActiveCategory(event.target.value as ComponentCategory | 'all')}>
