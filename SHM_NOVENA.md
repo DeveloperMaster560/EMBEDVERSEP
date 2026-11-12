@@ -68,3 +68,29 @@ Las pruebas de `src/shm/shm.test.ts` recalculan todos los cálculos del document
 - **Almacenamiento:** 414,7 MB/día y 2,9 GB en 7 días.
 - **Sincronización:** 1,8° de fase con 100 µs a 50 Hz.
 - **Envolvente solar:** 588 Wh, 23 Ah, 470 Wh útiles con 30 Ah (3,9 días), 548 Wh con 35 Ah (4,6 días) y panel de 52,7 W.
+
+## Simulación de la estación (gemelo funcional, 12/11/2026)
+
+`src/shm/sim/station-sim.ts` modela lo que el diseño exige al firmware de las diez
+estaciones dinámicas (SD-V1-Q1 … SD-V2-M-T, en los vanos publicados 129,2 / 292,4 /
+129,2 m): muestreo a 200 Hz en tres ejes, ventanas de 10 s, CRC-32, ocupación de la
+microSD (coincide con `rawBytesPerDay`), cola Ethernet que entrega con la hora de
+muestreo original, y estados de calidad. Cada registro pasa por `validateStationRecord`,
+`assessQuality` y `classifyStructural`, igual que con datos reales.
+
+Fallas inyectables: acelerómetro, PPS, hora GNSS, microSD, Ethernet, alimentación,
+CRC y golpe saturante. En la pestaña «Sistema embebido» se marcan en rojo sobre el
+circuito (`ShmStationSimulator.tsx`).
+
+Límites declarados: no ejecuta código del STM32H743; la vibración es sintética
+(modo de 1,2 Hz, ζ = 2 %, respuesta a vehículos de prueba), no medida ni calculada
+para el viaducto; POWER_LOW queda «no evaluado» porque el diseño no fija tensión
+mínima; E3/E4 no se clasifican sin umbrales firmados.
+
+## Firmware de la estación (12/11/2026)
+
+`firmware/shm-station/`: esqueleto en C para el STM32H743VIT6 (registros CMSIS,
+sin HAL). La lógica (`app.c`, `station.c`) se ejecuta hoy en el ordenador con una
+placa simulada, desde la pestaña Sistema embebido → «Ejecutar en el ordenador», y
+sus registros pasan el contrato de datos. Falta compilarlo para ARM y arrancarlo en
+Renode (descargas en curso). Detalle y pendientes en `firmware/shm-station/README.md`.

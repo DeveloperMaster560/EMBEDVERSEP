@@ -79,7 +79,7 @@ export interface TrafficStats {
  * Hace falta uno propio porque `Math.random` no es reproducible, y la
  * reproducibilidad es la diferencia entre una simulación y una animación.
  */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6d2b79f5) >>> 0;

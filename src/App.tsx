@@ -34,7 +34,7 @@ import { PhotoIdentifier } from './vision/PhotoIdentifier';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
-import { ShmEmbeddedView } from './shm/ShmEmbeddedView';
+import { ShmStationSimulator } from './shm/sim/ShmStationSimulator';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
@@ -775,7 +775,7 @@ function WorkspacePanel({
               className={`workspace-tab${embeddedView === 'shm' ? ' active' : ''}`}
               onClick={() => setEmbeddedView('shm')}
             >
-              Estación SHM La Novena · STM32H743 (sin emulación)
+              Estación SHM La Novena · STM32H743 (gemelo funcional)
             </button>
           </div>
           {embeddedView === 'lab' ? (
@@ -788,7 +788,7 @@ function WorkspacePanel({
               files={project.files}
             />
           ) : (
-            <ShmEmbeddedView />
+            <ShmStationSimulator />
           )}
         </div>
       )}
@@ -996,6 +996,15 @@ function SimulationPage({ project }: { project: EmbeddedProject }) {
           <span>
             <strong>Puentes</strong> · panel «El puente en marcha». El armario de control
             gobierna el alumbrado y usted manda los modos con el pulsador.
+          </span>
+          <strong>Disponible</strong>
+        </div>
+        <div className="test-row">
+          <span>
+            <strong>Estación SHM de La Novena</strong> · Sistema embebido. Gemelo funcional
+            de las diez estaciones dinámicas: muestreo a 200 Hz, ventanas, CRC-32, microSD,
+            cola Ethernet y estados de calidad, con fallas inyectables marcadas en el
+            circuito. No ejecuta código del STM32 y la vibración es sintética.
           </span>
           <strong>Disponible</strong>
         </div>

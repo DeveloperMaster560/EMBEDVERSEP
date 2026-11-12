@@ -3,7 +3,9 @@
  * conectado (sensores, ADC, almacenamiento, GNSS, Ethernet, RS-485, LoRa,
  * alimentación y depuración) y el estado del firmware.
  *
- * NO EMULA NADA. El motor de la aplicación solo ejecuta ATmega328P, y el
+ * NO EMULA EL MCU. Con `faults`, marca en rojo lo que la simulación funcional
+ * (`sim/station-sim.ts`) tiene en falla; esa simulación no ejecuta código del
+ * STM32. El motor de la aplicación solo ejecuta ATmega328P, y el
  * firmware de la estación no está escrito. Es una vista de diseño dibujada a
  * partir de `station-design.ts`, `engineering-proposal.ts` y `station-board.ts`.
  */
@@ -117,7 +119,20 @@ const FIRMWARE: { module: string; detail: string; state: 'sin escribir' | 'en la
   { module: 'Calidad E1, línea base y alarmas', detail: 'Contrato de datos, reglas E1 y clasificación que se niega sin umbrales firmados (src/shm).', state: 'en la plataforma' },
 ];
 
-export function ShmEmbeddedView(): React.JSX.Element {
+/** Componente (y, si se da, solo esas redes) en falla durante la simulación. */
+export interface CircuitFault {
+  part: string;
+  nets?: string[];
+}
+
+export interface ShmEmbeddedViewProps {
+  /** Fallas que marca la simulación; sin ellas, el esquema es solo de diseño. */
+  faults?: CircuitFault[];
+  /** Si hay simulación encima, el aviso cambia. */
+  simulated?: boolean;
+}
+
+export function ShmEmbeddedView({ faults = [], simulated = false }: ShmEmbeddedViewProps = {}): React.JSX.Element {
   const rows = useMemo(() => pinoutTable(), []);
   const pins = useMemo(() => buildPins(rows), [rows]);
   const pinByNet = useMemo(() => new Map(pins.filter((p) => p.net).map((p) => [p.net!, p])), [pins]);
@@ -149,6 +164,7 @@ export function ShmEmbeddedView(): React.JSX.Element {
         d: wirePath(g.tip, g.normal, partPinPoint(part, i), SIDE_NORMAL[part.side]),
         group: chip.group,
         on: pp.net === selectedNet,
+        fault: faults.some((f) => f.part === part.id && (!f.nets || (pp.net !== null && f.nets.includes(pp.net)))),
       }];
     }),
   );
@@ -160,7 +176,7 @@ export function ShmEmbeddedView(): React.JSX.Element {
           <div className="shm-eyebrow">Estación SHM · Viaducto de La Novena</div>
           <h2>Sistema embebido de la estación · STM32H743VIT6</h2>
         </div>
-        <span className="shm-badge">Sin emulación</span>
+        <span className="shm-badge">{simulated ? 'Gemelo funcional · sin código STM32' : 'Sin emulación'}</span>
       </header>
       <p className="shm-intro">
         Esquema completo de la estación: el microcontrolador y todo lo que lleva conectado. Es una vista del diseño, no
@@ -182,6 +198,9 @@ export function ShmEmbeddedView(): React.JSX.Element {
           ))}
           {wires.filter((w) => w.on).map((w) => (
             <path key={w.key} className={`shm-wire shm-wire-on shm-g-${w.group}`} d={w.d} />
+          ))}
+          {wires.filter((w) => w.fault).map((w) => (
+            <path key={`f-${w.key}`} className="shm-wire shm-wire-fault" d={w.d} />
           ))}
 
           {/* Chip */}
@@ -226,7 +245,7 @@ export function ShmEmbeddedView(): React.JSX.Element {
 
           {/* Componentes conectados al MCU */}
           {BOARD_PARTS.map((part) => (
-            <g key={part.id} className={`shm-part shm-o-${part.origin}${connectedParts.includes(part) ? ' shm-part-on' : ''}`}>
+            <g key={part.id} className={`shm-part shm-o-${part.origin}${connectedParts.includes(part) ? ' shm-part-on' : ''}${faults.some((f) => f.part === part.id) ? ' shm-part-fault' : ''}`}>
               <rect x={part.x} y={part.y} width={part.w} height={part.h} rx="6" />
               {/* Con los terminales arriba, el título va abajo para no pisarlos. */}
               <text className="shm-part-title" x={part.x + 10} y={part.side === 'top' ? part.y + part.h - 26 : part.y + 20}>{part.title}</text>

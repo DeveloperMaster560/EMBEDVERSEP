@@ -1,0 +1,8 @@
+// Estación SD: STM32H743 de Renode más lo que nuestra placa necesita.
+using "platforms/cpus/stm32h743.repl"
+
+// La descripción de Renode no trae SPI1 (sí SPI4). Dirección e IRQ: RM0433.
+spi1: SPI.STM32H7_SPI @ sysbus 0x40013000
+    -> nvic@35
+
+adxl355: Sensors.ADXL355_SHM @ spi1

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createArduinoCompileMiddleware } from './server/arduinoCompiler.js'
 import { createBridgeGeneratorMiddleware } from './server/bridgeGenerator.js'
 import { createBuildingGeneratorMiddleware } from './server/buildingGenerator.js'
+import { createRenodeBridgeMiddleware } from './server/renodeBridge.js'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 
@@ -20,6 +21,7 @@ export default defineConfig(() => ({
         server.middlewares.use('/api/compile', createArduinoCompileMiddleware(projectRoot))
         server.middlewares.use('/api/building/generate', createBuildingGeneratorMiddleware(projectRoot))
         server.middlewares.use('/api/bridge/generate', createBridgeGeneratorMiddleware(projectRoot))
+        server.middlewares.use('/api/shm-renode', createRenodeBridgeMiddleware(projectRoot))
       },
       configurePreviewServer(server) {
         server.middlewares.use('/api/compile', createArduinoCompileMiddleware(projectRoot))

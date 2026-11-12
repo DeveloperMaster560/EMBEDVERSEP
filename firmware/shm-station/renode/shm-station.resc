@@ -1,0 +1,25 @@
+# Arranca una estación SD en Renode.
+#   renode --disable-xwt --port 12345 renode/shm-station.resc
+# Puertos TCP:
+#   3456  puerto de servicio (USART3): salen los registros JSON
+#   3457  GNSS (USART1): aquí se escriben las tramas NMEA
+#   12345 monitor de Renode: fallas (Disconnected), PPS (gpioPortA OnGPIO 0)
+
+$name?="SD-V2-M"
+$elf?=@build/shm-station.elf
+$feed?=@renode/feeds/sd-v2-m.csv
+
+include @renode/ADXL355_SHM.cs
+
+mach create $name
+machine LoadPlatformDescription @renode/shm-station.repl
+
+emulation CreateServerSocketTerminal 3456 "servicio" false
+connector Connect sysbus.usart3 servicio
+emulation CreateServerSocketTerminal 3457 "gnss" false
+connector Connect sysbus.usart1 gnss
+
+sysbus.spi1.adxl355 LoadFeed $feed
+sysbus LoadELF $elf
+
+start
