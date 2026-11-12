@@ -108,14 +108,19 @@ function wirePath(a: [number, number], na: [number, number], b: [number, number]
   return `M${a[0]} ${a[1]} C${a[0] + na[0] * d} ${a[1] + na[1] * d} ${b[0] + nb[0] * d} ${b[1] + nb[1] * d} ${b[0]} ${b[1]}`;
 }
 
-const FIRMWARE: { module: string; detail: string; state: 'sin escribir' | 'en la plataforma' }[] = [
-  { module: 'Arranque y relojes', detail: 'Relojes, SysTick y watchdog externo por WDG_KICK.', state: 'sin escribir' },
-  { module: 'SPI1: ADXL355, SCL3300 y ADS1262', detail: '200 muestras/s del acelerómetro (ODR ≥ 500 Hz) e interrupciones en INT1/INT2; un CS por dispositivo.', state: 'sin escribir' },
-  { module: 'PPS por TIM2', detail: 'Captura del PPS en TIM2_CH1 y SENSOR_SYNC en TIM2_CH4.', state: 'sin escribir' },
-  { module: 'GNSS por USART1', detail: 'Hora UTC y estado; el UART no sustituye al PPS.', state: 'sin escribir' },
-  { module: 'microSD por SDMMC1', detail: 'Bloques crudos con CRC32 y retención de 7 días.', state: 'sin escribir' },
-  { module: 'Ethernet RMII', detail: 'Envío de archivos al gateway; reset del PHY en ETH_PHY_RST_N.', state: 'sin escribir' },
-  { module: 'RS-485 y LoRaWAN', detail: 'USART3 con DE por hardware; UART7 al módulo LoRa, solo estado.', state: 'sin escribir' },
+type FirmwareState = 'sin escribir' | 'esqueleto' | 'en la plataforma';
+
+/** Estado del firmware de firmware/shm-station (ver su README). */
+const FIRMWARE: { module: string; detail: string; state: FirmwareState }[] = [
+  { module: 'Arranque y relojes', detail: 'HSI a 64 MHz sin PLL (el cristal HSE está pendiente), SysTick a 200 Hz, IWDG1 y pulso en WDG_KICK.', state: 'esqueleto' },
+  { module: 'SPI1: ADXL355', detail: 'Identificación, DATA_RDY y lectura de 3 ejes a 200 muestras/s. Mapa de registros sin cotejar; filtro pendiente.', state: 'esqueleto' },
+  { module: 'SPI1: SCL3300 y ADS1262', detail: 'Los CS están configurados; los drivers no.', state: 'sin escribir' },
+  { module: 'PPS', detail: 'Flanco en EXTI0 (PA0). La captura fina por TIM2_CH1 y SENSOR_SYNC en TIM2_CH4 están pendientes.', state: 'esqueleto' },
+  { module: 'GNSS por USART1', detail: 'Trama RMC con suma de control: hora UTC, GNSS_LOCKED / HOLDOVER / INVALID.', state: 'esqueleto' },
+  { module: 'Ventanas y registro', detail: 'Ventanas con CRC-32, huecos marcados, estados de calidad y registro JSON por USART3.', state: 'esqueleto' },
+  { module: 'microSD por SDMMC1', detail: 'Bloques crudos con CRC32 y retención de 7 días. Hoy se declara STORAGE_FAULT.', state: 'sin escribir' },
+  { module: 'Ethernet RMII', detail: 'Envío al gateway; falta el protocolo. Reset del PHY en ETH_PHY_RST_N.', state: 'sin escribir' },
+  { module: 'LoRaWAN por UART7', detail: 'Solo estado.', state: 'sin escribir' },
   { module: 'Calidad E1, línea base y alarmas', detail: 'Contrato de datos, reglas E1 y clasificación que se niega sin umbrales firmados (src/shm).', state: 'en la plataforma' },
 ];
 
@@ -176,13 +181,14 @@ export function ShmEmbeddedView({ faults = [], simulated = false }: ShmEmbeddedV
           <div className="shm-eyebrow">Estación SHM · Viaducto de La Novena</div>
           <h2>Sistema embebido de la estación · STM32H743VIT6</h2>
         </div>
-        <span className="shm-badge">{simulated ? 'Gemelo funcional · sin código STM32' : 'Sin emulación'}</span>
+        <span className="shm-badge">{simulated ? 'Esquema del diseño' : 'Vista de diseño'}</span>
       </header>
       <p className="shm-intro">
-        Esquema completo de la estación: el microcontrolador y todo lo que lleva conectado. Es una vista del diseño, no
-        una simulación: el motor de la aplicación solo ejecuta el ATmega328P del Arduino Uno, y el firmware de la estación
-        todavía no está escrito. Pulsa una patilla o un terminal para resaltar su conexión. En amarillo, lo que es
-        propuesta sin firmar; en gris discontinuo, lo que el diseño no define.
+        Esquema completo de la estación: el microcontrolador y todo lo que lleva conectado, dibujado desde los datos del
+        diseño. El firmware (firmware/shm-station) es un esqueleto que se ejecuta arriba, en el ordenador o en un
+        STM32H743 emulado en Renode; aquí se marcan en rojo las fallas del gemelo funcional. Pulsa una patilla o un
+        terminal para resaltar su conexión. En amarillo, lo que es propuesta sin firmar; en gris discontinuo, lo que el
+        diseño no define.
       </p>
 
       <div className="shm-board-wrap">
@@ -335,7 +341,7 @@ export function ShmEmbeddedView({ faults = [], simulated = false }: ShmEmbeddedV
               <tr key={f.module}>
                 <td>{f.module}</td>
                 <td>{f.detail}</td>
-                <td><span className={`shm-state ${f.state === 'sin escribir' ? 'shm-todo' : 'shm-done'}`}>{f.state}</span></td>
+                <td><span className={`shm-state ${f.state === 'sin escribir' ? 'shm-todo' : f.state === 'esqueleto' ? 'shm-partial' : 'shm-done'}`}>{f.state}</span></td>
               </tr>
             ))}
           </tbody>

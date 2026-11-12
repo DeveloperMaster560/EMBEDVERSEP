@@ -13,8 +13,10 @@ describe('sistema embebido de la estación SHM', () => {
     expect(html.match(/aria-label="Patilla \d+ /g)).toHaveLength(100);
   });
 
-  it('dice claramente que no emula y que el firmware no está escrito', () => {
-    expect(html).toContain('Sin emulación');
+  it('dice qué parte del firmware existe y qué falta', () => {
+    expect(html).toContain('Vista de diseño');
+    expect(html).not.toContain('todavía no está escrito');
+    expect(html).toContain('esqueleto');
     expect(html).toContain('sin escribir');
   });
 

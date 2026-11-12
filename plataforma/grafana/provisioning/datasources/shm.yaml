@@ -1,0 +1,16 @@
+# Fuente de datos de Grafana: TimescaleDB con el usuario de SOLO LECTURA.
+apiVersion: 1
+datasources:
+  - name: SHM TimescaleDB
+    uid: shm-timescale
+    type: grafana-postgresql-datasource
+    url: db:5432
+    user: grafana_lectura
+    isDefault: true
+    jsonData:
+      database: shm
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: true
+    secureJsonData:
+      password: $GRAFANA_DB_PASSWORD

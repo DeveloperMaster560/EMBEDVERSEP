@@ -1,0 +1,189 @@
+{
+ "uid": "shm-novena-operacion",
+ "title": "SHM La Novena — operación",
+ "tags": [
+  "shm"
+ ],
+ "timezone": "utc",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "refresh": "30s",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "id": 1,
+   "title": "Estaciones",
+   "type": "table",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "shm-timescale"
+   },
+   "description": "Una estación callada es una falla de COMUNICACIÓN: sus datos siguen en su memoria local.",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "shm-timescale"
+     },
+     "rawQuery": true,
+     "editorMode": "code",
+     "format": "table",
+     "rawSql": "SELECT e.station_id AS \"estación\", e.nombre, e.simulada, s.ultimo_visto AS \"último mensaje\",\n  round(extract(epoch FROM now() - s.ultimo_visto)) AS \"silencio (s)\"\nFROM estaciones e LEFT JOIN estado_estacion s USING (station_id) WHERE e.activa ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 2,
+   "title": "Ventanas recibidas por hora",
+   "type": "timeseries",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "shm-timescale"
+   },
+   "description": "Con un registro cada 10 s se esperan 360 por hora y estación.",
+   "gridPos": {
+    "x": 0,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "shm-timescale"
+     },
+     "rawQuery": true,
+     "editorMode": "code",
+     "format": "time_series",
+     "rawSql": "SELECT hora AS \"time\", station_id AS metric, ventanas AS value\nFROM disponibilidad_horaria WHERE $__timeFilter(hora) ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 3,
+   "title": "Ventanas sin hora GNSS por hora",
+   "type": "timeseries",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "shm-timescale"
+   },
+   "description": "HOLDOVER o INVALID: la fase entre estaciones no es comparable en esas ventanas.",
+   "gridPos": {
+    "x": 12,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "shm-timescale"
+     },
+     "rawQuery": true,
+     "editorMode": "code",
+     "format": "time_series",
+     "rawSql": "SELECT hora AS \"time\", station_id AS metric, sin_gnss AS value\nFROM disponibilidad_horaria WHERE $__timeFilter(hora) ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 4,
+   "title": "Avisos abiertos",
+   "type": "table",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "shm-timescale"
+   },
+   "description": "La plataforma solo asigna E0–E2. E3/E4 los asigna una persona con rol ingeniero por la API. Ningún aviso es un diagnóstico de daño.",
+   "gridPos": {
+    "x": 0,
+    "y": 14,
+    "w": 24,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "shm-timescale"
+     },
+     "rawQuery": true,
+     "editorMode": "code",
+     "format": "table",
+     "rawSql": "SELECT creado, station_id AS \"estación\", categoria, nivel, codigo, detalle\nFROM avisos WHERE abierto ORDER BY creado DESC LIMIT 200"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 5,
+   "title": "Últimas ventanas",
+   "type": "table",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "shm-timescale"
+   },
+   "description": "",
+   "gridPos": {
+    "x": 0,
+    "y": 22,
+    "w": 24,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "shm-timescale"
+     },
+     "rawQuery": true,
+     "editorMode": "code",
+     "format": "table",
+     "rawSql": "SELECT inicio, station_id AS \"estación\", array_to_string(estados, ', ') AS estados, calidad_tiempo,\n  muestras, huecos, saturadas, fuera_de_orden, recibido\nFROM ventanas WHERE $__timeFilter(inicio) ORDER BY inicio DESC LIMIT 200"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {}
+  }
+ ],
+ "description": "Supervisión de estaciones y calidad de datos. No es un tablero de seguridad estructural."
+}

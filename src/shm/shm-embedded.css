@@ -139,3 +139,4 @@
 .shm-log time { font-family: var(--mono, monospace); color: var(--shm-muted); margin-right: 6px; }
 .shm-json { margin: 0; max-height: 260px; overflow: auto; font-size: 0.72rem; background: #10151c; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
 .shm-warn { border: 1px solid #6b5420; background: #221c0f; color: #e8cf86; border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; line-height: 1.45; margin: 0; }
+.shm-partial { color: var(--prop); border-color: var(--prop); }

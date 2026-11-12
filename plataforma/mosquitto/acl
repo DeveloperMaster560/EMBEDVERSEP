@@ -1,0 +1,12 @@
+# Autorización por tópico (Mosquitto 2.x).
+
+# El servicio de ingesta lee todo lo de las estaciones.
+user shm-ingesta
+topic read shm/v1/#
+
+# Cada estación (usuario = su station_id) escribe solo en su propia rama
+# y lee solo su rama de configuración. %u = nombre de usuario.
+pattern write shm/v1/%u/registro
+pattern write shm/v1/%u/estado
+pattern write shm/v1/%u/evento
+pattern read shm/v1/%u/config

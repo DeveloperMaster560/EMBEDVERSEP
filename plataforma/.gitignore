@@ -1,0 +1,5 @@
+# Credenciales y datos locales: nunca al repositorio.
+.env
+secretos/
+datos/
+__pycache__/

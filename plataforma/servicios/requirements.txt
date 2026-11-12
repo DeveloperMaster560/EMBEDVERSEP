@@ -1,0 +1,6 @@
+# Versiones comprobadas en PyPI el 2026-11-12.
+fastapi==0.162.5
+uvicorn==0.54.0
+paho-mqtt==2.2.0
+psycopg[binary]==3.3.9
+boto3==1.44.1

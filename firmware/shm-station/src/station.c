@@ -61,7 +61,7 @@ static void civil_from_days(int64_t z, int *y, unsigned *m, unsigned *d) {
   *y = (int)((int64_t)yoe + era * 400 + (*m <= 2));
 }
 
-void time_format_rfc3339(int64_t utc_ms, char out[32]) {
+void time_format_rfc3339(int64_t utc_ms, char out[TIME_RFC3339_LEN]) {
   int64_t s = utc_ms >= 0 ? utc_ms / 1000 : 0;
   unsigned ms = (unsigned)(utc_ms >= 0 ? utc_ms % 1000 : 0);
   int64_t days = s / 86400;
@@ -69,7 +69,9 @@ void time_format_rfc3339(int64_t utc_ms, char out[32]) {
   int y;
   unsigned mo, d;
   civil_from_days(days, &y, &mo, &d);
-  snprintf(out, 32, "%04d-%02u-%02uT%02u:%02u:%02u.%03uZ", y, mo, d, rem / 3600, (rem / 60) % 60, rem % 60, ms);
+  if (y < 0) y = 0;
+  if (y > 9999) y = 9999;
+  snprintf(out, TIME_RFC3339_LEN, "%04d-%02u-%02uT%02u:%02u:%02u.%03uZ", y, mo, d, rem / 3600, (rem / 60) % 60, rem % 60, ms);
 }
 
 /* ======================================================================= */
@@ -208,7 +210,7 @@ static size_t append(char *out, size_t cap, size_t pos, const char *fmt_str) {
 
 size_t station_close_window(station_t *s, const station_health_t *h, char *out, size_t cap) {
   uint32_t crc = crc32_ieee((const uint8_t *)s->samples, (size_t)s->count * AXES * sizeof(float));
-  char ts[32];
+  char ts[TIME_RFC3339_LEN];
   time_format_rfc3339(s->window_start_utc_ms, ts);
 
   /* Estados de calidad (lista cerrada, data-contract §7). */

@@ -1,0 +1,165 @@
+# Plataforma SHM — Viaducto de La Novena.
+# Igual en Windows (Docker Desktop + WSL 2), macOS (Docker Desktop) y Linux.
+#
+#   Primera vez:   python scripts/preparar.py        (crea .env y las credenciales)
+#   Arrancar:      docker compose up -d --build
+#   Demostración:  docker compose --profile demo up -d --build
+#
+# Todos los puertos se publican SOLO en 127.0.0.1: nada queda expuesto a la red
+# del equipo. Para el servidor en la nube ver ARQUITECTURA.md §10.
+
+name: shm-novena
+
+services:
+  db:
+    image: timescale/timescaledb:2.32.0-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shm
+      POSTGRES_USER: shm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en .env}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?falta GRAFANA_DB_PASSWORD}
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - db-datos:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shm -d shm"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Prepara la configuración del broker dentro de un volumen: cifra las
+  # contraseñas (mosquitto_passwd -U) y fija permisos. Así no depende de los
+  # permisos de archivo de Windows o macOS.
+  broker-init:
+    image: eclipse-mosquitto:2.1.2-alpine
+    user: root
+    volumes:
+      - ./mosquitto:/plantilla:ro
+      - ./secretos/mqtt-usuarios.txt:/secreto/usuarios.txt:ro
+      - broker-config:/mosquitto/config
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        cp /plantilla/mosquitto.conf /plantilla/acl /mosquitto/config/
+        tr -d '\r' < /secreto/usuarios.txt > /mosquitto/config/passwd
+        mosquitto_passwd -U /mosquitto/config/passwd
+        chown -R mosquitto:mosquitto /mosquitto/config
+        chmod 0700 /mosquitto/config
+        chmod 0600 /mosquitto/config/passwd /mosquitto/config/acl
+    restart: "no"
+
+  broker:
+    image: eclipse-mosquitto:2.1.2-alpine
+    restart: unless-stopped
+    depends_on:
+      broker-init:
+        condition: service_completed_successfully
+    volumes:
+      - broker-config:/mosquitto/config:ro
+      - broker-datos:/mosquitto/data
+    ports:
+      - "${PUERTOS_IP:-127.0.0.1}:1883:1883"
+
+  ingesta:
+    build: ./servicios
+    image: shm-novena/servicios:0.1.0
+    restart: unless-stopped
+    command: ["python", "-m", "shm_plataforma.servicio_ingesta"]
+    environment:
+      DATABASE_URL: postgresql://shm:${DB_PASSWORD}@db:5432/shm
+      MQTT_HOST: broker
+      MQTT_USER: shm-ingesta
+      MQTT_PASSWORD: ${MQTT_INGESTA_PASSWORD:?falta MQTT_INGESTA_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_started
+
+  api:
+    image: shm-novena/servicios:0.1.0
+    restart: unless-stopped
+    command: ["uvicorn", "--factory", "shm_plataforma.api:app_desde_entorno", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      DATABASE_URL: postgresql://shm:${DB_PASSWORD}@db:5432/shm
+      ALMACEN: ${ALMACEN:-disco}
+      ALMACEN_DIR: /datos/crudos
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-}
+    volumes:
+      - crudos:/datos
+    ports:
+      - "${PUERTOS_IP:-127.0.0.1}:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ingesta:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:13.2.6
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?falta GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD}
+    volumes:
+      - grafana-datos:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/tableros:/var/lib/grafana/tableros:ro
+    ports:
+      - "${PUERTOS_IP:-127.0.0.1}:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Solo con --profile demo: el firmware de la estación (compilado para Linux)
+  # haciendo de estación SD-V2-M y publicando cada 10 s. Señal SINTÉTICA.
+  pasarela-sim:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: pasarela/Dockerfile
+      additional_contexts:
+        firmware: ../firmware/shm-station
+    image: shm-novena/pasarela-sim:0.1.0
+    restart: unless-stopped
+    command:
+      - python
+      - -m
+      - shm_plataforma.pasarela_sim
+      - --estacion
+      - SD-V2-M
+      - --cola
+      - /datos/cola.jsonl
+      - --
+      - /app/firmware/build/shm-sim
+      - /app/firmware/renode/feeds/sd-v2-m.csv
+      - --seconds
+      - "31536000"
+      - --realtime
+      - --start-epoch
+      - "{ahora}"
+    environment:
+      MQTT_HOST: broker
+      MQTT_USER: SD-V2-M
+      MQTT_PASSWORD: ${MQTT_SD_V2_M_PASSWORD:?falta MQTT_SD_V2_M_PASSWORD}
+    volumes:
+      - pasarela-cola:/datos
+    depends_on:
+      broker:
+        condition: service_started
+
+volumes:
+  db-datos:
+  broker-config:
+  broker-datos:
+  crudos:
+  grafana-datos:
+  pasarela-cola:

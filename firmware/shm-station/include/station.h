@@ -38,7 +38,8 @@ time_quality_t time_quality(const time_ref_t *t, uint32_t now_ms);
 int64_t time_utc_ms(const time_ref_t *t, uint32_t now_ms);
 const char *time_quality_name(time_quality_t q);
 /* RFC 3339 con milisegundos y Z. */
-void time_format_rfc3339(int64_t utc_ms, char out[32]);
+#define TIME_RFC3339_LEN 48
+void time_format_rfc3339(int64_t utc_ms, char out[TIME_RFC3339_LEN]);
 
 /* ---- Ventana de aceleración ------------------------------------------- */
 

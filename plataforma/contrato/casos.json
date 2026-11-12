@@ -1,0 +1,560 @@
+{
+ "_nota": "Casos compartidos por src/shm/data-contract.ts y plataforma/servicios/shm_plataforma/contrato.py. Si uno cambia, ambos deben seguir pasando.",
+ "casos": [
+  {
+   "nombre": "registro del firmware tal como sale",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "sin estados (campo opcional)",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "falta station_id",
+   "registro": {
+    "schema_version": "1.0",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "station_id"
+  },
+  {
+   "nombre": "hora no RFC 3339",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "12/11/2026 12:00",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "RFC 3339"
+  },
+  {
+   "nombre": "calidad de hora desconocida",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "NTP",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "time_quality"
+  },
+  {
+   "nombre": "GNSS_LOCKED sin PPS",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": false,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "PPS"
+  },
+  {
+   "nombre": "dos ejes",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "x",
+     "y"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "tres ejes"
+  },
+  {
+   "nombre": "CRC mal escrito",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "xyz",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "CRC-32"
+  },
+  {
+   "nombre": "estado inventado",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "DAMAGE_SUSPECT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "Estado desconocido"
+  },
+  {
+   "nombre": "NORMAL junto a otro estado",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "NORMAL",
+     "DATA_GAP"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "NORMAL"
+  },
+  {
+   "nombre": "diagnóstico estructural en el texto",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "nota": "posible daño"
+   },
+   "valido": false,
+   "problema_contiene": "diagnóstico"
+  },
+  {
+   "nombre": "recepción igual a muestreo",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "received_utc": "2026-11-12T12:00:10.000Z"
+   },
+   "valido": false,
+   "problema_contiene": "recepción"
+  },
+  {
+   "nombre": "recepción distinta (válido)",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 200,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "received_utc": "2026-11-12T12:00:11.250Z"
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "frecuencia cero",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "SD-V2-M",
+    "sensor_id": "ADXL355-SD-V2-M",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 0,
+    "axes": [
+     "longitudinal",
+     "transversal",
+     "vertical"
+    ],
+    "units": "m/s2",
+    "range_g": 2,
+    "filter_id": "sin-filtro-pendiente",
+    "firmware_version": "0.1.0-esqueleto",
+    "calibration_id": null,
+    "samples_file": "pendiente-sd/SD-V2-M/000001.bin",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "STORAGE_FAULT"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": true,
+     "supply_v": null
+    },
+    "samples": 2000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0
+   },
+   "valido": false,
+   "problema_contiene": "sample_rate_hz"
+  },
+  {
+   "nombre": "no es objeto",
+   "registro": [
+    1,
+    2,
+    3
+   ],
+   "valido": false,
+   "problema_contiene": "objeto"
+  }
+ ]
+}

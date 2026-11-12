@@ -121,9 +121,13 @@ class RenodeSession {
     const st = this.status();
     if (st.missing.length) throw new Error(`Falta: ${st.missing.join('; ')}`);
     this.mode = 'renode';
-    this.proc = spawn(st.renodeBin!, ['--disable-xwt', '--console', '--port', String(MONITOR_PORT), '-e', 'include @renode/shm-station.resc; pause'], {
-      cwd, stdio: ['ignore', 'pipe', 'pipe'],
+    // Sin --console y con la entrada abierta: con stdin cerrado, Renode
+    // interpreta fin de entrada y se cierra solo.
+    this.proc = spawn(st.renodeBin!, ['--disable-xwt', '--plain', '--port', String(MONITOR_PORT), '-e', 'include @renode/shm-station.resc; pause'], {
+      cwd, stdio: ['pipe', 'pipe', 'pipe'],
     });
+    this.proc.stdout?.resume();
+    this.proc.stderr?.resume();
     this.proc.on('exit', (code) => {
       if (!this.stopping) this.error = `Renode terminó (código ${code ?? '?'}).`;
       this.cleanup();

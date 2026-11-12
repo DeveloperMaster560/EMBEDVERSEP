@@ -3,7 +3,7 @@
  * simulada. Cada segundo simulado entrega la trama RMC y el PPS, como hará
  * el receptor GNSS, y luego 200 periodos de muestreo.
  *
- *   build/shm-sim <señal.csv> [--seconds N] [--realtime]
+ *   build/shm-sim <señal.csv> [--seconds N] [--realtime] [--start-epoch S]
  *                 [--fault sensor@20-40] [--fault pps@50-80]
  *                 [--fault tiempo@90-100] [--fault impacto@110]
  *
@@ -76,9 +76,11 @@ int main(int argc, char **argv) {
   }
   long seconds = 60;
   int realtime = 0;
+  long start_epoch = 1794484800; /* 2026-11-12T12:00:00Z, hora simulada por omisión */
   for (int i = 2; i < argc; i++) {
     if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atol(argv[++i]);
     else if (!strcmp(argv[i], "--realtime")) realtime = 1;
+    else if (!strcmp(argv[i], "--start-epoch") && i + 1 < argc) start_epoch = atol(argv[++i]);
     else if (!strcmp(argv[i], "--fault") && i + 1 < argc && nplan < MAX_FAULTS) {
       char *spec = argv[++i], *at = strchr(spec, '@');
       if (!at) continue;
@@ -96,7 +98,6 @@ int main(int argc, char **argv) {
   }
   if (realtime) fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
-  const long start_epoch = 1794484800; /* 2026-11-12T12:00:00Z, hora simulada */
   board_init();
   app_init();
 
