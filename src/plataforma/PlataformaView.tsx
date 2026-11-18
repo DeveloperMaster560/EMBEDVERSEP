@@ -193,7 +193,18 @@ function mensaje(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function PlataformaView() {
+export function AvisoVinculo({ vinculado, sesion, visibles }: { vinculado?: string; sesion: Sesion | null; visibles: string[] }) {
+  if (!vinculado || !sesion || visibles.includes(vinculado)) return null;
+  return (
+    <p className="shm-warn">
+      Este proyecto de la app está vinculado a «{vinculado}», pero el token conectado
+      {sesion.proyecto_id ? <> es del proyecto «{sesion.proyecto_id}»</> : null} y no lo ve. Desconecta y usa un token
+      de «{vinculado}».
+    </p>
+  );
+}
+
+export function PlataformaView({ proyectoVinculado }: { proyectoVinculado?: string } = {}) {
   const [conexion, setConexion] = useState<Conexion | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [proyectos, setProyectos] = useState<ProyectoResumen[]>([]);
@@ -216,12 +227,13 @@ export function PlataformaView() {
       const [s, ps] = await Promise.all([plataforma.sesion(), plataforma.proyectos()]);
       setSesion(s);
       setProyectos(ps);
-      setProyectoId((actual) => actual ?? s.proyecto_id ?? ps[0]?.proyecto_id ?? null);
+      const vinculado = proyectoVinculado && ps.some((p) => p.proyecto_id === proyectoVinculado) ? proyectoVinculado : null;
+      setProyectoId((actual) => actual ?? vinculado ?? s.proyecto_id ?? ps[0]?.proyecto_id ?? null);
       setError(null);
     } catch (e) {
       setError(mensaje(e));
     }
-  }, []);
+  }, [proyectoVinculado]);
 
   useEffect(() => {
     // Carga inicial: la sesión llega por red; el estado se fija al responder.
@@ -312,6 +324,7 @@ export function PlataformaView() {
       </header>
 
       {error && <p className="shm-warn">{error}</p>}
+      <AvisoVinculo vinculado={proyectoVinculado} sesion={sesion} visibles={proyectos.map((p) => p.proyecto_id)} />
       {ficha && <AvisoIntegridad def={def} />}
 
       <div className="shm-layout">

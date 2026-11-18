@@ -36,6 +36,8 @@ import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, E
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
 import { ShmStationSimulator } from './shm/sim/ShmStationSimulator';
 import { PlataformaView } from './plataforma/PlataformaView';
+import { ProyectoShmFicha, SelectorProyectoShm } from './shm/ProyectoShmFicha';
+import { admiteGemelo, buscarProyecto } from './shm/proyectos';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
@@ -509,6 +511,7 @@ function App() {
               onResetLab={resetLab}
               onChangeBoard={changeProjectBoard}
               onChangeCircuit={(electronicLab) => updateProject((current) => ({ ...current, electronicLab }))}
+              onChangeShmProject={(shmProjectId) => updateProject((current) => ({ ...current, shmProjectId }))}
             />
           )}
 
@@ -697,6 +700,7 @@ function WorkspacePanel({
   onResetLab,
   onChangeBoard,
   onChangeCircuit,
+  onChangeShmProject,
 }: {
   project: EmbeddedProject;
   activeTab: WorkspaceTab;
@@ -711,12 +715,17 @@ function WorkspacePanel({
   onResetLab: () => void;
   onChangeBoard: (boardId: BoardId) => void;
   onChangeCircuit: (circuit: ElectronicCircuit) => void;
+  onChangeShmProject: (id: string | undefined) => void;
 }) {
   const circuit = normalizeElectronicCircuit(project.electronicLab ?? createArduinoPracticeCircuit(project.boardId), project.boardId);
   const circuitStatus = validateCircuit(circuit);
   // Dentro de «Sistema embebido»: el laboratorio emulado del proyecto o la
   // estación SHM de La Novena, que solo se muestra (no se emula).
-  const [embeddedView, setEmbeddedView] = useState<'lab' | 'shm' | 'plataforma'>('lab');
+  const [embeddedView, setEmbeddedView] = useState<'lab' | 'proyecto' | 'shm' | 'plataforma'>('lab');
+  const shmDef = buscarProyecto(project.shmProjectId);
+  const gemelo = admiteGemelo(shmDef);
+  // Si se desvincula de La Novena estando en el gemelo, se vuelve a la ficha.
+  const vista = embeddedView === 'shm' && !gemelo ? 'proyecto' : embeddedView;
 
   return (
     <div className="workspace-shell">
@@ -759,36 +768,30 @@ function WorkspacePanel({
 
       {activeTab === 'embedded' && (
         <div>
+          <SelectorProyectoShm valor={project.shmProjectId} onCambiar={onChangeShmProject} />
           <div className="embedded-switch" role="tablist" aria-label="Sistema que se muestra">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={embeddedView === 'lab'}
-              className={`workspace-tab${embeddedView === 'lab' ? ' active' : ''}`}
-              onClick={() => setEmbeddedView('lab')}
-            >
-              Laboratorio del proyecto (emulado)
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={embeddedView === 'shm'}
-              className={`workspace-tab${embeddedView === 'shm' ? ' active' : ''}`}
-              onClick={() => setEmbeddedView('shm')}
-            >
-              Estación SHM La Novena · STM32H743 (gemelo funcional)
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={embeddedView === 'plataforma'}
-              className={`workspace-tab${embeddedView === 'plataforma' ? ' active' : ''}`}
-              onClick={() => setEmbeddedView('plataforma')}
-            >
-              Plataforma de datos (en vivo)
-            </button>
+            {([
+              ['lab', 'Laboratorio del proyecto (emulado)', true, ''],
+              ['proyecto', shmDef ? `Proyecto SHM · ${shmDef.estructura.nombre ?? shmDef.nombre}` : 'Proyecto SHM', true, ''],
+              ['shm', 'Gemelo funcional · estación STM32H743', gemelo,
+                'El gemelo funcional está construido sobre la geometría de La Novena: vincula este proyecto con La Novena para usarlo.'],
+              ['plataforma', 'Plataforma de datos (en vivo)', true, ''],
+            ] as const).map(([id, texto, habilitada, motivo]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={vista === id}
+                className={`workspace-tab${vista === id ? ' active' : ''}`}
+                disabled={!habilitada}
+                title={motivo || undefined}
+                onClick={() => setEmbeddedView(id)}
+              >
+                {texto}
+              </button>
+            ))}
           </div>
-          {embeddedView === 'lab' ? (
+          {vista === 'lab' ? (
             <ElectronicsLab
               circuit={circuit}
               boardId={project.boardId}
@@ -797,10 +800,17 @@ function WorkspacePanel({
               saveState={saveState}
               files={project.files}
             />
-          ) : embeddedView === 'shm' ? (
+          ) : vista === 'proyecto' ? (
+            shmDef ? <ProyectoShmFicha def={shmDef} /> : (
+              <p className="shm-warn">
+                Este proyecto no está vinculado a ninguna estructura. Elige una arriba, o crea su carpeta en
+                proyectos/ a partir de proyectos/PLANTILLA.proyecto.json (ver proyectos/LEEME.md).
+              </p>
+            )
+          ) : vista === 'shm' ? (
             <ShmStationSimulator />
           ) : (
-            <PlataformaView />
+            <PlataformaView proyectoVinculado={project.shmProjectId} />
           )}
         </div>
       )}

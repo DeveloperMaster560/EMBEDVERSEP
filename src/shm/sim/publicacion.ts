@@ -57,10 +57,10 @@ export function usePublicacionGemelo(sim: ShmStationSimulation, running: boolean
     // un hueco, igual que si la estación hubiera estado apagada.
     desfase.current = Date.now() - sim.nowUtcMs;
     sim.takeDelivered(); // lo anterior a empezar a publicar no sale
-    let vivo = true;
+    const ctl = { vivo: true };
     const t = window.setInterval(async () => {
       const regs = sim.takeDelivered().map((r) => aPlataforma(r, desfase.current));
-      for (let i = 0; i < regs.length && vivo; i += LOTE) {
+      for (let i = 0; i < regs.length && ctl.vivo; i += LOTE) {
         try {
           const resp = await fetch('/api/plataforma/publicar', {
             method: 'POST',
@@ -68,18 +68,18 @@ export function usePublicacionGemelo(sim: ShmStationSimulation, running: boolean
             body: JSON.stringify({ registros: regs.slice(i, i + LOTE) }),
           });
           const b = (await resp.json().catch(() => ({}))) as { publicados?: number; rechazados?: { motivo: string }[]; detail?: string };
-          if (!vivo) return;
+          if (!ctl.vivo) return;
           setCuenta((c) => ({
             enviados: c.enviados + (b.publicados ?? 0),
             rechazados: c.rechazados + (b.rechazados?.length ?? (resp.ok ? 0 : regs.length)),
             ultimoProblema: b.rechazados?.[0]?.motivo ?? b.detail ?? (resp.ok ? c.ultimoProblema : `Respuesta ${resp.status}`),
           }));
         } catch (e) {
-          if (vivo) setCuenta((c) => ({ ...c, rechazados: c.rechazados + regs.length, ultimoProblema: e instanceof Error ? e.message : String(e) }));
+          if (ctl.vivo) setCuenta((c) => ({ ...c, rechazados: c.rechazados + regs.length, ultimoProblema: e instanceof Error ? e.message : String(e) }));
         }
       }
     }, ENVIO_MS);
-    return () => { vivo = false; window.clearInterval(t); };
+    return () => { ctl.vivo = false; window.clearInterval(t); };
   }, [puede, sim]);
 
   const estado: EstadoPublicacion = {

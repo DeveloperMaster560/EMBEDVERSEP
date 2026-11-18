@@ -26,26 +26,37 @@ export interface SensorDef {
   unidad: string;
   ejes: string[];
   muestreo_hz: number | null;
+  rango?: number | null;
+  rango_unidad?: string | null;
+  calibracion?: string | null;
 }
+
+export type EstadoEstacion = 'diseno' | 'simulada' | 'instalada' | 'retirada';
 
 export interface EstacionDef {
   id: string;
   tipo: string;
   nombre: string;
-  estado: 'diseno' | 'simulada' | 'instalada' | 'retirada';
-  ubicacion?: { descripcion?: string | null };
-  comunicacion?: { periodo_s?: number };
+  estado: EstadoEstacion;
+  ubicacion?: { descripcion?: string | null; elemento?: string | null; posicion?: unknown };
+  hardware?: { placa?: string | null; firmware?: string | null; firmware_version?: string | null };
+  comunicacion?: { protocolo?: string | null; periodo_s?: number };
   sensores?: SensorDef[];
+  notas?: string | null;
 }
 
 export interface ProyectoDef {
+  formato?: string;
   proyecto_id: string;
   nombre: string;
-  estructura: { tipo: string; nombre?: string };
+  estructura: { tipo: string; nombre?: string; modelo?: string | null };
+  ubicacion?: { pais?: string; region?: string; municipio?: string; latitud?: number; longitud?: number; procedencia?: string } | null;
+  institucion?: string | null;
   responsable_estructural: string | null;
   entidad_responsable: string | null;
   estaciones: EstacionDef[];
-  criterios: { estado: 'sin_definir' | 'propuestos' | 'aprobados'; aprobados_por: string | null; umbrales: unknown[] };
+  criterios: { estado: 'sin_definir' | 'propuestos' | 'aprobados'; aprobados_por: string | null; fecha?: string | null; umbrales: unknown[] };
+  notas?: string[];
 }
 
 export interface ProyectoFicha {

@@ -84,6 +84,8 @@ export interface EmbeddedProject {
   activeFileId: string;
   digitalTwin?: DigitalTwinScene;
   electronicLab?: ElectronicCircuit;
+  /** Proyecto SHM vinculado: carpeta de proyectos/<id>/proyecto.json. */
+  shmProjectId?: string;
   createdAt: string;
   updatedAt: string;
 }

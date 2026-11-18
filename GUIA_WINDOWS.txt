@@ -157,6 +157,12 @@ O en http://127.0.0.1:8000/api/docs con el boton "Authorize".
 ------------------------------------------------------------
 6b. VER LA PLATAFORMA DESDE LA APP
 ------------------------------------------------------------
+Primero, en Sistema embebido, elegir arriba la "Estructura monitorizada"
+(los proyectos de la carpeta proyectos\). Se guarda con el proyecto de la
+app. La pestana "Proyecto SHM" muestra su ficha: responsables, criterios,
+estaciones y lo que falta. El gemelo funcional solo se habilita con La
+Novena (esta hecho sobre la geometria de ese puente).
+
 Con la plataforma y la app arrancadas:
   1. Crear un token de lectura de tu proyecto (paso 6).
   2. En la app: abrir un proyecto > Sistema embebido >
