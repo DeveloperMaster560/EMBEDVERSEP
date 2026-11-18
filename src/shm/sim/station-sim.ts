@@ -272,6 +272,7 @@ interface Vehicle {
 }
 
 const START_UTC_MS = Date.UTC(2026, 10, 12, 12, 0, 0);
+const OUTBOX_MAX = 600;
 const RECENT_S = 10;
 const LOG_MAX = 200;
 
@@ -295,6 +296,8 @@ export class ShmStationSimulation {
   private vehiclesTotal = 0;
   private sampleIndex = 0;
   private log: LogEntry[] = [];
+  /** Registros entregados desde la última llamada a takeDelivered() (para publicarlos fuera). */
+  private outbox: StationRecord[] = [];
 
   constructor(scenario: SimScenario = TEST_SCENARIO, seed = 2026, spans = SPANS_M) {
     this.scenario = scenario;
@@ -323,6 +326,11 @@ export class ShmStationSimulation {
       lastRecord: null,
       impactPending: false,
     }));
+  }
+
+  /** Hora UTC simulada (la del reloj de las estaciones), en ms. */
+  get nowUtcMs(): number {
+    return START_UTC_MS + this.timeS * 1000;
   }
 
   get timeS(): number {
@@ -567,9 +575,22 @@ export class ShmStationSimulation {
         s.contractProblems = validateStationRecord(r);
         s.lastRecord = r;
         s.delivered++;
+        this.outbox.push(r);
+        if (this.outbox.length > OUTBOX_MAX) this.outbox.shift();
       }
       if (due.length) s.queue = s.queue.filter((r) => !due.includes(r));
     }
+  }
+
+  /**
+   * Todo lo entregado desde la llamada anterior, en orden, y vacía la bandeja.
+   * Incluye lo que estaba en cola por una caída de enlace (con su hora de
+   * muestreo original). La bandeja guarda como mucho OUTBOX_MAX registros.
+   */
+  takeDelivered(): StationRecord[] {
+    const out = this.outbox;
+    this.outbox = [];
+    return out;
   }
 
   private pushLog(stationId: string, states: string[], detail: string): void {

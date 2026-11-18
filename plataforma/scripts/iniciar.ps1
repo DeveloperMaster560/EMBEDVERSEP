@@ -20,6 +20,9 @@ if ($modo -eq "demo") {
   docker compose up -d --build
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Mosquitto solo lee usuarios al arrancar y Compose no lo reinicia si su
+# contenedor no cambio: se le pide que recargue (sin cortar conexiones).
+docker compose kill -s HUP broker | Out-Null
 docker compose ps
 Write-Host ""
 Write-Host "API y documentacion:  http://127.0.0.1:8000/api/docs"

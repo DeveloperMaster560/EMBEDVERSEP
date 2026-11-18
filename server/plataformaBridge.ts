@@ -15,9 +15,11 @@ import type { IncomingMessage } from 'node:http';
 import { join } from 'node:path';
 import type { Connect } from 'vite';
 
+import { MAX_REGISTROS, publicarRegistros } from './gemeloPublisher.js';
+
 export const DEFAULT_PLATFORM_URL = 'http://127.0.0.1:8000';
 const TIMEOUT_MS = 8000;
-const MAX_BODY = 64 * 1024;
+const MAX_BODY = 256 * 1024;
 
 /** Rutas de la API de la plataforma que la app puede leer. Nada que modifique. */
 const READ_ROUTES: RegExp[] = [
@@ -140,7 +142,14 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
-export function createPlataformaMiddleware(root: string, store = new ConnectionStore(root), fetchImpl: typeof fetch = fetch): Connect.NextHandleFunction {
+type Publicar = typeof publicarRegistros;
+
+export function createPlataformaMiddleware(
+  root: string,
+  store = new ConnectionStore(root),
+  fetchImpl: typeof fetch = fetch,
+  publicar: Publicar = publicarRegistros,
+): Connect.NextHandleFunction {
   return async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://local');
     const send = (code: number, body: unknown) => {
@@ -172,6 +181,16 @@ export function createPlataformaMiddleware(root: string, store = new ConnectionS
           return send(200, { ...store.describe(), sesion: check.body });
         }
         return send(405, { detail: 'Método no permitido.' });
+      }
+
+      // La única escritura: el gemelo funcional publica por MQTT como sus
+      // estaciones (solo las declaradas «gemelo-app»; ver gemeloPublisher.ts).
+      if (url.pathname === '/publicar') {
+        if (req.method !== 'POST') return send(405, { detail: 'Método no permitido.' });
+        const b = (await readJson(req)) as { registros?: unknown };
+        if (!Array.isArray(b.registros)) return send(400, { detail: 'Falta «registros» (lista).' });
+        if (b.registros.length > MAX_REGISTROS) return send(413, { detail: `Como mucho ${MAX_REGISTROS} registros por envío.` });
+        return send(200, await publicar(root, b.registros));
       }
 
       if (req.method !== 'GET') return send(405, { detail: 'La app solo lee de la plataforma.' });

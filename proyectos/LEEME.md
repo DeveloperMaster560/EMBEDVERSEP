@@ -48,3 +48,11 @@ proyecto**.
 - Quitar una estación del archivo la **desactiva**, no la borra: sus datos se conservan.
 - Solo el rol `ingeniero` **del propio proyecto** puede elevar un aviso a E3/E4. El
   administrador del servidor (`admin`) ve todos los proyectos, pero no puede hacerlo.
+
+## Estaciones que publica la app (`hardware.placa = "gemelo-app"`)
+
+El gemelo funcional de la app (Sistema embebido) puede publicar en la
+plataforma, pero **solo** como estaciones declaradas `"estado": "simulada"` y
+`"hardware": {"placa": "gemelo-app"}`. Así la app nunca puede hacerse pasar por
+una estación instalada ni por la del firmware. Ejemplo: `novena-gemelo/`, un
+proyecto aparte para que los datos sintéticos no se mezclen con los de `novena`.

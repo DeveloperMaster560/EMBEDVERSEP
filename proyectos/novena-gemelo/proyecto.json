@@ -1,0 +1,406 @@
+{
+  "formato": "embedverse-proyecto-shm/1",
+  "proyecto_id": "novena-gemelo",
+  "nombre": "Viaducto de La Novena — gemelo funcional (datos sintéticos)",
+  "estructura": {
+    "tipo": "puente",
+    "nombre": "Viaducto Provincial Alejandro Galvis Ramírez (La Novena)",
+    "modelo": "../../Planos/viaducto-novena-solicitud.json"
+  },
+  "ubicacion": null,
+  "institucion": "CIAI — Universitaria Tecnológica de Santander (UTS)",
+  "entidad_responsable": null,
+  "responsable_estructural": null,
+  "estaciones": [
+    {
+      "id": "GEM-SD-V1-Q1",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 1, L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 1 a L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V1-Q1",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V1-M",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 1, L/2",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 1 a L/2 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V1-M",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V1-Q3",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 1, 3L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 1 a 3L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V1-Q3",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V2-Q1",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 2, L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 2 a L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V2-Q1",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V2-M",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 2, L/2",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 2 a L/2 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V2-M",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V2-Q3",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 2, 3L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 2 a 3L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V2-Q3",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V3-Q1",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 3, L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 3 a L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V3-Q1",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V3-M",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 3, L/2",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 3 a L/2 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V3-M",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V3-Q3",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 3, 3L/4",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 3 a 3L/4 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V3-Q3",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    },
+    {
+      "id": "GEM-SD-V2-M-T",
+      "tipo": "SD",
+      "nombre": "Gemelo · vano 2, L/2 (segunda, torsión)",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Vano 2 a L/2 — regla de colocación del diseño preliminar, sin aprobar",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "gemelo-app",
+        "firmware": "src/shm/sim/station-sim.ts",
+        "firmware_version": "sim-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-GEM-SD-V2-M-T",
+          "modelo": "ADXL355 (simulado)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "longitudinal",
+            "transversal",
+            "vertical"
+          ],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "La publica el gemelo funcional de la app (Sistema embebido). Vibración sintética: no es una medida del puente."
+    }
+  ],
+  "criterios": {
+    "estado": "sin_definir",
+    "aprobados_por": null,
+    "fecha": null,
+    "umbrales": []
+  },
+  "notas": [
+    "Proyecto separado a propósito: los datos del gemelo de la app son SINTÉTICOS y no deben mezclarse con los de «novena».",
+    "Solo las estaciones con hardware.placa = «gemelo-app» pueden publicarse desde la app."
+  ]
+}

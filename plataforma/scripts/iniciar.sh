@@ -12,6 +12,9 @@ if [ "${1:-}" = "demo" ]; then
 else
   docker compose up -d --build
 fi
+# Mosquitto solo lee usuarios al arrancar y Compose no lo reinicia si su
+# contenedor no cambió: se le pide que recargue (sin cortar conexiones).
+docker compose kill -s HUP broker >/dev/null
 docker compose ps
 echo
 echo "API y documentación:  http://127.0.0.1:8000/api/docs"

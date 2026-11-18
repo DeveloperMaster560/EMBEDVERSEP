@@ -175,6 +175,24 @@ Si la pagina sale en blanco despues de un git pull: cerrar npm run dev
 
 
 ------------------------------------------------------------
+6c. QUE EL GEMELO DE LA APP PUBLIQUE EN LA PLATAFORMA
+------------------------------------------------------------
+En Sistema embebido > "Estacion SHM La Novena (gemelo funcional)":
+  1. Marcar "Publicar en la plataforma (novena-gemelo)".
+  2. Pulsar Iniciar, a velocidad x1 (a x5 o x20 queda en espera: la
+     plataforma recibiria horas del futuro).
+
+Publica por MQTT como las 10 estaciones GEM-... del proyecto
+proyectos\novena-gemelo (datos SINTETICOS). Nunca como "novena": la
+estacion SD-V2-M queda rechazada. Para verlas, crear un token de ese
+proyecto:
+  docker compose exec api python -m shm_plataforma.gestion token --rol lectura --proyecto novena-gemelo --nombre "Gemelo"
+
+Solo funciona con la app y la plataforma en el MISMO PC (la app lee las
+contrasenas del broker de plataforma\.env y no las manda al navegador).
+
+
+------------------------------------------------------------
 7. ACTUALIZAR CUANDO HAYA CAMBIOS NUEVOS
 ------------------------------------------------------------
   cd C:\Users\PC\EMBEDVERSEP-shm

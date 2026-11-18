@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ShmEmbeddedView, type CircuitFault } from '../ShmEmbeddedView';
 import { RenodeChipPanel } from './RenodeChipPanel';
+import { PROYECTO_GEMELO, usePublicacionGemelo } from './publicacion';
 import { FAULTS, ShmStationSimulation, TEST_SCENARIO, type FaultId, type SimSnapshot } from './station-sim';
 
 const TICK_MS = 100;
@@ -68,6 +69,7 @@ export function ShmStationSimulator(): React.JSX.Element {
   }));
   const [running, setRunning] = useState(false);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
+  const { estado: pub, setActivo: setPublicar } = usePublicacionGemelo(sim, running, speed);
 
   const refresh = useCallback(
     (target: ShmStationSimulation = sim, id: string = stationId) => setView({ snap: target.snapshot(), recent: target.recentZ(id) }),
@@ -141,6 +143,16 @@ export function ShmStationSimulator(): React.JSX.Element {
               {snap.stations.map((s) => <option key={s.id} value={s.id}>{s.id}{s.torsion ? ' (torsión)' : ''}</option>)}
             </select>
           </label>
+          <label className="shm-sim-clock" title={`Publica por MQTT como las estaciones GEM-… del proyecto «${PROYECTO_GEMELO}», nunca como «novena».`}>
+            <input type="checkbox" checked={pub.activo} onChange={(e) => setPublicar(e.target.checked)} />{' '}
+            Publicar en la plataforma ({PROYECTO_GEMELO})
+          </label>
+          {pub.activo && (
+            <span className={`shm-sim-clock${pub.rechazados ? ' shm-st-bad' : ''}`} title={pub.ultimoProblema ?? undefined}>
+              {pub.enEspera ? `en espera: ${pub.enEspera}` : 'publicando'} · {pub.enviados} enviados
+              {pub.rechazados ? ` · ${pub.rechazados} rechazados (${pub.ultimoProblema})` : ''}
+            </span>
+          )}
           <span className="shm-sim-clock">
             t = {fmtTime(snap.timeS)} · {snap.utc.slice(11, 19)} UTC simulado · {snap.vehiclesOnBridge} vehículos en el puente ({snap.vehiclesTotal} en total)
           </span>
