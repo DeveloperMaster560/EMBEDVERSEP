@@ -130,8 +130,14 @@ Si un proyecto tiene errores no arranca nada: `docker compose logs preparar-db`.
 - **Corregido ese día:** el usuario de lectura de Grafana nunca se creaba en
   Docker Desktop (el script `db/002_roles.sh` no se podía ejecutar). Ahora lo
   crea o repara `preparar-db` en cada arranque.
-- **Sin probar todavía:** Grafana separado por proyecto (hoy el tablero muestra
-  todos: es la herramienta del administrador); el almacén en S3; el TLS del
-  broker.
+- **18/11/2026:** el tablero de Grafana tiene selector de proyecto y de
+  estación. Es **comodidad, no aislamiento**: quien entra a Grafana ve todos
+  los proyectos (es la herramienta del administrador). Cada ingeniero ve solo
+  lo suyo en la app, con su token. Aislar Grafana de verdad exigiría una
+  organización y un usuario de base por proyecto, con seguridad por filas.
+- **18/11/2026:** el gemelo de la app publica por MQTT como el proyecto
+  `novena-gemelo` (ver `proyectos/LEEME.md`). `iniciar` recarga el broker para
+  que vea los usuarios nuevos.
+- **Sin probar todavía:** el almacén en S3; el TLS del broker.
 - **Pendiente con ingenierías:** el protocolo de la pasarela real, el formato
   del archivo en la SD, LoRaWAN y los umbrales.
