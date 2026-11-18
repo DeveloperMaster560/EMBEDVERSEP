@@ -70,8 +70,12 @@ typedef struct {
 void station_init(station_t *s, const char *station_id, int32_t lsb_per_g);
 /* Devuelve 1 cuando la ventana está completa. */
 int station_add_sample(station_t *s, const accel_sample_t *a, const time_ref_t *t, uint32_t now_ms);
-/* Cierra la ventana: escribe el registro JSON (una línea) y la reinicia. */
-size_t station_close_window(station_t *s, const station_health_t *h, char *out, size_t cap);
+/*
+ * Cierra la ventana: escribe el registro JSON (una línea) y la reinicia.
+ * `samples_file` es dónde quedaron las muestras (p. ej. «sd:SD-V2-M/00000042»);
+ * NULL si no se guardaron.
+ */
+size_t station_close_window(station_t *s, const station_health_t *h, const char *samples_file, char *out, size_t cap);
 
 /* ---- Utilidades -------------------------------------------------------- */
 

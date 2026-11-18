@@ -17,19 +17,47 @@ almacenamiento local:
 | «no mezclar ventanas con distinta configuración» (§ análisis) | la configuración (muestreo, rango, filtro, firmware) viaja en la cabecera de cada ventana |
 | Dimensionado de 3 ejes × 200 Hz × 4 bytes | datos en float32, exactamente eso |
 
-## Ruta en la microSD
+## Organización en la tarjeta: anillo sin sistema de archivos
+
+La tarjeta **no lleva FAT**: FAT32 no tiene journaling y un corte a mitad de
+escritura puede dañar su tabla de asignación, y con ella todo lo guardado. En
+su lugar (`include/sdring.h`, `src/sdring.c`):
+
+| Bloques (512 B) | Contenido |
+|---|---|
+| 0 | Superbloque: `SHMRING1`, versión 1, 48 bloques por ranura, primera ranura en 2048, número de ranuras, `station_id`, CRC-32 |
+| 2048 + k × 48 … | Ranura k: un archivo SHMW completo, rellenado con 0 hasta 24 576 B |
+
+- La ventana de secuencia `s` va en la ranura `s % ranuras`: la nueva pisa a
+  la más antigua (registro circular). 32 GB ≈ 1,3 millones de ranuras ≈ 150
+  días a una ventana cada 10 s. Se exige un mínimo de 7 días (diseño); una
+  tarjeta menor da `STORAGE_FAULT`.
+- Cada ranura se escribe **datos primero y cabecera al final**: si la energía
+  se va a mitad, la cabecera vieja no cuadra con sus datos (CRC) y la ranura se
+  reutiliza al arrancar. Ninguna otra ranura se toca.
+- Al arrancar se busca la última ventana válida (búsqueda binaria, ~17
+  lecturas) y la secuencia continúa; nunca retrocede, aunque haya ventanas sin
+  guardar.
+- Una tarjeta con el superbloque de **otra estación** no se escribe.
+- El registro JSON dice dónde quedó la ventana: `"samples_file":
+  "sd:SD-V2-M/00012345"`, o `"no-guardada/SD-V2-M/00012345"` con
+  `STORAGE_FAULT`.
+
+### Leerla en un PC
+
+Se copia una imagen de la tarjeta (dd, Win32 Disk Imager…; suele pedir
+administrador) y se extrae:
 
 ```
-/SHM/<station_id>/<AAAAMMDD>/<secuencia 8 cifras>.bin
-/SHM/SD-V2-M/20261118/00012345.bin
+python -m shm_plataforma.tarjeta imagen.img --salida carpeta/
+→ carpeta/SHM/<station_id>/<AAAAMMDD | SINHORA>/<secuencia 8 cifras>.bin
 ```
 
-- `AAAAMMDD` es el día UTC del inicio de la ventana. Sin hora válida
-  (`TIME_INVALID`) el directorio es `SINHORA`.
-- `secuencia` es el contador de ventanas de la estación, el mismo de
-  `samples_file` en el registro JSON.
-- 8 640 ventanas de 10 s por día: por debajo del límite de 65 534 entradas por
-  directorio de FAT32.
+Valida cada ranura y lista las dañadas. Nunca escribe en la tarjeta.
+
+**Alternativa para ingeniería:** FAT32 con FatFs (la tarjeta se lee al
+enchufarla, a cambio del riesgo de corrupción descrito). El formato SHMW es el
+mismo en los dos casos.
 
 ## Contenido
 
@@ -89,7 +117,7 @@ Una muestra que no se pudo leer va como **NaN en los tres ejes, nunca 0**.
    `timestamp_utc`.
 
 Lectores: `plataforma/servicios/shm_plataforma/crudo.py` (Python) y
-`src/shm/raw-file.ts` (app). Escritor: `src/shmbin.c` (firmware). Los tres se
+`src/shm/raw-file.ts` (app). Escritor: `src/shmbin.c` y `src/sdring.c` (firmware). Los tres se
 prueban con el mismo archivo, `pruebas/ventana-ejemplo.bin`, que genera
 `make host-test`.
 
@@ -101,5 +129,6 @@ prueban con el mismo archivo, `pruebas/ventana-ejemplo.bin`, que genera
   en m/s² es lo que dimensiona el diseño (4 bytes/muestra). Decisión pendiente.
 - Si la ventana debe dividirse en bloques con CRC propio («checksum por
   bloque») o basta el CRC por ventana de 24 KB.
+- Anillo en crudo (propuesto) o FAT32.
 - Firma o MAC contra manipulación de una tarjeta extraíble (el diseño lo
   menciona; un CRC no protege contra manipulación deliberada).

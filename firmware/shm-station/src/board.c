@@ -135,8 +135,8 @@ int accel_spi_transfer(const uint8_t *tx, uint8_t *rx, size_t n) {
   return spi1_transfer(PIN_ACC_CS_N_PORT, PIN_ACC_CS_N_PIN, tx, rx, n);
 }
 
-/* microSD sin driver todavía: se declara, no se oculta. */
-int storage_ok(void) { return 0; }
+/* microSD: el driver SDMMC1 todavía no está; sin él no hay tarjeta. */
+const sdring_dev_t *board_sd(void) { return 0; }
 
 void service_write(const char *s, size_t n) {
   for (size_t i = 0; i < n; i++) {

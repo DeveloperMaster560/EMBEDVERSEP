@@ -208,7 +208,7 @@ static size_t append(char *out, size_t cap, size_t pos, const char *fmt_str) {
   return pos + n;
 }
 
-size_t station_close_window(station_t *s, const station_health_t *h, char *out, size_t cap) {
+size_t station_close_window(station_t *s, const station_health_t *h, const char *samples_file, char *out, size_t cap) {
   uint32_t crc = crc32_ieee((const uint8_t *)s->samples, (size_t)s->count * AXES * sizeof(float));
   char ts[TIME_RFC3339_LEN];
   time_format_rfc3339(s->window_start_utc_ms, ts);
@@ -240,8 +240,14 @@ size_t station_close_window(station_t *s, const station_health_t *h, char *out, 
   snprintf(buf, sizeof buf, "\"filter_id\":\"%s\",\"firmware_version\":\"%s\",\"calibration_id\":null,",
            FILTER_ID, FIRMWARE_VERSION);
   p = append(out, cap, p, buf);
-  snprintf(buf, sizeof buf, "\"samples_file\":\"pendiente-sd/%s/%06lu.bin\",\"samples_crc32\":\"%08lx\",\"states\":[",
-           s->station_id, (unsigned long)s->sequence, (unsigned long)crc);
+  /* Sin microSD la ventana no queda guardada en ningún sitio, y se dice. */
+  if (samples_file) {
+    snprintf(buf, sizeof buf, "\"samples_file\":\"%s\",\"samples_crc32\":\"%08lx\",\"states\":[",
+             samples_file, (unsigned long)crc);
+  } else {
+    snprintf(buf, sizeof buf, "\"samples_file\":\"no-guardada/%s/%08lu\",\"samples_crc32\":\"%08lx\",\"states\":[",
+             s->station_id, (unsigned long)s->sequence, (unsigned long)crc);
+  }
   p = append(out, cap, p, buf);
   for (int i = 0; i < ns; i++) {
     snprintf(buf, sizeof buf, "%s\"%s\"", i ? "," : "", states[i]);

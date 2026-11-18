@@ -45,7 +45,7 @@ static void run(const char *name, int locked, int pps, int sensor_ok, int gap_ev
     if (saturate && i == 100) a.raw[2] = 524287;
     if (station_add_sample(&st, &a, &t, now)) break;
   }
-  size_t n = station_close_window(&st, &h, json, sizeof json);
+  size_t n = station_close_window(&st, &h, storage ? "sd:SD-V2-M/00000000" : 0, json, sizeof json);
   printf("%s\t%.*s", name, (int)n, json);
 }
 
@@ -81,7 +81,7 @@ static int write_example(const char *path) {
   snprintf(jpath, sizeof jpath, "%s.json", path);
   f = fopen(jpath, "w");
   if (!f) return 11;
-  size_t n = station_close_window(&st, &h, json, sizeof json);
+  size_t n = station_close_window(&st, &h, "sd:SD-V2-M/00012345", json, sizeof json);
   /* La ruta de la SD va aparte: el registro todavía no la usa (sin driver). */
   fprintf(f, "{\"ruta_sd\":\"%s\",\"registro\":%.*s}\n", ruta, (int)(n ? n - 1 : 0), json);
   fclose(f);

@@ -8,7 +8,8 @@
  * JSON por el puerto de servicio y watchdog.
  *
  * NO hace todavía (cada cosa espera una definición de ingenierías):
- *   - filtro antialias/decimación; guardar en la microSD (SDMMC1 + FAT);
+ *   - filtro antialias/decimación; el driver SDMMC1 de la microSD (el anillo
+ *     sdring.c ya guarda cada ventana si la placa da un dispositivo de bloques);
  *   - Ethernet al gateway (LwIP + protocolo); SCL3300, ADS1262, LoRa;
  *   - captura fina del PPS con TIM2_CH1; PLL con el cristal HSE.
  */
@@ -17,12 +18,59 @@
 #include "adxl355_regs.h"
 #include "board.h"
 #include "config.h"
+#include "sdring.h"
+#include "shmbin.h"
 #include "station.h"
 #include "app.h"
 
 static station_t g_station;
 static time_ref_t g_time;
 static char g_json[1024];
+static void banner(const char *msg) {
+  service_write(msg, strlen(msg));
+}
+
+static sdring_t g_ring;
+static uint8_t g_hdr[SHMBIN_HEADER_LEN];
+static int s_sd_last = -99;   /* último resultado anunciado, para no repetirlo */
+
+/* Abre la microSD. La secuencia sigue tras la última ventana guardada. */
+static void storage_setup(void) {
+  const sdring_dev_t *dev = board_sd();
+  g_ring.ok = 0;
+  if (!dev) {
+    if (s_sd_last != SDRING_E_IO) banner("# sin microSD (STORAGE_FAULT)\n");
+    s_sd_last = SDRING_E_IO;
+    return;
+  }
+  int e = sdring_open(&g_ring, dev, STATION_ID, SDRING_MIN_SLOTS);
+  /* La secuencia nunca retrocede: una ventana no guardada no se reutiliza. */
+  if (e == SDRING_OK && g_ring.next_seq > g_station.sequence) g_station.sequence = g_ring.next_seq;
+  if (e == s_sd_last) return;
+  s_sd_last = e;
+  if (e == SDRING_OK) {
+    banner("# microSD lista\n");
+  } else {
+    banner(e == SDRING_E_OTHER ? "# microSD de otra estacion: no se toca (STORAGE_FAULT)\n"
+         : e == SDRING_E_SMALL ? "# microSD demasiado pequena para 7 dias (STORAGE_FAULT)\n"
+         : "# microSD no responde (STORAGE_FAULT)\n");
+  }
+}
+
+/* Guarda la ventana en curso; devuelve 1 si quedó escrita. */
+static int storage_save(const station_health_t *h, char *ref, size_t cap) {
+  if (!g_ring.ok) return 0;
+  shmbin_header(&g_station, "ADXL355-" STATION_ID, h, g_hdr);
+  if (sdring_write(&g_ring, g_station.sequence, g_hdr, sizeof g_hdr,
+                   (const uint8_t *)g_station.samples, shmbin_data_len(&g_station)) != SDRING_OK) {
+    g_ring.ok = 0;   /* se reintenta en la ventana siguiente */
+    if (s_sd_last != SDRING_E_IO) banner("# microSD no acepta escrituras (STORAGE_FAULT)\n");
+    s_sd_last = SDRING_E_IO;
+    return 0;
+  }
+  sdring_ref(&g_ring, g_station.sequence, ref, cap);
+  return 1;
+}
 
 static int adxl_read(uint8_t reg, uint8_t *dst, size_t n) {
   uint8_t tx[16] = { ADXL355_CMD_READ(reg) };
@@ -74,9 +122,6 @@ static int32_t lsb_per_g(void) {
   return ACCEL_RANGE_G == 8 ? ADXL355_LSB_PER_G_8G : ACCEL_RANGE_G == 4 ? ADXL355_LSB_PER_G_4G : ADXL355_LSB_PER_G_2G;
 }
 
-static void banner(const char *msg) {
-  service_write(msg, strlen(msg));
-}
 
 static int s_sensor_ok;
 static uint32_t s_seen_pps;
@@ -90,6 +135,8 @@ void app_init(void) {
   s_retry_at = 0;
   s_check_at = 0;
   banner("# SHM " STATION_ID " firmware " FIRMWARE_VERSION " arrancando\n");
+  s_sd_last = -99;
+  storage_setup();
   s_sensor_ok = adxl_setup();
   banner(s_sensor_ok ? "# ADXL355 identificado\n" : "# ADXL355 no responde: SENSOR_FAULT\n");
 }
@@ -126,11 +173,15 @@ int app_step(void) {
   if (station_add_sample(&g_station, &a, &g_time, now)) {
     station_health_t h = {
       .sensor_ok = (uint8_t)s_sensor_ok,
-      .storage_ok = (uint8_t)storage_ok(),
+      .storage_ok = 1,
       .pwr_good_level = (uint8_t)pwr_good_level(),
       .comm_ok = 1,    /* el puerto de servicio no tiene enlace que perder */
     };
-    size_t n = station_close_window(&g_station, &h, g_json, sizeof g_json);
+    /* Si la tarjeta falló, se reintenta en cada ventana (abrirla son ~17 lecturas). */
+    if (!g_ring.ok) storage_setup();
+    char ref[64];
+    h.storage_ok = (uint8_t)storage_save(&h, ref, sizeof ref);
+    size_t n = station_close_window(&g_station, &h, h.storage_ok ? ref : 0, g_json, sizeof g_json);
     service_write(g_json, n);
   }
   watchdog_kick();

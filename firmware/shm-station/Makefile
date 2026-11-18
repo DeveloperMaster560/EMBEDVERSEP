@@ -27,7 +27,7 @@ CFLAGS   := $(CPU) $(DEFS) $(INC) -std=c11 -Os -g3 -Wall -Wextra -Werror \
 LDFLAGS  := $(CPU) -Tstm32h743vi.ld --specs=nano.specs --specs=nosys.specs \
             -Wl,--gc-sections -Wl,-Map=$(BUILD)/shm-station.map -Wl,--no-warn-rwx-segments -lm
 
-SRC      := src/main.c src/app.c src/board.c src/station.c $(CUBE)/device/system_stm32h7xx.c
+SRC      := src/main.c src/app.c src/board.c src/station.c src/shmbin.c src/sdring.c $(CUBE)/device/system_stm32h7xx.c
 ASM      := $(CUBE)/device/startup_stm32h743xx.s
 
 all: $(BUILD)/shm-station.elf
@@ -39,7 +39,7 @@ $(BUILD)/shm-station.elf: $(SRC) $(ASM) $(wildcard include/*.h) stm32h743vi.ld |
 # Firmware (app.c) en el ordenador con la placa simulada.
 sim: | $(BUILD)
 	cc -std=c11 -Wall -Wextra -Werror -O2 -Iinclude -DSTATION_ID=\"$(STATION_ID)\" \
-	   src/app.c src/station.c src/board_host.c src/sim_main.c -lm -o $(BUILD)/shm-sim
+	   src/app.c src/station.c src/shmbin.c src/sdring.c src/board_host.c src/sim_main.c -lm -o $(BUILD)/shm-sim
 
 # Modelo del ADXL355 para Renode, probado sin Renode (necesita Mono).
 model-test: | $(BUILD)
@@ -50,10 +50,15 @@ host-test: | $(BUILD)
 	cc -std=c11 -Wall -Wextra -Werror -O1 -Iinclude src/station.c src/shmbin.c src/host_test.c -lm -o $(BUILD)/host_test
 	./$(BUILD)/host_test pruebas/ventana-ejemplo.bin
 
+# Anillo de la microSD contra una tarjeta en memoria.
+ring-test: | $(BUILD)
+	cc -std=c11 -Wall -Wextra -Werror -O1 -Iinclude src/station.c src/shmbin.c src/sdring.c src/sdring_test.c -lm -o $(BUILD)/sdring_test
+	./$(BUILD)/sdring_test
+
 $(BUILD):
 	mkdir -p $(BUILD)
 
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all sim model-test host-test clean
+.PHONY: all sim model-test host-test ring-test clean

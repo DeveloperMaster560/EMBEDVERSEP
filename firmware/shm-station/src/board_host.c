@@ -7,6 +7,7 @@
  * estándar como puerto de servicio. No emula el chip: ejecuta la lógica del
  * firmware compilada para este ordenador.
  */
+#define _POSIX_C_SOURCE 200809L /* fseeko */
 #include "board_host.h"
 
 #include <math.h>
@@ -138,8 +139,40 @@ int gnss_read_char(char *c) {
 }
 
 int pwr_good_level(void) { return 1; }
-/* El firmware no tiene driver de microSD: la placa simulada tampoco lo finge. */
-int storage_ok(void) { return 0; }
+/* ---- microSD simulada: imagen en un archivo --------------------------- */
+
+static FILE *s_sd;
+static int s_sd_failing;
+
+static int sd_rd(void *ctx, uint32_t lba, uint8_t *buf, uint32_t n) {
+  (void)ctx;
+  if (!s_sd || fseeko(s_sd, (off_t)lba * SDRING_BLOCK, SEEK_SET) != 0) return -1;
+  size_t got = fread(buf, SDRING_BLOCK, n, s_sd);
+  if (got < n) memset(buf + got * SDRING_BLOCK, 0, (size_t)(n - got) * SDRING_BLOCK); /* zona sin escribir */
+  return 0;
+}
+
+static int sd_wr(void *ctx, uint32_t lba, const uint8_t *buf, uint32_t n) {
+  (void)ctx;
+  if (!s_sd || s_sd_failing || fseeko(s_sd, (off_t)lba * SDRING_BLOCK, SEEK_SET) != 0) return -1;
+  if (fwrite(buf, SDRING_BLOCK, n, s_sd) != n) return -1;
+  return fflush(s_sd) == 0 ? 0 : -1;
+}
+
+static sdring_dev_t s_sd_dev = { sd_rd, sd_wr, 0, 0 };
+
+int host_set_sd_image(const char *path, uint32_t megabytes) {
+  s_sd = fopen(path, "r+b");
+  if (!s_sd) s_sd = fopen(path, "w+b");
+  if (!s_sd) return -1;
+  s_sd_dev.blocks = megabytes * (1024u * 1024u / SDRING_BLOCK);
+  return 0;
+}
+
+void host_set_sd_failing(int on) { s_sd_failing = on; }
+
+/* Sin --sd no hay tarjeta: la placa simulada no finge una. */
+const sdring_dev_t *board_sd(void) { return s_sd ? &s_sd_dev : 0; }
 void watchdog_kick(void) {}
 
 void host_gnss_write(const char *s) {

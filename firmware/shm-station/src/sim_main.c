@@ -6,6 +6,11 @@
  *   build/shm-sim <señal.csv> [--seconds N] [--realtime] [--start-epoch S]
  *                 [--fault sensor@20-40] [--fault pps@50-80]
  *                 [--fault tiempo@90-100] [--fault impacto@110]
+ *                 [--sd imagen.img [--sd-mb 2048]] [--fault sd@30-50]
+ *
+ * --sd monta una microSD simulada en un archivo de imagen (disperso): el
+ * firmware guarda ahí cada ventana con el anillo de sdring.c. «sd@…» hace que
+ * la tarjeta deje de aceptar escrituras en ese intervalo.
  *
  * Con --realtime también lee órdenes por la entrada estándar, una por línea:
  *   sensor 1 | sensor 0 | pps 1 | pps 0 | tiempo 1 | tiempo 0 | impacto | salir
@@ -77,10 +82,14 @@ int main(int argc, char **argv) {
   long seconds = 60;
   int realtime = 0;
   long start_epoch = 1794484800; /* 2026-11-12T12:00:00Z, hora simulada por omisión */
+  const char *sd_image = 0;
+  long sd_mb = 2048;   /* 2 GiB: da para los 7 días mínimos */
   for (int i = 2; i < argc; i++) {
     if (!strcmp(argv[i], "--seconds") && i + 1 < argc) seconds = atol(argv[++i]);
     else if (!strcmp(argv[i], "--realtime")) realtime = 1;
     else if (!strcmp(argv[i], "--start-epoch") && i + 1 < argc) start_epoch = atol(argv[++i]);
+    else if (!strcmp(argv[i], "--sd") && i + 1 < argc) sd_image = argv[++i];
+    else if (!strcmp(argv[i], "--sd-mb") && i + 1 < argc) sd_mb = atol(argv[++i]);
     else if (!strcmp(argv[i], "--fault") && i + 1 < argc && nplan < MAX_FAULTS) {
       char *spec = argv[++i], *at = strchr(spec, '@');
       if (!at) continue;
@@ -98,6 +107,10 @@ int main(int argc, char **argv) {
   }
   if (realtime) fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
+  if (sd_image && host_set_sd_image(sd_image, (uint32_t)sd_mb) != 0) {
+    fprintf(stderr, "No se pudo abrir la imagen de la microSD %s\n", sd_image);
+    return 1;
+  }
   board_init();
   app_init();
 
@@ -108,6 +121,7 @@ int main(int argc, char **argv) {
     int no_pps = no_time || live_pps || planned("pps", t);
     int impact = live_impacto || planned("impacto", t);
     live_impacto = 0;
+    host_set_sd_failing(planned("sd", t));
 
     host_set_disconnected(sensor_off);
     rmc(start_epoch + t, !no_time);

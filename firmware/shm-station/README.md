@@ -61,3 +61,12 @@ propuesta derivada del diseño técnico, **pendiente de validación por
 ingeniería**. `src/shmbin.c` la escribe; `make host-test` genera
 `pruebas/ventana-ejemplo.bin`, con el que se prueban los lectores de la
 plataforma (`crudo.py`) y de la app (`raw-file.ts`).
+
+## microSD (anillo)
+
+`src/sdring.c` guarda cada ventana en un anillo sobre la tarjeta en crudo
+(FORMATO_BIN.md). Probado con `make ring-test` (cortes de energía, vueltas,
+tarjeta ajena) y en la placa simulada: `build/shm-sim señal.csv --sd
+tarjeta.img [--fault sd@25-45]`. **Falta el driver SDMMC1 del STM32H743**:
+hasta entonces `board_sd()` devuelve NULL en la placa real y la estación
+declara `STORAGE_FAULT`.

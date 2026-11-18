@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "sdring.h"
+
 void board_init(void);
 uint32_t board_millis(void);
 
@@ -17,7 +19,8 @@ void service_write(const char *s, size_t n);   /* USART3: registros */
 int gnss_read_char(char *c);                    /* USART1: NMEA, desde la cola de RX */
 
 int pwr_good_level(void);
-int storage_ok(void);                           /* microSD lista */
+/* microSD como dispositivo de bloques; NULL si no hay tarjeta o no inicializa. */
+const sdring_dev_t *board_sd(void);
 void watchdog_kick(void);                       /* IWDG1 + pulso en WDG_KICK */
 
 /* Ganchos que llaman las interrupciones. */
