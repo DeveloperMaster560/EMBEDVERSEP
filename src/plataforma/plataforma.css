@@ -1,0 +1,46 @@
+/* Vista «Plataforma de datos» (usa las variables de .shm-root). */
+
+.plat-sesion { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.plat-sesion select { background: var(--shm-panel); color: var(--shm-fg); border: 1px solid var(--shm-line); border-radius: 6px; padding: 4px 8px; }
+
+.plat-conectar { max-width: 680px; }
+.plat-form { display: grid; gap: 10px; margin: 10px 0; }
+.plat-form label { display: grid; gap: 4px; font-size: 0.82rem; color: var(--shm-muted); }
+.plat-form input { background: #0d1117; color: var(--shm-fg); border: 1px solid var(--shm-line); border-radius: 6px; padding: 7px 9px; font: inherit; }
+.plat-form button { justify-self: start; }
+
+.plat-link { background: none; border: 0; padding: 0; color: var(--shm-fg); cursor: pointer; font: inherit; }
+.plat-link:disabled { cursor: default; opacity: 0.7; }
+.plat-estaciones tr.plat-sel td { background: rgba(79, 191, 159, 0.08); }
+
+.plat-enlace { white-space: nowrap; font-size: 0.8rem; }
+.plat-enlace::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: currentColor; }
+.plat-en-linea { color: #4fbf9f; }
+.plat-retrasada { color: #e0b44f; }
+.plat-callada, .plat-nunca { color: #e07a66; }
+.plat-sin-alta { color: var(--shm-muted); }
+
+.plat-estado { display: inline-block; margin: 1px 4px 1px 0; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; font-family: ui-monospace, Menlo, monospace; border: 1px solid currentColor; }
+.plat-g-ok { color: #4fbf9f; }
+.plat-g-aviso { color: #e0b44f; }
+.plat-g-falla { color: #e07a66; }
+
+.plat-franja { display: flex; gap: 2px; flex-wrap: wrap; margin: 8px 0 12px; }
+.plat-celda { width: 8px; height: 18px; border-radius: 2px; background: currentColor; opacity: 0.85; }
+
+.plat-barras { width: 100%; height: auto; display: block; }
+.plat-b-ok { fill: #4fbf9f; }
+.plat-b-aviso { fill: #e0b44f; }
+.plat-b-falla { fill: #e07a66; }
+.plat-eje { stroke: var(--shm-line); }
+.plat-txt { fill: var(--shm-muted); font-size: 9px; }
+
+.plat-avisos li { padding: 6px 0; border-bottom: 1px solid var(--shm-line); }
+.plat-nivel { display: inline-block; min-width: 26px; text-align: center; border-radius: 4px; padding: 0 4px; font-size: 0.72rem; font-weight: 700; color: #0d1117; }
+.plat-E0 { background: #8a95a5; }
+.plat-E1 { background: #6fa8ff; }
+.plat-E2 { background: #e0b44f; }
+.plat-E3 { background: #e07a66; }
+.plat-E4 { background: #ff4d4d; }
+
+.plat-scroll { overflow-x: auto; }

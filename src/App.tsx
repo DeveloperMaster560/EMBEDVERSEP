@@ -35,6 +35,7 @@ import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCi
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
 import { ShmStationSimulator } from './shm/sim/ShmStationSimulator';
+import { PlataformaView } from './plataforma/PlataformaView';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
@@ -715,7 +716,7 @@ function WorkspacePanel({
   const circuitStatus = validateCircuit(circuit);
   // Dentro de «Sistema embebido»: el laboratorio emulado del proyecto o la
   // estación SHM de La Novena, que solo se muestra (no se emula).
-  const [embeddedView, setEmbeddedView] = useState<'lab' | 'shm'>('lab');
+  const [embeddedView, setEmbeddedView] = useState<'lab' | 'shm' | 'plataforma'>('lab');
 
   return (
     <div className="workspace-shell">
@@ -777,6 +778,15 @@ function WorkspacePanel({
             >
               Estación SHM La Novena · STM32H743 (gemelo funcional)
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={embeddedView === 'plataforma'}
+              className={`workspace-tab${embeddedView === 'plataforma' ? ' active' : ''}`}
+              onClick={() => setEmbeddedView('plataforma')}
+            >
+              Plataforma de datos (en vivo)
+            </button>
           </div>
           {embeddedView === 'lab' ? (
             <ElectronicsLab
@@ -787,8 +797,10 @@ function WorkspacePanel({
               saveState={saveState}
               files={project.files}
             />
-          ) : (
+          ) : embeddedView === 'shm' ? (
             <ShmStationSimulator />
+          ) : (
+            <PlataformaView />
           )}
         </div>
       )}

@@ -165,3 +165,13 @@ class ColaPasarela(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Duracion(unittest.TestCase):
+    def test_se_lee_en_espanol(self):
+        from shm_plataforma.ingesta import duracion
+        self.assertEqual(duracion(6.0), "6 s")
+        self.assertEqual(duracion(0.25), "0,25 s")
+        self.assertEqual(duracion(-6.5), "6,5 s")
+        self.assertEqual(duracion(125), "2 min 5 s")
+        self.assertEqual(duracion(3 * 3600 + 600), "3 h 10 min")

@@ -155,6 +155,26 @@ O en http://127.0.0.1:8000/api/docs con el boton "Authorize".
 
 
 ------------------------------------------------------------
+6b. VER LA PLATAFORMA DESDE LA APP
+------------------------------------------------------------
+Con la plataforma y la app arrancadas:
+  1. Crear un token de lectura de tu proyecto (paso 6).
+  2. En la app: abrir un proyecto > Sistema embebido >
+     "Plataforma de datos (en vivo)".
+  3. Pegar el token y pulsar Conectar.
+
+Muestra las estaciones del proyecto (lo que dice el proyecto.json y lo que
+la estacion ha enviado), los avisos abiertos, la disponibilidad de 24 h y
+las ventanas de la ultima hora. Se actualiza cada 10 s. Es SOLO lectura.
+
+El token queda guardado en .embedverse\plataforma.json (fuera de GitHub);
+el navegador no lo vuelve a ver. "Desconectar" lo borra.
+
+Si la pagina sale en blanco despues de un git pull: cerrar npm run dev
+(Ctrl+C) y volver a arrancarlo.
+
+
+------------------------------------------------------------
 7. ACTUALIZAR CUANDO HAYA CAMBIOS NUEVOS
 ------------------------------------------------------------
   cd C:\Users\PC\EMBEDVERSEP-shm

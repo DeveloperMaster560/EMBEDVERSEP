@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .tools/
+# Conexión local con la plataforma SHM (lleva el token): nunca al repositorio.
+.embedverse/
 tools/venv/
 .venv/
 EMBEDVERSE_BUILDING_001/

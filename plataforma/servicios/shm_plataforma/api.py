@@ -121,6 +121,15 @@ def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
     def proyectos(c=Depends(exige("lectura")), r=Depends(repo)):
         return r.proyectos(alcance(c))
 
+    @app.get("/api/v1/proyectos/{proyecto_id}")
+    def proyecto(proyecto_id: str, c=Depends(exige("lectura")), r=Depends(repo)):
+        """Ficha del proyecto con su definición (el proyecto.json importado)."""
+        a = alcance(c)
+        p = r.proyecto(proyecto_id) if a in (None, proyecto_id) else None
+        if not p:
+            raise HTTPException(404, "No existe ese proyecto.")
+        return p
+
     @app.get("/api/v1/estaciones")
     def estaciones(c=Depends(exige("lectura")), r=Depends(repo)):
         return r.estaciones(alcance(c))

@@ -120,6 +120,12 @@ class RepositorioPg:
                FROM proyectos p WHERE %(p)s::text IS NULL OR p.proyecto_id = %(p)s ORDER BY p.proyecto_id""",
             {"p": proyecto}).fetchall()
 
+    def proyecto(self, proyecto_id: str) -> Optional[dict]:
+        return self.c.execute(
+            """SELECT proyecto_id, nombre, tipo_estructura, institucion, entidad_responsable,
+                      responsable_estructural, activo, actualizado, archivo_sha256, definicion
+               FROM proyectos WHERE proyecto_id = %s""", (proyecto_id,)).fetchone()
+
     def proyecto_de_estacion(self, station_id: str) -> Optional[str]:
         r = self.c.execute("SELECT proyecto_id FROM estaciones WHERE station_id = %s", (station_id,)).fetchone()
         return r["proyecto_id"] if r else None
@@ -127,7 +133,9 @@ class RepositorioPg:
     def estaciones(self, proyecto: Optional[str]) -> list[dict]:
         return self.c.execute(
             """SELECT e.proyecto_id, e.station_id, e.tipo, e.nombre, e.ubicacion, e.simulada, e.activa, e.periodo_s,
-                      s.ultimo_visto, s.estado
+                      s.ultimo_visto, s.estado,
+                      (SELECT v.estados FROM ventanas v WHERE v.station_id = e.station_id
+                       ORDER BY v.inicio DESC LIMIT 1) AS ultimos_estados
                FROM estaciones e LEFT JOIN estado_estacion s USING (station_id)
                WHERE %(p)s::text IS NULL OR e.proyecto_id = %(p)s
                ORDER BY e.proyecto_id, e.station_id""", {"p": proyecto}).fetchall()

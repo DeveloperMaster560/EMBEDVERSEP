@@ -53,6 +53,22 @@ def parse_time(s: str) -> datetime:
     return datetime.fromisoformat(f"{m.group(1)}.{frac}{m.group(3)}")
 
 
+def duracion(segundos: float) -> str:
+    """Duración legible en español: «6 s», «0,25 s», «2 min 5 s», «3 h 10 min».
+
+    Con coma decimal: «6.000 s» se leía como seis mil segundos.
+    """
+    s = abs(segundos)
+    if s < 60:
+        txt = f"{s:.3f}".rstrip("0").rstrip(".")
+        return txt.replace(".", ",") + " s"
+    m, s = divmod(round(s), 60)
+    if m < 60:
+        return f"{m} min {s} s" if s else f"{m} min"
+    h, m = divmod(m, 60)
+    return f"{h} h {m} min" if m else f"{h} h"
+
+
 def to_rfc3339(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -210,9 +226,9 @@ class Ingestor:
         if abs(delta) <= CONTINUITY_TOLERANCE_S:
             return []
         if delta > 0:
-            codigo, texto = "HUECO_TEMPORAL", f"Faltan {delta:.3f} s entre {to_rfc3339(previa.inicio)} y {to_rfc3339(v.inicio)}."
+            codigo, texto = "HUECO_TEMPORAL", f"Faltan {duracion(delta)} entre {to_rfc3339(previa.inicio)} y {to_rfc3339(v.inicio)}."
         else:
-            codigo, texto = "SOLAPE_TEMPORAL", f"La ventana empieza {-delta:.3f} s antes de que termine la anterior."
+            codigo, texto = "SOLAPE_TEMPORAL", f"La ventana empieza {duracion(delta)} antes de que termine la anterior."
         # Si alguna de las dos ventanas no tenía hora GNSS, la discontinuidad puede
         # ser un salto de reloj y no un hueco real: se dice.
         if "GNSS_LOCKED" not in (previa.calidad_tiempo, v.calidad_tiempo) or previa.calidad_tiempo != v.calidad_tiempo:

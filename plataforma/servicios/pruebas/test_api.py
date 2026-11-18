@@ -35,6 +35,7 @@ class RepoFalso:
     def salud(self): return True
     def credencial(self, token): return TOKENS.get(token)
     def proyecto_de_estacion(self, s): return ESTACIONES.get(s)
+    def proyecto(self, p): return {"proyecto_id": p, "definicion": {}} if p in ESTACIONES.values() else None
     def proyectos(self, p): return [{"proyecto_id": x} for x in sorted(set(ESTACIONES.values())) if p in (None, x)]
     def estaciones(self, p): return [{"station_id": s, "proyecto_id": x} for s, x in ESTACIONES.items() if p in (None, x)]
     def ventanas(self, s, d, h, l, c): return [{"station_id": s}]
@@ -158,6 +159,13 @@ class AislamientoEntreProyectos(unittest.TestCase):
         r = self.c.post("/api/v1/avisos/9/reconocer", json={"nota": "Revisado por operación"}, headers=h("t-admin"))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.repo.auditoria[-1][-1], "edificio-b")  # la auditoría queda en el proyecto del aviso
+
+    def test_definicion_solo_del_propio_proyecto(self):
+        self.assertEqual(self.c.get("/api/v1/proyectos/novena", headers=h("t-lectura")).status_code, 200)
+        ajeno = self.c.get("/api/v1/proyectos/novena", headers=h("t-lec-otro"))
+        inexistente = self.c.get("/api/v1/proyectos/nada", headers=h("t-lec-otro"))
+        self.assertEqual((ajeno.status_code, ajeno.json()), (inexistente.status_code, inexistente.json()))
+        self.assertEqual(self.c.get("/api/v1/proyectos/edificio-b", headers=h("t-admin")).status_code, 200)
 
     def test_credencial_sin_proyecto_no_ve_nada(self):
         self.assertEqual(self.c.get("/api/v1/estaciones", headers=h("t-huerfana")).status_code, 403)
