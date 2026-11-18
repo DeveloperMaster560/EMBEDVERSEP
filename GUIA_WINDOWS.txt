@@ -199,6 +199,24 @@ contrasenas del broker de plataforma\.env y no las manda al navegador).
 
 
 ------------------------------------------------------------
+6d. CONECTAR TU ESP32 + MPU6050 REAL (proyecto "laboratorio")
+------------------------------------------------------------
+Guia completa: firmware\esp32-mpu6050\LEEME.md. Resumen:
+  1. ipconfig  -> anota la "Direccion IPv4" del PC (ej. 192.168.1.50).
+  2. En plataforma\.env agrega:  MQTT_RED_IP=192.168.1.50   (NUNCA 0.0.0.0)
+  3. Arranca la plataforma (iniciar.ps1). Crea MQTT_LAB_ESP32_01_PASSWORD en .env.
+  4. PowerShell como administrador, una vez:
+     New-NetFirewallRule -DisplayName "SHM estaciones Wi-Fi" -Direction Inbound -Protocol TCP -LocalPort 1884 -Action Allow -Profile Private
+  5. firmware\esp32-mpu6050: copia secretos.ejemplo.h como secretos.h y llena
+     Wi-Fi, IP del paso 1, puerto 1884 y la clave del paso 3.
+  6. Arduino IDE -> ESP32 Dev Module -> subir. Monitor serie 115200.
+  7. Grafana -> proyecto "laboratorio" -> panel "Vibracion por ventana".
+Plan B sin Wi-Fi (cualquier placa por USB): firmware\muestras-serie +
+  py -m pip install pyserial
+  cd plataforma\servicios
+  py -m shm_plataforma.pasarela_serie --estacion LAB-SERIE-01 --puerto COM5 --hz 100 --unidad g --rango-g 4
+(cierra antes el monitor serie del IDE: el puerto solo lo puede usar uno).
+
 7. ACTUALIZAR CUANDO HAYA CAMBIOS NUEVOS
 ------------------------------------------------------------
   cd C:\Users\PC\EMBEDVERSEP-shm

@@ -68,6 +68,10 @@ services:
       - broker-datos:/mosquitto/data
     ports:
       - "${PUERTOS_IP:-127.0.0.1}:1883:1883"
+      # Puerto aparte para estaciones de la red local (ESP32 por Wi-Fi). Solo se
+      # abre en la IP que diga MQTT_RED_IP en .env (la del PC en tu red); sin
+      # ella queda en 127.0.0.1. La API y Grafana NO se exponen por esto.
+      - "${MQTT_RED_IP:-127.0.0.1}:1884:1883"
 
   # Un solo uso, antes que la ingesta y la API: aplica las migraciones de la
   # base y carga proyectos/*/proyecto.json. Si un proyecto es inválido, falla

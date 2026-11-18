@@ -27,10 +27,14 @@ export const EVENT_LEVELS = {
 
 /**
  * GNSS_LOCKED (§6) y HOLDOVER (diseño §10) vienen del documento. INVALID NO:
- * se añade por correspondencia con el estado TIME_INVALID, y queda por
- * confirmar con ingeniería.
+ * se añade por correspondencia con el estado TIME_INVALID; NTP tampoco: es la
+ * hora por red de los equipos sin GNSS (ESP32 y similares), con incertidumbre
+ * de milisegundos. Las dos quedan por confirmar con ingeniería.
  */
-export const TIME_QUALITIES = ['GNSS_LOCKED', 'HOLDOVER', 'INVALID'] as const;
+export const TIME_QUALITIES = ['GNSS_LOCKED', 'NTP', 'HOLDOVER', 'INVALID'] as const;
+
+/** «stats» (opcional): resumen por eje de la ventana, en las unidades del registro. */
+export const STATS_KEYS = ['mean', 'std', 'min', 'max'] as const;
 
 export interface StationRecord {
   schema_version: string;
@@ -106,6 +110,20 @@ export function validateStationRecord(input: unknown): string[] {
   }
   if (typeof r.samples_crc32 === 'string' && !/^[0-9a-f]{8}$/i.test(r.samples_crc32)) {
     problems.push('«samples_crc32» debe ser un CRC-32 en hexadecimal (8 cifras).');
+  }
+
+  if (r.stats !== undefined) {
+    if (typeof r.stats !== 'object' || r.stats === null || Array.isArray(r.stats)) {
+      problems.push('«stats» debe ser un objeto.');
+    } else {
+      for (const [k, v] of Object.entries(r.stats)) {
+        if (!(STATS_KEYS as readonly string[]).includes(k)) {
+          problems.push(`«stats.${k}» no está definido (admitidos: ${STATS_KEYS.join(', ')}).`);
+        } else if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => x === null || typeof x === 'number')) {
+          problems.push(`«stats.${k}» debe ser una lista de tres números (null si no hay medida).`);
+        }
+      }
+    }
   }
 
   if (r.states !== undefined) {

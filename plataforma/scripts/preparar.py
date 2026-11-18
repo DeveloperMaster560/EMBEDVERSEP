@@ -122,6 +122,23 @@ def comprobar_docker() -> bool:
     return True
 
 
+COMODINES = {"0.0.0.0", "::", "[::]", "*"}
+
+
+def comprobar_ips(valores: dict[str, str]) -> bool:
+    """PUERTOS_IP y MQTT_RED_IP deben ser una IP concreta: nunca «todas las interfaces»."""
+    ok = True
+    for k in ("PUERTOS_IP", "MQTT_RED_IP"):
+        v = (valores.get(k) or "").strip()
+        if v in COMODINES:
+            print(f"✗ {k}={v} abriría el puerto en todas las redes (también Internet si el equipo es alcanzable).")
+            print(f"   Pon la IP concreta del PC: la de Tailscale (100.x.y.z) o la de tu red local (192.168.x.y).")
+            ok = False
+    if ok and (valores.get("MQTT_RED_IP") or "").strip():
+        print(f"· Estaciones por Wi-Fi: broker en {valores['MQTT_RED_IP'].strip()}:1884 (solo MQTT; API y Grafana siguen como estaban).")
+    return ok
+
+
 def main() -> int:
     # En Windows, con la salida redirigida, la consola puede no admitir ✓/✗.
     try:
@@ -139,6 +156,8 @@ def main() -> int:
             print("   -", p)
         return 1
     valores = preparar_env(estaciones)
+    if not comprobar_ips(valores):
+        return 1
     preparar_usuarios(valores, estaciones)
     return 0 if comprobar_docker() else 2
 

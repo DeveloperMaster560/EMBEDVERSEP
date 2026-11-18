@@ -160,7 +160,7 @@
     "station_id": "SD-V2-M",
     "sensor_id": "ADXL355-SD-V2-M",
     "timestamp_utc": "2026-11-12T12:00:10.000Z",
-    "time_quality": "NTP",
+    "time_quality": "RELOJ_DE_PARED",
     "time_uncertainty_us": null,
     "sample_rate_hz": 200,
     "axes": [
@@ -555,6 +555,204 @@
    ],
    "valido": false,
    "problema_contiene": "objeto"
+  },
+  {
+   "nombre": "ESP32 con hora NTP y estadísticas",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "LAB-ESP32-01",
+    "sensor_id": "MPU6050-LAB-ESP32-01",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "NTP",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 100,
+    "axes": [
+     "x",
+     "y",
+     "z"
+    ],
+    "units": "m/s2",
+    "range_g": 4,
+    "filter_id": "mpu6050-dlpf-21hz",
+    "firmware_version": "esp32-mpu6050-0.1.0",
+    "calibration_id": null,
+    "samples_file": "no-guardada/LAB-ESP32-01/00000007",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "NORMAL"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": false,
+     "supply_v": null
+    },
+    "samples": 1000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "stats": {
+     "mean": [
+      0.01,
+      -0.02,
+      9.81
+     ],
+     "std": [
+      0.003,
+      0.004,
+      0.005
+     ],
+     "min": [
+      -0.1,
+      -0.1,
+      9.7
+     ],
+     "max": [
+      0.1,
+      0.1,
+      9.9
+     ]
+    }
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "estadística con dos ejes",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "LAB-ESP32-01",
+    "sensor_id": "MPU6050-LAB-ESP32-01",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "NTP",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 100,
+    "axes": [
+     "x",
+     "y",
+     "z"
+    ],
+    "units": "m/s2",
+    "range_g": 4,
+    "filter_id": "mpu6050-dlpf-21hz",
+    "firmware_version": "esp32-mpu6050-0.1.0",
+    "calibration_id": null,
+    "samples_file": "no-guardada/LAB-ESP32-01/00000007",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "NORMAL"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": false,
+     "supply_v": null
+    },
+    "samples": 1000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "stats": {
+     "std": [
+      0.1,
+      0.2
+     ]
+    }
+   },
+   "valido": false,
+   "problema_contiene": "stats.std"
+  },
+  {
+   "nombre": "estadística no definida",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "LAB-ESP32-01",
+    "sensor_id": "MPU6050-LAB-ESP32-01",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "NTP",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 100,
+    "axes": [
+     "x",
+     "y",
+     "z"
+    ],
+    "units": "m/s2",
+    "range_g": 4,
+    "filter_id": "mpu6050-dlpf-21hz",
+    "firmware_version": "esp32-mpu6050-0.1.0",
+    "calibration_id": null,
+    "samples_file": "no-guardada/LAB-ESP32-01/00000007",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "NORMAL"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": false,
+     "supply_v": null
+    },
+    "samples": 1000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "stats": {
+     "rms_total": [
+      1,
+      2,
+      3
+     ]
+    }
+   },
+   "valido": false,
+   "problema_contiene": "stats.rms_total"
+  },
+  {
+   "nombre": "estadística sin medida (null)",
+   "registro": {
+    "schema_version": "1.0",
+    "station_id": "LAB-ESP32-01",
+    "sensor_id": "MPU6050-LAB-ESP32-01",
+    "timestamp_utc": "2026-11-12T12:00:10.000Z",
+    "time_quality": "NTP",
+    "time_uncertainty_us": null,
+    "sample_rate_hz": 100,
+    "axes": [
+     "x",
+     "y",
+     "z"
+    ],
+    "units": "m/s2",
+    "range_g": 4,
+    "filter_id": "mpu6050-dlpf-21hz",
+    "firmware_version": "esp32-mpu6050-0.1.0",
+    "calibration_id": null,
+    "samples_file": "no-guardada/LAB-ESP32-01/00000007",
+    "samples_crc32": "1a2b3c4d",
+    "states": [
+     "NORMAL"
+    ],
+    "health": {
+     "sensor_ok": true,
+     "storage_ok": false,
+     "pps_locked": false,
+     "supply_v": null
+    },
+    "samples": 1000,
+    "gaps": 0,
+    "saturated": 0,
+    "pwr_good_level": 0,
+    "stats": {
+     "mean": [
+      null,
+      null,
+      null
+     ]
+    }
+   },
+   "valido": true,
+   "problema_contiene": null
   }
  ]
 }

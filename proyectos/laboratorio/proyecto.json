@@ -1,0 +1,101 @@
+{
+  "formato": "embedverse-proyecto-shm/1",
+  "proyecto_id": "laboratorio",
+  "nombre": "Laboratorio — banco de pruebas de estaciones",
+  "estructura": {
+    "tipo": "otro",
+    "nombre": "Banco de pruebas (sin estructura)",
+    "modelo": null
+  },
+  "ubicacion": null,
+  "institucion": null,
+  "entidad_responsable": null,
+  "responsable_estructural": null,
+  "estaciones": [
+    {
+      "id": "LAB-ESP32-01",
+      "tipo": "SD",
+      "nombre": "ESP32 + MPU6050 por Wi-Fi",
+      "estado": "instalada",
+      "ubicacion": {
+        "descripcion": "Banco de pruebas: no está sobre ninguna estructura",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "esp32-devkit",
+        "firmware": "firmware/esp32-mpu6050",
+        "firmware_version": "esp32-mpu6050-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "MPU6050-LAB-ESP32-01",
+          "modelo": "MPU6050 (InvenSense)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "x",
+            "y",
+            "z"
+          ],
+          "rango": 4,
+          "rango_unidad": "g",
+          "muestreo_hz": 100,
+          "calibracion": null
+        }
+      ],
+      "notas": "Publica directo por Wi-Fi al broker. Hora NTP (no GNSS): la fase entre estaciones no es comparable al microsegundo. Sin microSD: las muestras crudas no se guardan."
+    },
+    {
+      "id": "LAB-SERIE-01",
+      "tipo": "SD",
+      "nombre": "Cualquier placa por USB (pasarela serie)",
+      "estado": "instalada",
+      "ubicacion": {
+        "descripcion": "Banco de pruebas: no está sobre ninguna estructura",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "cualquiera-usb",
+        "firmware": "plataforma/pasarela_serie.py",
+        "firmware_version": null
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "MPU6050-LAB-SERIE-01",
+          "modelo": "MPU6050 (InvenSense)",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": [
+            "x",
+            "y",
+            "z"
+          ],
+          "rango": 4,
+          "rango_unidad": "g",
+          "muestreo_hz": 100,
+          "calibracion": null
+        }
+      ],
+      "notas": "Una placa sin Wi-Fi (Arduino, STM32, PIC, ESP32…) conectada al PC por USB; la pasarela serie del PC publica por ella. Sensor declarado para pruebas con un MPU6050; cambiarlo si se conecta otro."
+    }
+  ],
+  "criterios": {
+    "estado": "sin_definir",
+    "aprobados_por": null,
+    "fecha": null,
+    "umbrales": []
+  },
+  "notas": [
+    "Proyecto de pruebas con hardware real en casa o en el laboratorio. Sus datos NO son de ninguna estructura y no se mezclan con los de La Novena."
+  ]
+}

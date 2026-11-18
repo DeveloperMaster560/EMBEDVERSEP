@@ -21,8 +21,13 @@ STATION_STATES = (
 )
 
 # GNSS_LOCKED y HOLDOVER vienen del diseño. INVALID se añadió por
-# correspondencia con TIME_INVALID y sigue pendiente de confirmar con ingeniería.
-TIME_QUALITIES = ("GNSS_LOCKED", "HOLDOVER", "INVALID")
+# correspondencia con TIME_INVALID y NTP para equipos sin GNSS (ESP32 y
+# similares, hora por red: incertidumbre de milisegundos, no microsegundos).
+# Las dos siguen pendientes de confirmar con ingeniería.
+TIME_QUALITIES = ("GNSS_LOCKED", "NTP", "HOLDOVER", "INVALID")
+
+# «stats» (opcional): resumen por eje de la ventana, en las unidades del registro.
+STATS_KEYS = ("mean", "std", "min", "max")
 
 REQUIRED = (
     "schema_version", "station_id", "sensor_id", "timestamp_utc", "time_quality",
@@ -83,6 +88,9 @@ def validate_station_record(r: Any) -> list[str]:
     if isinstance(crc, str) and not CRC32_HEX.match(crc):
         problems.append("«samples_crc32» debe ser un CRC-32 en hexadecimal (8 cifras).")
 
+    if "stats" in r:
+        problems.extend(_check_stats(r["stats"]))
+
     if "states" in r:
         states = r["states"]
         if not isinstance(states, list):
@@ -99,6 +107,20 @@ def validate_station_record(r: Any) -> list[str]:
             "El registro contiene un diagnóstico estructural; el firmware no etiqueta daño ni seguridad (§7)."
         )
     return problems
+
+
+def _check_stats(st: Any) -> list[str]:
+    if not isinstance(st, dict):
+        return ["«stats» debe ser un objeto."]
+    p: list[str] = []
+    for k, v in st.items():
+        if k not in STATS_KEYS:
+            p.append(f"«stats.{k}» no está definido (admitidos: {', '.join(STATS_KEYS)}).")
+        elif not isinstance(v, list) or len(v) != 3 or not all(
+            x is None or (isinstance(x, (int, float)) and not isinstance(x, bool)) for x in v
+        ):
+            p.append(f"«stats.{k}» debe ser una lista de tres números (null si no hay medida).")
+    return p
 
 
 def validate_for_server(r: Any) -> list[str]:
