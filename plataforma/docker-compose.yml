@@ -67,6 +67,8 @@ services:
   ingesta:
     build: ./servicios
     image: shm-novena/servicios:0.1.0
+    # Imagen propia: se construye aquí, nunca se busca en Docker Hub.
+    pull_policy: build
     restart: unless-stopped
     command: ["python", "-m", "shm_plataforma.servicio_ingesta"]
     environment:
@@ -81,7 +83,9 @@ services:
         condition: service_started
 
   api:
+    build: ./servicios
     image: shm-novena/servicios:0.1.0
+    pull_policy: build
     restart: unless-stopped
     command: ["uvicorn", "--factory", "shm_plataforma.api:app_desde_entorno", "--host", "0.0.0.0", "--port", "8000"]
     environment:
@@ -129,6 +133,7 @@ services:
       additional_contexts:
         firmware: ../firmware/shm-station
     image: shm-novena/pasarela-sim:0.1.0
+    pull_policy: build
     restart: unless-stopped
     command:
       - python
