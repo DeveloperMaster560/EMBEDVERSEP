@@ -52,3 +52,12 @@ sacada del gemelo funcional: **vibración sintética, no medida**.
 
 La app arranca Renode desde la pestaña Sistema embebido (`server/renodeBridge.ts`),
 avanza el chip segundo a segundo y le entrega la trama RMC y el PPS.
+
+## Archivo crudo de cada ventana (PROPUESTA)
+
+`FORMATO_BIN.md` define el archivo «SHMW» v1 que irá a la microSD: cabecera de
+160 bytes con la configuración y dos CRC-32, y las muestras en float32. Es una
+propuesta derivada del diseño técnico, **pendiente de validación por
+ingeniería**. `src/shmbin.c` la escribe; `make host-test` genera
+`pruebas/ventana-ejemplo.bin`, con el que se prueban los lectores de la
+plataforma (`crudo.py`) y de la app (`raw-file.ts`).

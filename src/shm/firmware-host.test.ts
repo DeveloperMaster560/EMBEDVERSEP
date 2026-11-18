@@ -26,7 +26,7 @@ describe.skipIf(!hasCompiler())('firmware de la estación compilado para el orde
   mkdirSync(resolve(dir, 'build'), { recursive: true });
   execFileSync('cc', [
     '-std=c11', '-Wall', '-Wextra', '-Werror', '-O1', '-Iinclude',
-    'src/station.c', 'src/host_test.c', '-lm', '-o', bin,
+    'src/station.c', 'src/shmbin.c', 'src/host_test.c', '-lm', '-o', bin,
   ], { cwd: dir });
   const out = execFileSync(bin, { encoding: 'utf8' });
   const records = Object.fromEntries(out.trim().split('\n').map((l) => {

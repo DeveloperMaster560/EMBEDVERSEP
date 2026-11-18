@@ -47,8 +47,8 @@ model-test: | $(BUILD)
 	mono $(BUILD)/modeltest.exe renode/feeds/sd-v2-m.csv
 
 host-test: | $(BUILD)
-	cc -std=c11 -Wall -Wextra -Werror -O1 -Iinclude src/station.c src/host_test.c -lm -o $(BUILD)/host_test
-	./$(BUILD)/host_test
+	cc -std=c11 -Wall -Wextra -Werror -O1 -Iinclude src/station.c src/shmbin.c src/host_test.c -lm -o $(BUILD)/host_test
+	./$(BUILD)/host_test pruebas/ventana-ejemplo.bin
 
 $(BUILD):
 	mkdir -p $(BUILD)
