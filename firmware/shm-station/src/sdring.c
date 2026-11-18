@@ -93,30 +93,66 @@ int sdring_open(sdring_t *r, const sdring_dev_t *dev, const char *station_id, ui
   return SDRING_OK;
 }
 
-int sdring_write(sdring_t *r, uint32_t seq, const uint8_t *hdr, size_t hdr_len, const uint8_t *data, size_t data_len) {
+int sdring_begin(sdring_t *r, uint32_t seq, const uint8_t *hdr, size_t hdr_len, const uint8_t *data, size_t data_len) {
   if (!r->ok) return SDRING_E_IO;
   if (hdr_len + data_len > (size_t)SDRING_SLOT_BLOCKS * SDRING_BLOCK || hdr_len > SDRING_BLOCK) return SDRING_E_TOO_BIG;
-  uint32_t base = SDRING_FIRST_SLOT_LBA + (seq % r->slots) * SDRING_SLOT_BLOCKS;
-  size_t first_data = SDRING_BLOCK - hdr_len;     /* lo que cabe de datos en el bloque 0 */
+  size_t first_data = SDRING_BLOCK - hdr_len;   /* lo que cabe de datos en el bloque 0 */
   size_t rest = data_len > first_data ? data_len - first_data : 0;
+  r->w_hdr = hdr; r->w_hdr_len = hdr_len;
+  r->w_data = data; r->w_data_len = data_len;
+  r->w_seq = seq;
+  r->w_blocks = 1u + (uint32_t)((rest + SDRING_BLOCK - 1) / SDRING_BLOCK);
+  r->w_block = 1;      /* primero los datos (1..), el bloque 0 al final */
+  r->w_busy = 1;
+  return SDRING_BUSY;
+}
 
-  /* Bloques 1..: datos a partir de first_data, rellenando el último con 0. */
-  uint32_t nb = (uint32_t)((rest + SDRING_BLOCK - 1) / SDRING_BLOCK);
-  for (uint32_t b = 1; b <= nb; b++) {
-    size_t off = first_data + (size_t)(b - 1) * SDRING_BLOCK;
-    size_t n = data_len - off;
-    if (n > SDRING_BLOCK) n = SDRING_BLOCK;
-    memset(s_blk, 0, sizeof s_blk);
-    memcpy(s_blk, data + off, n);
-    if (r->dev.write(r->dev.ctx, base + b, s_blk, 1) != 0) return SDRING_E_IO;
+static int fail(sdring_t *r) {
+  r->w_busy = 0;
+  return SDRING_E_IO;
+}
+
+int sdring_poll(sdring_t *r) {
+  if (!r->w_busy) return SDRING_OK;
+  if (r->dev.ready) {
+    int rd = r->dev.ready(r->dev.ctx);
+    if (rd < 0) return fail(r);
+    if (rd == 0) return SDRING_BUSY;
   }
-  /* Y al final el bloque 0: cabecera + comienzo de los datos. */
+  uint32_t base = SDRING_FIRST_SLOT_LBA + (r->w_seq % r->slots) * SDRING_SLOT_BLOCKS;
+  size_t first_data = SDRING_BLOCK - r->w_hdr_len;
   memset(s_blk, 0, sizeof s_blk);
-  memcpy(s_blk, hdr, hdr_len);
-  memcpy(s_blk + hdr_len, data, data_len < first_data ? data_len : first_data);
-  if (r->dev.write(r->dev.ctx, base, s_blk, 1) != 0) return SDRING_E_IO;
-  if (seq + 1u > r->next_seq) r->next_seq = seq + 1u;
-  return SDRING_OK;
+  if (r->w_block == 0) {
+    /* Último paso: la cabecera. Hasta aquí la ranura no cuenta como escrita. */
+    if (r->w_block_done_header) {
+      r->w_busy = 0;
+      if (r->w_seq + 1u > r->next_seq) r->next_seq = r->w_seq + 1u;
+      return SDRING_OK;
+    }
+    memcpy(s_blk, r->w_hdr, r->w_hdr_len);
+    memcpy(s_blk + r->w_hdr_len, r->w_data, r->w_data_len < first_data ? r->w_data_len : first_data);
+    if (r->dev.write(r->dev.ctx, base, s_blk, 1) != 0) return fail(r);
+    r->w_block_done_header = 1;
+    /* Con `ready`, se espera a que la tarjeta confirme antes de dar por buena la ranura. */
+    if (r->dev.ready) return SDRING_BUSY;
+    r->w_busy = 0;
+    if (r->w_seq + 1u > r->next_seq) r->next_seq = r->w_seq + 1u;
+    return SDRING_OK;
+  }
+  size_t off = first_data + (size_t)(r->w_block - 1) * SDRING_BLOCK;
+  size_t n = r->w_data_len - off;
+  if (n > SDRING_BLOCK) n = SDRING_BLOCK;
+  memcpy(s_blk, r->w_data + off, n);
+  if (r->dev.write(r->dev.ctx, base + r->w_block, s_blk, 1) != 0) return fail(r);
+  r->w_block = r->w_block + 1u < r->w_blocks ? r->w_block + 1u : 0u;
+  r->w_block_done_header = 0;
+  return SDRING_BUSY;
+}
+
+int sdring_write(sdring_t *r, uint32_t seq, const uint8_t *hdr, size_t hdr_len, const uint8_t *data, size_t data_len) {
+  int e = sdring_begin(r, seq, hdr, hdr_len, data, data_len);
+  while (e == SDRING_BUSY) e = sdring_poll(r);
+  return e;
 }
 
 void sdring_ref(const sdring_t *r, uint32_t seq, char *out, size_t cap) {

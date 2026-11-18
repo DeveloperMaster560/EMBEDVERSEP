@@ -159,7 +159,7 @@ static int sd_wr(void *ctx, uint32_t lba, const uint8_t *buf, uint32_t n) {
   return fflush(s_sd) == 0 ? 0 : -1;
 }
 
-static sdring_dev_t s_sd_dev = { sd_rd, sd_wr, 0, 0 };
+static sdring_dev_t s_sd_dev = { .read = sd_rd, .write = sd_wr };
 
 int host_set_sd_image(const char *path, uint32_t megabytes) {
   s_sd = fopen(path, "r+b");

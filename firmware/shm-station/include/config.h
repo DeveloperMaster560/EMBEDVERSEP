@@ -30,6 +30,15 @@
  */
 #define FILTER_ID "sin-filtro-pendiente"
 
+/*
+ * Ranuras mínimas de la microSD: 7 días (diseño técnico, retención). Solo las
+ * pruebas en emulador lo bajan (make renode-sd), para no necesitar una imagen
+ * de 1,5 GB; el firmware de la estación nunca.
+ */
+#ifndef SD_MIN_SLOTS
+#define SD_MIN_SLOTS (7u * 8640u)
+#endif
+
 /* Relojes. El cristal HSE no está definido: se arranca con el HSI interno
  * (64 MHz, valor de reset del STM32H743) y sin PLL. */
 #define SYSCLK_HZ 64000000u

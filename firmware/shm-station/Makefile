@@ -27,7 +27,7 @@ CFLAGS   := $(CPU) $(DEFS) $(INC) -std=c11 -Os -g3 -Wall -Wextra -Werror \
 LDFLAGS  := $(CPU) -Tstm32h743vi.ld --specs=nano.specs --specs=nosys.specs \
             -Wl,--gc-sections -Wl,-Map=$(BUILD)/shm-station.map -Wl,--no-warn-rwx-segments -lm
 
-SRC      := src/main.c src/app.c src/board.c src/station.c src/shmbin.c src/sdring.c $(CUBE)/device/system_stm32h7xx.c
+SRC      := src/main.c src/app.c src/board.c src/station.c src/shmbin.c src/sdring.c src/sdmmc_stm32.c $(CUBE)/device/system_stm32h7xx.c
 ASM      := $(CUBE)/device/startup_stm32h743xx.s
 
 all: $(BUILD)/shm-station.elf
@@ -35,6 +35,11 @@ all: $(BUILD)/shm-station.elf
 $(BUILD)/shm-station.elf: $(SRC) $(ASM) $(wildcard include/*.h) stm32h743vi.ld | $(BUILD)
 	$(CC) $(CFLAGS) $(SRC) $(ASM) $(LDFLAGS) -o $@
 	$(SIZE) $@
+
+# Firmware para Renode con una microSD emulada pequeña (64 MiB): igual que el
+# de la estación salvo el mínimo de ranuras. Ver renode/shm-station-sd.resc.
+renode-sd: | $(BUILD)
+	$(CC) $(CFLAGS) -DSD_MIN_SLOTS=100u $(SRC) $(ASM) $(LDFLAGS) -o $(BUILD)/shm-station-sd.elf
 
 # Firmware (app.c) en el ordenador con la placa simulada.
 sim: | $(BUILD)
@@ -61,4 +66,4 @@ $(BUILD):
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all sim model-test host-test ring-test clean
+.PHONY: all sim model-test host-test ring-test renode-sd clean

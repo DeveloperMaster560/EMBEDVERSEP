@@ -21,13 +21,20 @@
 /* CRC-32 IEEE 802.3 (el mismo que comprueba la plataforma)                */
 /* ======================================================================= */
 
-uint32_t crc32_ieee(const uint8_t *data, size_t len) {
-  uint32_t c = 0xFFFFFFFFu;
+uint32_t crc32_update(uint32_t c, const uint8_t *data, size_t len) {
   for (size_t i = 0; i < len; i++) {
     c ^= data[i];
     for (int k = 0; k < 8; k++) c = (c & 1u) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
   }
-  return c ^ 0xFFFFFFFFu;
+  return c;
+}
+
+uint32_t crc32_ieee(const uint8_t *data, size_t len) {
+  return crc32_update(0xFFFFFFFFu, data, len) ^ 0xFFFFFFFFu;
+}
+
+uint32_t station_data_crc(const station_t *s) {
+  return s->count ? s->crc_state ^ 0xFFFFFFFFu : 0u;
 }
 
 int32_t adxl355_raw20(const uint8_t b[3]) {
@@ -177,10 +184,18 @@ void station_init(station_t *s, const char *station_id, int32_t lsb_per_g) {
   s->lsb_per_g = lsb_per_g;
 }
 
+void station_next(station_t *s) {
+  s->sequence++;
+  s->count = 0;
+  s->gaps = 0;
+  s->saturated = 0;
+}
+
 int station_add_sample(station_t *s, const accel_sample_t *a, const time_ref_t *t, uint32_t now_ms) {
   /* La ventana declara la PEOR calidad de tiempo que tuvo, no la del inicio. */
   time_quality_t q = time_quality(t, now_ms);
   if (s->count == 0) {
+    s->crc_state = 0xFFFFFFFFu;
     s->window_tq = q;
     s->window_start_utc_ms = time_utc_ms(t, now_ms);
   } else if (q > s->window_tq) {
@@ -198,6 +213,7 @@ int station_add_sample(station_t *s, const accel_sample_t *a, const time_ref_t *
     }
     s->saturated += (uint32_t)sat;
   }
+  s->crc_state = crc32_update(s->crc_state, (const uint8_t *)dst, AXES * sizeof(float));
   s->count++;
   return s->count >= WINDOW_SAMPLES;
 }
@@ -209,7 +225,7 @@ static size_t append(char *out, size_t cap, size_t pos, const char *fmt_str) {
 }
 
 size_t station_close_window(station_t *s, const station_health_t *h, const char *samples_file, char *out, size_t cap) {
-  uint32_t crc = crc32_ieee((const uint8_t *)s->samples, (size_t)s->count * AXES * sizeof(float));
+  uint32_t crc = station_data_crc(s);
   char ts[TIME_RFC3339_LEN];
   time_format_rfc3339(s->window_start_utc_ms, ts);
 

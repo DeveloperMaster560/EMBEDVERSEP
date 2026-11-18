@@ -1,0 +1,30 @@
+# Estación SD en Renode CON microSD emulada (para probar el driver SDMMC1).
+#   make renode-sd
+#   python3 renode/probar-sd.py          # lo hace todo y comprueba el resultado
+# o a mano, con una imagen vacía de 64 MiB en build/tarjeta-renode.img:
+#   renode --disable-xwt --port 12345 renode/shm-station-sd.resc
+# Lo que el firmware escribe queda en la imagen; se lee con
+#   python -m shm_plataforma.tarjeta build/tarjeta-renode.img --salida carpeta/
+# El ELF de este script baja el mínimo de ranuras (make renode-sd): una tarjeta
+# de 64 MiB no daría para los 7 días que exige el firmware de la estación.
+
+$name?="SD-V2-M"
+$elf?=@build/shm-station-sd.elf
+$feed?=@renode/feeds/sd-v2-m.csv
+$sd?=@build/tarjeta-renode.img
+
+include @renode/ADXL355_SHM.cs
+
+mach create $name
+machine LoadPlatformDescription @renode/shm-station.repl
+machine SdCardFromFile $sd sysbus.sdmmc 0x4000000 True "tarjeta"
+
+emulation CreateServerSocketTerminal 3456 "servicio" false
+connector Connect sysbus.usart3 servicio
+emulation CreateServerSocketTerminal 3457 "gnss" false
+connector Connect sysbus.usart1 gnss
+
+sysbus.spi1.adxl355 LoadFeed $feed
+sysbus LoadELF $elf
+
+start

@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "pinout.h"
+#include "sdmmc_stm32.h"
 #include "stm32h7xx.h"
 
 volatile uint32_t g_tick_flag;
@@ -135,8 +136,49 @@ int accel_spi_transfer(const uint8_t *tx, uint8_t *rx, size_t n) {
   return spi1_transfer(PIN_ACC_CS_N_PORT, PIN_ACC_CS_N_PIN, tx, rx, n);
 }
 
-/* microSD: el driver SDMMC1 todavía no está; sin él no hay tarjeta. */
-const sdring_dev_t *board_sd(void) { return 0; }
+/*
+ * microSD por SDMMC1 (sdmmc_stm32.c, SIN PROBAR EN HARDWARE). Se inicia al
+ * pedirla; si falla o la tarjeta deja de responder, se reintenta como mucho
+ * una vez por minuto (iniciar puede tardar hasta 1 s y el muestreo lo nota
+ * como huecos, que quedan registrados).
+ */
+static sdring_dev_t s_sd_dev;
+static int (*s_sd_ready)(void *ctx);
+static uint8_t s_sd_up, s_sd_tried;
+static uint32_t s_sd_next_try;
+
+static int sd_ready_or_down(void *ctx) {
+  int r = s_sd_dev.ctx == ctx && s_sd_ready ? s_sd_ready(ctx) : -1;
+  if (r < 0) s_sd_up = 0;
+  return r;
+}
+
+const sdring_dev_t *board_sd(void) {
+  if (s_sd_up) return &s_sd_dev;
+  uint32_t now = board_millis();
+  if (s_sd_tried && (int32_t)(now - s_sd_next_try) < 0) return 0;
+  s_sd_tried = 1;
+  s_sd_next_try = now + 60000u;
+  int e = sdmmc_init(&s_sd_dev);
+  if (e != 0) {
+    /* Para el diagnóstico en campo: en qué paso se quedó (ver sdmmc_stm32.h). */
+    static const char hex[] = "0123456789abcdef";
+    char msg[] = "# microSD: inicio fallido en el paso -0 (CMD00 STA=00000000 RESP1=00000000)\n";
+    char *p = msg + 38;
+    *p = (char)('0' + (-e % 10));
+    p = msg + 44;
+    p[0] = (char)('0' + g_sdmmc_last_cmd / 10 % 10);
+    p[1] = (char)('0' + g_sdmmc_last_cmd % 10);
+    for (int i = 0; i < 8; i++) msg[51 + i] = hex[(g_sdmmc_last_sta >> (28 - 4 * i)) & 0xFu];
+    for (int i = 0; i < 8; i++) msg[66 + i] = hex[(g_sdmmc_last_resp >> (28 - 4 * i)) & 0xFu];
+    service_write(msg, sizeof msg - 1);
+    return 0;
+  }
+  s_sd_ready = s_sd_dev.ready;
+  s_sd_dev.ready = sd_ready_or_down;
+  s_sd_up = 1;
+  return &s_sd_dev;
+}
 
 void service_write(const char *s, size_t n) {
   for (size_t i = 0; i < n; i++) {

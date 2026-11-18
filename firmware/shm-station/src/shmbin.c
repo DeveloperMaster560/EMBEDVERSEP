@@ -28,7 +28,7 @@ size_t shmbin_data_len(const station_t *s) {
 uint32_t shmbin_header(const station_t *s, const char *sensor_id, const station_health_t *h,
                        uint8_t out[SHMBIN_HEADER_LEN]) {
   _Static_assert(sizeof(float) == 4, "float32");
-  uint32_t data_crc = crc32_ieee((const uint8_t *)s->samples, shmbin_data_len(s));
+  uint32_t data_crc = station_data_crc(s);
   memset(out, 0, SHMBIN_HEADER_LEN);
   memcpy(out, SHMBIN_MAGIC, 4);
   le16(out + 4, SHMBIN_VERSION);

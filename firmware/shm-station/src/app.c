@@ -8,8 +8,8 @@
  * JSON por el puerto de servicio y watchdog.
  *
  * NO hace todavía (cada cosa espera una definición de ingenierías):
- *   - filtro antialias/decimación; el driver SDMMC1 de la microSD (el anillo
- *     sdring.c ya guarda cada ventana si la placa da un dispositivo de bloques);
+ *   - filtro antialias/decimación; probar la microSD (SDMMC1) en hardware:
+ *     solo está probada en Renode;
  *   - Ethernet al gateway (LwIP + protocolo); SCL3300, ADS1262, LoRa;
  *   - captura fina del PPS con TIM2_CH1; PLL con el cristal HSE.
  */
@@ -32,6 +32,15 @@ static void banner(const char *msg) {
 
 static sdring_t g_ring;
 static uint8_t g_hdr[SHMBIN_HEADER_LEN];
+/*
+ * Doble búfer: la ventana cerrada se copia aquí y se graba por partes (un
+ * bloque por tick) mientras la siguiente se llena en g_station. Su registro
+ * JSON sale cuando se sabe si quedó guardada.
+ */
+static station_t g_closing;
+static station_health_t g_closing_health;
+static uint8_t s_writing;
+static uint32_t s_ticks_seen;
 static int s_sd_last = -99;   /* último resultado anunciado, para no repetirlo */
 
 /* Abre la microSD. La secuencia sigue tras la última ventana guardada. */
@@ -43,7 +52,7 @@ static void storage_setup(void) {
     s_sd_last = SDRING_E_IO;
     return;
   }
-  int e = sdring_open(&g_ring, dev, STATION_ID, SDRING_MIN_SLOTS);
+  int e = sdring_open(&g_ring, dev, STATION_ID, SD_MIN_SLOTS);
   /* La secuencia nunca retrocede: una ventana no guardada no se reutiliza. */
   if (e == SDRING_OK && g_ring.next_seq > g_station.sequence) g_station.sequence = g_ring.next_seq;
   if (e == s_sd_last) return;
@@ -57,19 +66,56 @@ static void storage_setup(void) {
   }
 }
 
-/* Guarda la ventana en curso; devuelve 1 si quedó escrita. */
-static int storage_save(const station_health_t *h, char *ref, size_t cap) {
-  if (!g_ring.ok) return 0;
-  shmbin_header(&g_station, "ADXL355-" STATION_ID, h, g_hdr);
-  if (sdring_write(&g_ring, g_station.sequence, g_hdr, sizeof g_hdr,
-                   (const uint8_t *)g_station.samples, shmbin_data_len(&g_station)) != SDRING_OK) {
-    g_ring.ok = 0;   /* se reintenta en la ventana siguiente */
-    if (s_sd_last != SDRING_E_IO) banner("# microSD no acepta escrituras (STORAGE_FAULT)\n");
-    s_sd_last = SDRING_E_IO;
-    return 0;
+/* Emite el registro de la ventana copiada, diciendo si quedó en la microSD. */
+static void emit_closing(int stored) {
+  char ref[64];
+  if (stored) sdring_ref(&g_ring, g_closing.sequence, ref, sizeof ref);
+  g_closing_health.storage_ok = (uint8_t)stored;
+  size_t n = station_close_window(&g_closing, &g_closing_health, stored ? ref : 0, g_json, sizeof g_json);
+  service_write(g_json, n);
+}
+
+static void storage_failed(void) {
+  g_ring.ok = 0;   /* se reintenta en la ventana siguiente */
+  if (s_sd_last != SDRING_E_IO) banner("# microSD no acepta escrituras (STORAGE_FAULT)\n");
+  s_sd_last = SDRING_E_IO;
+}
+
+/* Un paso de la escritura en curso; como mucho un bloque. */
+static void storage_poll(void) {
+  if (!s_writing) return;
+  int e = sdring_poll(&g_ring);
+  if (e == SDRING_BUSY) return;
+  s_writing = 0;
+  if (e != SDRING_OK) storage_failed();
+  emit_closing(e == SDRING_OK);
+}
+
+/* La ventana se llenó: se copia, se sigue muestreando y se empieza a grabar. */
+static void window_full(const station_health_t *h) {
+  if (s_writing) {
+    /* La anterior lleva una ventana entera sin terminar: la tarjeta no responde. */
+    s_writing = 0;
+    storage_failed();
+    emit_closing(0);
   }
-  sdring_ref(&g_ring, g_station.sequence, ref, cap);
-  return 1;
+  memcpy(&g_closing, &g_station, sizeof g_closing);
+  g_closing_health = *h;
+  station_next(&g_station);
+  /* Si la tarjeta falló, se reintenta en cada ventana (abrirla son ~17 lecturas). */
+  if (!g_ring.ok) storage_setup();
+  if (!g_ring.ok) {
+    emit_closing(0);
+    return;
+  }
+  shmbin_header(&g_closing, "ADXL355-" STATION_ID, h, g_hdr);
+  if (sdring_begin(&g_ring, g_closing.sequence, g_hdr, sizeof g_hdr,
+                   (const uint8_t *)g_closing.samples, shmbin_data_len(&g_closing)) != SDRING_BUSY) {
+    storage_failed();
+    emit_closing(0);
+    return;
+  }
+  s_writing = 1;
 }
 
 static int adxl_read(uint8_t reg, uint8_t *dst, size_t n) {
@@ -136,9 +182,12 @@ void app_init(void) {
   s_check_at = 0;
   banner("# SHM " STATION_ID " firmware " FIRMWARE_VERSION " arrancando\n");
   s_sd_last = -99;
+  s_writing = 0;
   storage_setup();
   s_sensor_ok = adxl_setup();
   banner(s_sensor_ok ? "# ADXL355 identificado\n" : "# ADXL355 no responde: SENSOR_FAULT\n");
+  /* El muestreo empieza aquí: lo que tardó el arranque (abrir la microSD) no son huecos. */
+  s_ticks_seen = g_tick_flag;
 }
 
 int app_step(void) {
@@ -149,8 +198,15 @@ int app_step(void) {
     time_on_pps(&g_time, g_pps_ms);
   }
 
-  if (!g_tick_flag) return 0;
-  g_tick_flag = 0;
+  /*
+   * Un tick por llamada. Si se acumularon (algo tardó más de un periodo), los
+   * atrasados entran como huecos: leer ahora el sensor les pondría un valor
+   * que no es el de su instante. El ISR solo incrementa g_tick_flag.
+   */
+  uint32_t pending = g_tick_flag - s_ticks_seen;
+  if (pending == 0) return 0;
+  s_ticks_seen++;
+  int late = pending > 1;
   uint32_t now = board_millis();
 
   /* Si el sensor falló, se reintenta cada segundo sin parar el muestreo. */
@@ -165,7 +221,9 @@ int app_step(void) {
   }
 
   accel_sample_t a = { 0, { 0, 0, 0 } };
-  if (!s_sensor_ok || !adxl_sample(&a)) {
+  if (late) {
+    a.ok = 0;
+  } else if (!s_sensor_ok || !adxl_sample(&a)) {
     a.ok = 0;
     if (s_sensor_ok && !adxl_present()) s_sensor_ok = 0;
   }
@@ -177,12 +235,9 @@ int app_step(void) {
       .pwr_good_level = (uint8_t)pwr_good_level(),
       .comm_ok = 1,    /* el puerto de servicio no tiene enlace que perder */
     };
-    /* Si la tarjeta falló, se reintenta en cada ventana (abrirla son ~17 lecturas). */
-    if (!g_ring.ok) storage_setup();
-    char ref[64];
-    h.storage_ok = (uint8_t)storage_save(&h, ref, sizeof ref);
-    size_t n = station_close_window(&g_station, &h, h.storage_ok ? ref : 0, g_json, sizeof g_json);
-    service_write(g_json, n);
+    window_full(&h);
+  } else {
+    storage_poll();
   }
   watchdog_kick();
   return 1;

@@ -65,6 +65,9 @@ typedef struct {
   uint32_t sequence;
   int64_t window_start_utc_ms;
   time_quality_t window_tq;
+  /* CRC-32 de los datos, acumulado muestra a muestra: cerrar la ventana no
+   * cuesta calcularlo sobre 24 KB (a 64 MHz serían varios periodos de 5 ms). */
+  uint32_t crc_state;
 } station_t;
 
 void station_init(station_t *s, const char *station_id, int32_t lsb_per_g);
@@ -77,9 +80,16 @@ int station_add_sample(station_t *s, const accel_sample_t *a, const time_ref_t *
  */
 size_t station_close_window(station_t *s, const station_health_t *h, const char *samples_file, char *out, size_t cap);
 
+/* Pasa a la ventana siguiente sin emitir registro (la cerrada se copió antes). */
+void station_next(station_t *s);
+
 /* ---- Utilidades -------------------------------------------------------- */
 
 uint32_t crc32_ieee(const uint8_t *data, size_t len);
+/* CRC por partes: estado inicial 0xFFFFFFFF y, al final, ^ 0xFFFFFFFF. */
+uint32_t crc32_update(uint32_t state, const uint8_t *data, size_t len);
+/* CRC-32 de las muestras de la ventana en curso (= crc32_ieee sobre ellas). */
+uint32_t station_data_crc(const station_t *s);
 /* Convierte los 3 bytes del ADXL355 (20 bits, alineados a la izquierda). */
 int32_t adxl355_raw20(const uint8_t b[3]);
 

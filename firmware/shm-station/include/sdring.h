@@ -27,6 +27,11 @@ typedef struct {
   /* 0 si terminó bien. `buf` tiene n × 512 bytes. */
   int (*read)(void *ctx, uint32_t lba, uint8_t *buf, uint32_t n);
   int (*write)(void *ctx, uint32_t lba, const uint8_t *buf, uint32_t n);
+  /*
+   * Opcional: 1 si acepta otra escritura, 0 si sigue programando la anterior,
+   * <0 si falló. Sin él, el dispositivo siempre está listo (RAM, archivo).
+   */
+  int (*ready)(void *ctx);
   uint32_t blocks;   /* capacidad del dispositivo en bloques */
   void *ctx;
 } sdring_dev_t;
@@ -37,6 +42,12 @@ typedef struct {
   uint32_t next_seq;   /* secuencia que toca escribir */
   uint8_t ok;
   char station_id[33];
+  /* Escritura en curso (sdring_begin / sdring_poll). */
+  const uint8_t *w_hdr, *w_data;
+  size_t w_hdr_len, w_data_len;
+  uint32_t w_seq, w_block, w_blocks;
+  uint8_t w_busy;
+  uint8_t w_block_done_header;
 } sdring_t;
 
 typedef enum {
@@ -45,6 +56,7 @@ typedef enum {
   SDRING_E_SMALL = -2,     /* la tarjeta no da para SDRING_MIN_SLOTS */
   SDRING_E_OTHER = -3,     /* la tarjeta es de otra estación: no se toca */
   SDRING_E_TOO_BIG = -4,
+  SDRING_BUSY = 1,          /* escritura en curso: seguir llamando a sdring_poll */
 } sdring_err_t;
 
 /* Mínimo razonable: 7 días de ventanas de 10 s (diseño técnico, retención). */
@@ -58,7 +70,16 @@ typedef enum {
  */
 int sdring_open(sdring_t *r, const sdring_dev_t *dev, const char *station_id, uint32_t min_slots);
 
-/* Escribe una ventana (cabecera + datos) en la ranura de `seq`. */
+/*
+ * Escritura sin bloquear, para no perder muestras: sdring_begin la prepara y
+ * cada sdring_poll escribe como mucho UN bloque, y solo si la tarjeta está
+ * lista. Devuelve SDRING_BUSY mientras falte, SDRING_OK al terminar o un error.
+ * `hdr` y `data` deben seguir válidos hasta entonces.
+ */
+int sdring_begin(sdring_t *r, uint32_t seq, const uint8_t *hdr, size_t hdr_len, const uint8_t *data, size_t data_len);
+int sdring_poll(sdring_t *r);
+
+/* Lo mismo, esperando a que termine (arranque y pruebas). */
 int sdring_write(sdring_t *r, uint32_t seq, const uint8_t *hdr, size_t hdr_len, const uint8_t *data, size_t data_len);
 
 /* Secuencia guardada en una ranura, o -1 si la ranura no tiene cabecera válida. */

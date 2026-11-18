@@ -34,7 +34,21 @@ static int wr(void *ctx, uint32_t lba, const uint8_t *buf, uint32_t n) {
   return 0;
 }
 
-static const sdring_dev_t DEV = { rd, wr, BLOCKS, 0 };
+static const sdring_dev_t DEV = { .read = rd, .write = wr, .blocks = BLOCKS };
+
+/* Tarjeta «lenta»: tras cada escritura sigue ocupada 3 consultas. */
+static int busy_left;
+static int wr_slow(void *ctx, uint32_t lba, const uint8_t *buf, uint32_t n) {
+  if (busy_left > 0) return -1;            /* escribir con la tarjeta ocupada es un error */
+  busy_left = 3;
+  return wr(ctx, lba, buf, n);
+}
+static int ready_slow(void *ctx) {
+  (void)ctx;
+  if (busy_left > 0) { busy_left--; return 0; }
+  return 1;
+}
+static const sdring_dev_t SLOW = { .read = rd, .write = wr_slow, .ready = ready_slow, .blocks = BLOCKS };
 static station_t st;
 static int fails;
 
@@ -102,6 +116,28 @@ int main(int argc, char **argv) {
   memcpy(copia, card[0], sizeof copia);
   CHECK(sdring_open(&r, &DEV, "SD-V1-Q1", SLOTS) == SDRING_E_OTHER, "otra estación se rechaza");
   CHECK(memcmp(copia, card[0], sizeof copia) == 0, "y no se toca");
+
+  /* Sin bloquear: cada sdring_poll hace como mucho una escritura y nunca con la tarjeta ocupada. */
+  CHECK(sdring_open(&r, &SLOW, "SD-V2-M", SLOTS) == SDRING_OK && r.next_seq == 60, "abre la tarjeta lenta");
+  {
+    time_ref_t t;
+    time_init(&t);
+    station_init(&st, "SD-V2-M", ADXL355_LSB_PER_G_2G);
+    st.sequence = 60;
+    for (uint32_t i = 0; i < WINDOW_SAMPLES; i++) {
+      accel_sample_t a = { 1, { (int32_t)i, 0, 0 } };
+      station_add_sample(&st, &a, &t, 1000 + i * 5);
+    }
+    station_health_t h = { 1, 1, 1, 1 };
+    uint8_t hdr[SHMBIN_HEADER_LEN];
+    shmbin_header(&st, "ADXL355-SD-V2-M", &h, hdr);
+    int e = sdring_begin(&r, 60, hdr, sizeof hdr, (const uint8_t *)st.samples, shmbin_data_len(&st));
+    int polls = 0;
+    while (e == SDRING_BUSY && polls < 1000) { e = sdring_poll(&r); polls++; }
+    CHECK(e == SDRING_OK, "termina sin errores");
+    CHECK(polls >= 48 * 4, "respeta la tarjeta ocupada (48 bloques × 4 consultas)");
+    CHECK(slot_intact(60) && r.next_seq == 61, "ranura escrita y secuencia al día");
+  }
 
   char ref[64];
   sdring_open(&r, &DEV, "SD-V2-M", SLOTS);

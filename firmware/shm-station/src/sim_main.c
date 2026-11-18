@@ -10,7 +10,9 @@
  *
  * --sd monta una microSD simulada en un archivo de imagen (disperso): el
  * firmware guarda ahí cada ventana con el anillo de sdring.c. «sd@…» hace que
- * la tarjeta deje de aceptar escrituras en ese intervalo.
+ * la tarjeta deje de aceptar escrituras en ese intervalo. «atasco@t» deja el
+ * firmware sin atender 100 ms en el segundo t (20 ticks seguidos sin
+ * app_step): esas muestras deben salir como huecos, no inventadas.
  *
  * Con --realtime también lee órdenes por la entrada estándar, una por línea:
  *   sensor 1 | sensor 0 | pps 1 | pps 0 | tiempo 1 | tiempo 0 | impacto | salir
@@ -127,10 +129,12 @@ int main(int argc, char **argv) {
     rmc(start_epoch + t, !no_time);
     if (!no_pps) host_pps();
 
+    int stall = planned("atasco", t);
     for (unsigned k = 0; k < SAMPLE_RATE_HZ; k++) {
       /* El golpe dura 10 muestras (50 ms) a 3 g. */
       host_set_fixed_g(impact && k < 10, 0, 0, 3.0);
       host_tick();
+      if (stall && k < 20) continue;   /* el firmware no atiende: los ticks se acumulan */
       while (app_step()) {}
     }
     host_set_fixed_g(0, 0, 0, 0);

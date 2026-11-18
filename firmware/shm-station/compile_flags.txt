@@ -1,3 +1,6 @@
 -std=c11
 -Iinclude
+-I../../.tools/stm32cube/device
+-I../../.tools/stm32cube/core
+-DSTM32H743xx
 -DSTATION_ID="SD-V2-M"

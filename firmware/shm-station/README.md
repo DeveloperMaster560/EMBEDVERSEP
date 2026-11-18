@@ -62,11 +62,24 @@ ingeniería**. `src/shmbin.c` la escribe; `make host-test` genera
 `pruebas/ventana-ejemplo.bin`, con el que se prueban los lectores de la
 plataforma (`crudo.py`) y de la app (`raw-file.ts`).
 
-## microSD (anillo)
+## microSD (anillo + driver SDMMC1)
 
 `src/sdring.c` guarda cada ventana en un anillo sobre la tarjeta en crudo
-(FORMATO_BIN.md). Probado con `make ring-test` (cortes de energía, vueltas,
-tarjeta ajena) y en la placa simulada: `build/shm-sim señal.csv --sd
-tarjeta.img [--fault sd@25-45]`. **Falta el driver SDMMC1 del STM32H743**:
-hasta entonces `board_sd()` devuelve NULL en la placa real y la estación
-declara `STORAGE_FAULT`.
+(FORMATO_BIN.md); `src/sdmmc_stm32.c` es el driver SDMMC1 a nivel de registro
+(PLL2 desde el HSI → 50 MHz; 400 kHz para iniciar, 12,5 MHz y 4 bits para
+datos; FIFO por sondeo con control de flujo).
+
+- **Sin perder muestras:** la ventana cerrada se copia (doble búfer) y se graba
+  un bloque por tick, sin esperar a que la tarjeta programe; el CRC se acumula
+  muestra a muestra. Si alguna vez se atrasan ticks, entran como huecos (NaN y
+  `DATA_GAP`), nunca inventados ni borrados en silencio.
+- **Pruebas:** `make ring-test` (cortes de energía, vueltas, tarjeta ajena,
+  tarjeta lenta); placa simulada `build/shm-sim señal.csv --sd tarjeta.img
+  [--fault sd@25-45] [--fault atasco@3]`; y en Renode con tarjeta emulada:
+  `make renode-sd && python3 renode/probar-sd.py` (cada registro `sd:` tiene su
+  ventana en la tarjeta con el mismo CRC).
+- **Diferencias del modelo de Renode 1.16** con una tarjeta real, admitidas en
+  el driver y comentadas: no devuelve el patrón de CMD8 y se queda en estado
+  «data» tras leer un bloque.
+- **SIN PROBAR EN HARDWARE.** Si falla al iniciar, el puerto de servicio dice
+  en qué paso, con el comando, SDMMC_STA y la respuesta.
