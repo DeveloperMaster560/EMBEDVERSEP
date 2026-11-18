@@ -1,0 +1,214 @@
+GUIA DEL PC WINDOWS - EMBEDVERSE + PLATAFORMA SHM LA NOVENA
+============================================================
+Actualizada: 18/11/2026. Rama de trabajo: shm-novena-y-bloque-a-uts
+Carpeta del proyecto en este PC: C:\Users\PC\EMBEDVERSEP-shm
+
+Todas las ordenes van en "Simbolo del sistema" (cmd) salvo que se diga otra cosa.
+Cada orden va COMPLETA en UNA sola linea.
+
+
+------------------------------------------------------------
+0. RESUMEN RAPIDO (el dia a dia)
+------------------------------------------------------------
+Abrir Docker Desktop y esperar "Engine running". Luego:
+
+  cd C:\Users\PC\EMBEDVERSEP-shm
+  git pull
+  cd plataforma
+  powershell -ExecutionPolicy Bypass -File scripts\iniciar.ps1 demo
+  cd ..
+  npm run dev
+
+App:        http://localhost:5174   (el puerto lo dice Vite al arrancar)
+API:        http://127.0.0.1:8000/api/docs
+Grafana:    http://127.0.0.1:3000
+
+Para apagar al final del dia:
+  Ctrl+C en la ventana de "npm run dev"
+  cd C:\Users\PC\EMBEDVERSEP-shm\plataforma
+  docker compose --profile demo down
+
+("down" detiene los contenedores pero NO borra los datos guardados.)
+
+
+------------------------------------------------------------
+1. PROGRAMAS NECESARIOS (una sola vez)
+------------------------------------------------------------
+  - Git para Windows ............ https://git-scm.com/download/win
+  - Node.js LTS ................. https://nodejs.org
+  - Python 3.9 o posterior ...... https://www.python.org/downloads/windows/
+      (NO el de la Microsoft Store. Marcar "Add python.exe to PATH".)
+  - Docker Desktop con WSL 2 .... https://www.docker.com/products/docker-desktop/
+      Antes, en PowerShell COMO ADMINISTRADOR:  wsl --install
+      y reiniciar si lo pide.
+
+Comprobar:
+  git --version
+  node --version
+  py --version
+  docker --version
+  docker compose version
+  docker run --rm hello-world      (debe decir "Hello from Docker!")
+
+Si docker dice "failed to connect to the docker API ... dockerDesktopLinuxEngine"
+es que Docker Desktop no esta abierto o aun esta arrancando. Abrirlo y esperar.
+
+
+------------------------------------------------------------
+2. DESCARGAR EL PROYECTO (una sola vez)
+------------------------------------------------------------
+  cd C:\Users\PC
+  git clone -b shm-novena-y-bloque-a-uts https://github.com/DeveloperMaster560/EMBEDVERSEP.git EMBEDVERSEP-shm
+  cd EMBEDVERSEP-shm
+  npm install
+  powershell -ExecutionPolicy Bypass -File tools\setup_generator.ps1
+
+El ultimo paso crea tools\venv (Python del generador de edificios y puentes).
+Debe terminar con "Entorno listo en tools\venv".
+Los avisos "Cache entry deserialization failed" son inofensivos.
+
+OJO: la carpeta vieja C:\Users\PC\EMBEDVERSEP NO esta enlazada a la rama
+buena (no tiene la estacion SHM). Trabajar siempre en EMBEDVERSEP-shm.
+
+
+------------------------------------------------------------
+3. ARRANCAR LA APP
+------------------------------------------------------------
+  cd C:\Users\PC\EMBEDVERSEP-shm
+  npm run dev
+
+Abrir la direccion "Local:" que muestra (normalmente http://localhost:5174).
+Para cerrarla: Ctrl+C y responder S.
+
+Donde esta cada cosa:
+  - Edificacion / Puentes ...... generador 3D (usa tools\venv)
+  - Sistema embebido >
+      "Estacion SHM La Novena - STM32H743 (gemelo funcional)"
+
+Limitacion conocida en Windows: el recuadro "Firmware de la estacion en
+marcha" necesita compilador de C (cc/make) y no funciona aun en este PC.
+El resto del gemelo funcional (fallas, grafica, vehiculos) si funciona.
+
+
+------------------------------------------------------------
+4. ARRANCAR LA PLATAFORMA DE DATOS (Docker)
+------------------------------------------------------------
+  cd C:\Users\PC\EMBEDVERSEP-shm\plataforma
+  powershell -ExecutionPolicy Bypass -File scripts\iniciar.ps1 demo
+
+  - Con "demo" arranca tambien una ESTACION SIMULADA (SD-V2-M) que publica
+    un registro cada 10 s. SU SENAL ES SINTETICA: no es una medida del puente.
+  - Sin "demo" arrancan solo los servicios (para estaciones reales).
+  - La primera vez tarda (descarga imagenes y compila el firmware).
+
+Debe terminar con una tabla de 6 contenedores:
+  api, broker, db, grafana, ingesta, pasarela-sim
+
+Medio minuto despues, comprobar que siguen estables:
+  docker compose ps
+La columna STATUS debe mostrar tiempos que CRECEN ("Up 2 minutes").
+Si sale "Restarting" o siempre "Up 2 seconds", ver los registros:
+  docker compose logs --tail 40 api
+  docker compose logs --tail 40 ingesta
+  docker compose logs --tail 20 pasarela-sim
+
+
+------------------------------------------------------------
+5. COMPROBAR QUE LOS DATOS LLEGAN (punta a punta)
+------------------------------------------------------------
+Desde la carpeta plataforma:
+
+  docker compose exec db psql -U shm -d shm -c "SELECT station_id, count(*), max(timestamp_utc) FROM ventanas GROUP BY 1;"
+  docker compose exec db psql -U shm -d shm -c "SELECT count(*) FROM rechazos;"
+
+Correcto si:
+  - la primera muestra SD-V2-M y el numero crece al repetirla (1 cada 10 s);
+  - la segunda da 0.
+
+Grafana: http://127.0.0.1:3000
+  usuario: admin
+  contrasena: la linea GRAFANA_ADMIN_PASSWORD del archivo plataforma\.env
+  Abrir el tablero "SHM La Novena - operacion" (menu Dashboards).
+
+
+------------------------------------------------------------
+6. CREDENCIALES PARA USAR LA API
+------------------------------------------------------------
+Desde la carpeta plataforma:
+
+  docker compose exec api python -m shm_plataforma.gestion token --rol lectura --nombre "Consulta UTS"
+
+El token se muestra UNA sola vez: copiarlo en un lugar seguro.
+Roles: lectura < operador < ingeniero; "estacion" solo sube sus crudos.
+
+Probar (en cmd, con curl):
+  curl -H "Authorization: Bearer EL_TOKEN" http://127.0.0.1:8000/api/v1/estaciones
+
+O en http://127.0.0.1:8000/api/docs con el boton "Authorize".
+
+
+------------------------------------------------------------
+7. ACTUALIZAR CUANDO HAYA CAMBIOS NUEVOS
+------------------------------------------------------------
+  cd C:\Users\PC\EMBEDVERSEP-shm
+  git pull
+  npm install
+  cd plataforma
+  powershell -ExecutionPolicy Bypass -File scripts\iniciar.ps1 demo
+
+(iniciar reconstruye las imagenes si cambio el codigo de la plataforma.)
+
+
+------------------------------------------------------------
+8. REGLAS DE SEGURIDAD
+------------------------------------------------------------
+  - plataforma\.env y plataforma\secretos\ tienen contrasenas. NO se suben a
+    GitHub (ya estan excluidos), NO se mandan por WhatsApp ni correo.
+  - Los puertos escuchan solo en 127.0.0.1 (este PC). Para verlos desde el
+    Mac por Tailscale: en plataforma\.env poner
+        PUERTOS_IP=100.x.y.z      (la IP que da "tailscale ip -4")
+    y volver a ejecutar iniciar. NUNCA poner 0.0.0.0.
+  - No hacer "git add ." a ciegas: revisar "git status" antes de un commit.
+
+
+------------------------------------------------------------
+9. PROBLEMAS YA VISTOS Y SU SOLUCION
+------------------------------------------------------------
+"No module named 'shapely'" al generar un modelo
+  -> falta tools\venv. Ejecutar:
+     powershell -ExecutionPolicy Bypass -File tools\setup_generator.ps1
+     y reiniciar npm run dev.
+
+"No se encontro Python 3"
+  -> instalar Python de python.org (no de la Store) con "Add to PATH".
+
+git clone / checkout: "invalid path 'C:\Users\PC\Downloads\...inventory.yaml'"
+  -> ya corregido en la rama (commit 8b73e5d). Borrar el clon fallido y
+     clonar de nuevo:  rmdir /s /q EMBEDVERSEP-shm   y repetir el paso 2.
+
+"pull access denied for shm-novena/servicios"
+  -> ya corregido (commit 2f3f33f). Hacer git pull y volver a iniciar.
+
+"El sistema no puede encontrar la ruta especificada" con cd
+  -> revisar la ortografia (plataforma, no platafroma) y no empezar la ruta
+     con \ (eso va a la raiz del disco).
+
+"git clone" sin repositorio / "https: no se reconoce"
+  -> la orden y la URL deben ir en la MISMA linea.
+
+Un puerto ocupado (1883, 3000 u 8000)
+  -> otro programa lo usa. Ver cual con:  netstat -ano | findstr :8000
+     Los contenedores n8n, mailpit y vision de este PC NO chocan.
+
+
+------------------------------------------------------------
+10. LO QUE FALTA (estado al 18/11/2026)
+------------------------------------------------------------
+  [hecho]     Plataforma arrancada con Docker en este PC
+  [pendiente] Confirmar el paso 5 (datos llegando a la base)
+  [siguiente] Conectar la app con la plataforma (ver datos reales en la app)
+  [pendiente] Driver de microSD y formato del archivo de senal cruda
+  [pendiente] Firmware en Windows (panel "Firmware en marcha")
+  [externo]   Umbrales y ubicaciones: ingeniero estructural
+  [externo]   Hoja de datos ADXL355 y manual UM2407
+  [externo]   Cambiar las contrasenas del prototipo ESP32
