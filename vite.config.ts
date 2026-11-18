@@ -5,6 +5,7 @@ import { createArduinoCompileMiddleware } from './server/arduinoCompiler.js'
 import { createBridgeGeneratorMiddleware } from './server/bridgeGenerator.js'
 import { createBuildingGeneratorMiddleware } from './server/buildingGenerator.js'
 import { createPlataformaMiddleware } from './server/plataformaBridge.js'
+import { createPlacasMiddleware } from './server/placas.js'
 import { createRenodeBridgeMiddleware } from './server/renodeBridge.js'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
@@ -20,6 +21,7 @@ export default defineConfig(() => ({
       name: 'embedverse-backend-apis',
       configureServer(server) {
         server.middlewares.use('/api/compile', createArduinoCompileMiddleware(projectRoot))
+        server.middlewares.use('/api/placas', createPlacasMiddleware(projectRoot))
         server.middlewares.use('/api/building/generate', createBuildingGeneratorMiddleware(projectRoot))
         server.middlewares.use('/api/bridge/generate', createBridgeGeneratorMiddleware(projectRoot))
         server.middlewares.use('/api/shm-renode', createRenodeBridgeMiddleware(projectRoot))
@@ -27,6 +29,7 @@ export default defineConfig(() => ({
       },
       configurePreviewServer(server) {
         server.middlewares.use('/api/compile', createArduinoCompileMiddleware(projectRoot))
+        server.middlewares.use('/api/placas', createPlacasMiddleware(projectRoot))
         server.middlewares.use('/api/building/generate', createBuildingGeneratorMiddleware(projectRoot))
         server.middlewares.use('/api/bridge/generate', createBridgeGeneratorMiddleware(projectRoot))
         server.middlewares.use('/api/plataforma', createPlataformaMiddleware(projectRoot))

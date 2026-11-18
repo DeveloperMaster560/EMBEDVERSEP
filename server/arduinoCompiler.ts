@@ -4,11 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Connect } from 'vite';
+import { buscarPlaca, comoInstalar, nucleoInstalado, PLACAS, type Placa } from './placas.js';
 
 const maxRequestBytes = 2 * 1024 * 1024;
 const maxProjectBytes = 1024 * 1024;
 const maxFiles = 40;
 const maxCompileTimeMs = 120_000;
+/** ESP32, STM32 y RP2040 compilan su núcleo entero la primera vez: varios minutos. */
+const maxSlowCompileTimeMs = 600_000;
 const maxOutputBytes = 512 * 1024;
 const allowedExtensions = new Set(['.ino', '.cpp', '.c', '.h', '.hpp', '.s']);
 
@@ -48,9 +51,11 @@ export function validateCompileRequest(value: unknown): CompileRequest {
   }
 
   const request = value as Partial<CompileRequest>;
-  if (request.boardId !== 'arduino-uno') {
+  const placa = buscarPlaca(request.boardId);
+  if (!placa) {
     throw new CompileRequestError(
-      'Este compilador solo está configurado para Arduino Uno. El core ESP32 no está instalado.',
+      `Placa desconocida: ${String(request.boardId)}. Las placas admitidas están en server/placas.json `
+      + `(${PLACAS.length}); para añadir otra, ver la guía de placas y bibliotecas.`,
       422,
       'UNSUPPORTED_BOARD',
     );
@@ -105,7 +110,7 @@ export function validateCompileRequest(value: unknown): CompileRequest {
     );
   }
 
-  return { boardId: 'arduino-uno', files };
+  return { boardId: placa.id, files };
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
@@ -242,6 +247,8 @@ export async function hasUsableToolchain(
 }
 
 async function compileProject(project: CompileRequest, rootDirectory: string): Promise<CompileResponse> {
+  const placa = buscarPlaca(project.boardId) as Placa;   // validateCompileRequest ya la comprobó
+  const esAvr = placa.paquete === 'arduino:avr';
   const toolDirectory = path.join(rootDirectory, '.tools');
   const executable = path.join(toolDirectory, 'arduino-cli', process.platform === 'win32' ? 'arduino-cli.exe' : 'arduino-cli');
   const downloadsDirectory = path.join(toolDirectory, 'arduino-downloads');
@@ -258,11 +265,15 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
   const homeDirectory = path.join(toolDirectory, 'arduino-home');
 
   let dataDirectory: string | null = null;
-  for (const candidate of dataDirectoryCandidates(rootDirectory)) {
-    if (await usableCore(candidate, process.platform)) {
-      dataDirectory = candidate;
-      break;
+  if (esAvr) {
+    for (const candidate of dataDirectoryCandidates(rootDirectory)) {
+      if (await usableCore(candidate, process.platform)) {
+        dataDirectory = candidate;
+        break;
+      }
     }
+  } else {
+    dataDirectory = await nucleoInstalado(rootDirectory, placa);
   }
 
   try {
@@ -274,6 +285,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       503,
       'TOOLCHAIN_NOT_INSTALLED',
     );
+  }
+  if (dataDirectory === null && !esAvr) {
+    throw new CompileRequestError(comoInstalar(placa), 503, 'CORE_NOT_INSTALLED');
   }
   if (dataDirectory === null) {
     throw new CompileRequestError(
@@ -324,7 +338,7 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       '--config-file',
       configFile,
       '--fqbn',
-      'arduino:avr:uno',
+      placa.fqbn,
       '--output-dir',
       outputDirectory,
       sketchDirectory,
@@ -353,10 +367,11 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       let timedOut = false;
       let overflow = false;
       let settled = false;
+      const limiteMs = placa.lento ? maxSlowCompileTimeMs : maxCompileTimeMs;
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill();
-      }, maxCompileTimeMs);
+      }, limiteMs);
 
       const collect = (chunk: Buffer) => {
         outputBytes += chunk.length;
@@ -381,7 +396,7 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
         settled = true;
         clearTimeout(timer);
         if (timedOut) {
-          reject(new CompileRequestError('La compilación excedió el límite de 120 segundos.', 408, 'COMPILE_TIMEOUT'));
+          reject(new CompileRequestError(`La compilación excedió el límite de ${limiteMs / 1000} segundos.`, 408, 'COMPILE_TIMEOUT'));
           return;
         }
         if (overflow) {
@@ -389,16 +404,20 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
           return;
         }
         if (exitCode !== 0) {
-          resolve({ success: false, board: 'Arduino Uno R3', output, code: 'COMPILE_FAILED' });
+          resolve({ success: false, board: placa.nombre, output, code: 'COMPILE_FAILED' });
           return;
         }
 
         void readdir(outputDirectory)
           .then(async (names) => {
-            const hexName = names.find((name) => name.endsWith('.ino.hex') && !name.includes('bootloader'));
+            // Lo que se graba en la placa: .hex (AVR, SAMD, STM32), .bin (ESP32,
+            // ESP8266) o .uf2 (RP2040). Sin el bootloader ni las particiones.
+            const hexName = ['.ino.hex', '.ino.uf2', '.ino.bin']
+              .map((ext) => names.find((name) => name.endsWith(ext) && !name.includes('bootloader') && !name.includes('partitions') && !name.includes('merged')))
+              .find(Boolean);
             return {
               success: true,
-              board: 'Arduino Uno R3',
+              board: placa.nombre,
               output,
               artifacts: await Promise.all(
                 names.map(async (name) => ({

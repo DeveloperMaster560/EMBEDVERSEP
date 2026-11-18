@@ -1,0 +1,148 @@
+{
+ "_nota": "Bibliotecas por grupo. Cada nombre se comprobó el 2026-11-18 contra el índice oficial (downloads.arduino.cc/libraries/library_index.json.gz): es el nombre exacto que acepta «arduino-cli lib install». Las dependencias se instalan solas.",
+ "grupos": {
+  "base": [
+   "Adafruit Unified Sensor",
+   "Adafruit BusIO",
+   "ArduinoJson",
+   "PubSubClient"
+  ],
+  "vibracion": [
+   "Adafruit MPU6050",
+   "MPU6050",
+   "Adafruit ADXL345",
+   "ADXL345_WE",
+   "Adafruit ADXL343",
+   "Adafruit ADXL375",
+   "Adafruit LIS3DH",
+   "Adafruit LSM6DS",
+   "Adafruit MMA8451 Library",
+   "SparkFun MMA8452Q Accelerometer",
+   "Adafruit BNO055",
+   "Adafruit BNO08x",
+   "Adafruit ICM20X",
+   "SparkFun 9DoF IMU Breakout - ICM 20948 - Arduino Library",
+   "MPU9250",
+   "Arduino_LSM6DS3",
+   "Arduino_BMI270_BMM150",
+   "PL ADXL355"
+  ],
+  "inclinacion": [
+   "SCL3300",
+   "Adafruit LIS3MDL"
+  ],
+  "ambiente": [
+   "DHT sensor library",
+   "DHT sensor library for ESPx",
+   "Adafruit BME280 Library",
+   "Adafruit BMP280 Library",
+   "Adafruit BME680 Library",
+   "Adafruit SHT31 Library",
+   "Adafruit SHT4x Library",
+   "Adafruit AHTX0",
+   "Adafruit HTU21DF Library",
+   "Adafruit Si7021 Library",
+   "Adafruit MCP9808 Library",
+   "Adafruit TMP117",
+   "OneWire",
+   "DallasTemperature",
+   "SparkFun Weather Meter Kit Arduino Library"
+  ],
+  "temperatura_industrial": [
+   "Adafruit MAX31865 library",
+   "MAX6675 library",
+   "Adafruit MAX31855 library",
+   "Adafruit MLX90614 Library"
+  ],
+  "luz": [
+   "BH1750",
+   "Adafruit TSL2591 Library",
+   "Adafruit TSL2561",
+   "Adafruit VEML7700 Library",
+   "Adafruit VEML6070 Library"
+  ],
+  "suelo_agua": [
+   "Adafruit seesaw Library",
+   "DFRobot_PH",
+   "CQRobotTDS"
+  ],
+  "distancia": [
+   "NewPing",
+   "VL53L0X",
+   "Adafruit_VL53L0X",
+   "VL53L1X",
+   "Adafruit VL53L1X",
+   "SparkFun VL53L1X 4m Laser Distance Sensor",
+   "TFMPlus",
+   "TFLI2C"
+  ],
+  "aire_gases": [
+   "MQUnifiedsensor",
+   "Adafruit SGP30 Sensor",
+   "SparkFun SGP40 Arduino Library",
+   "Adafruit CCS811 Library",
+   "Sensirion I2C SCD4x",
+   "SparkFun SCD30 Arduino Library",
+   "Adafruit SCD30",
+   "Adafruit PM25 AQI Sensor",
+   "Nova Fitness Sds dust sensors library",
+   "SparkFun Indoor Air Quality Sensor - ENS160"
+  ],
+  "fuerza_deformacion": [
+   "HX711 Arduino Library",
+   "HX711",
+   "HX711_ADC",
+   "Adafruit NAU7802 Library",
+   "SparkFun Qwiic Scale NAU7802 Arduino Library"
+  ],
+  "adc_precision": [
+   "Adafruit ADS1X15",
+   "ADS1X15",
+   "ADS1220_WE",
+   "ProtoCentral ADS1220 24-bit ADC Library",
+   "ProtoCentral ADS1262 32-bit precision ADC Library",
+   "ADS1256",
+   "Adafruit MCP3008"
+  ],
+  "energia": [
+   "Adafruit INA219",
+   "Adafruit INA260 Library",
+   "INA226",
+   "EmonLib",
+   "PZEM004Tv30"
+  ],
+  "tiempo_posicion": [
+   "TinyGPSPlus",
+   "Adafruit GPS Library",
+   "SparkFun u-blox GNSS v3",
+   "RTClib"
+  ],
+  "comunicacion": [
+   "LoRa",
+   "RadioLib",
+   "MCCI LoRaWAN LMIC library",
+   "ModbusMaster",
+   "ArduinoModbus",
+   "ArduinoRS485",
+   "WiFiManager",
+   "Ethernet",
+   "ArduinoMqttClient",
+   "ArduinoHttpClient"
+  ],
+  "almacenamiento": [
+   "SD",
+   "SdFat"
+  ],
+  "pantallas": [
+   "Adafruit GFX Library",
+   "Adafruit SSD1306",
+   "U8g2",
+   "LiquidCrystal I2C"
+  ],
+  "actuadores": [
+   "Servo",
+   "ESP32Servo",
+   "AccelStepper"
+  ]
+ }
+}

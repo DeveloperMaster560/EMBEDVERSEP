@@ -1267,6 +1267,33 @@ function DigitalTwinPage({
   );
 }
 
+/** Placa de la lista del compilador (server/placas.json), con si su núcleo está instalado aquí. */
+interface PlacaCompilador {
+  id: string;
+  nombre: string;
+  familia: string;
+  paquete: string;
+  descarga_mb: number | null;
+  instalada: boolean;
+  notas: string | null;
+}
+
+function leerPlacaGuardada(projectId: string, porDefecto: string): string {
+  try {
+    return localStorage.getItem(`embedverse.placa.${projectId}`) ?? porDefecto;
+  } catch {
+    return porDefecto;
+  }
+}
+
+function guardarPlaca(projectId: string, placa: string): void {
+  try {
+    localStorage.setItem(`embedverse.placa.${projectId}`, placa);
+  } catch {
+    // sin almacenamiento: se elige de nuevo la próxima vez
+  }
+}
+
 interface CompileResult {
   success: boolean;
   board: string;
@@ -1300,6 +1327,23 @@ function EditorPage({
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [compileOutput, setCompileOutput] = useState('');
   const [firmwareDownload, setFirmwareDownload] = useState<{ name: string; url: string } | null>(null);
+  const [placas, setPlacas] = useState<PlacaCompilador[] | null>(null);
+  const [placaId, setPlacaId] = useState(() => leerPlacaGuardada(project.id, project.boardId));
+  const placa = placas?.find((p) => p.id === placaId);
+
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/placas')
+      .then((r) => (r.ok ? r.json() as Promise<{ placas: PlacaCompilador[] }> : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (vivo) setPlacas(d.placas); })
+      .catch(() => { if (vivo) setPlacas([]); });
+    return () => { vivo = false; };
+  }, []);
+
+  const elegirPlaca = (id: string) => {
+    setPlacaId(id);
+    guardarPlaca(project.id, id);
+  };
 
   useEffect(() => () => {
     if (firmwareDownload) URL.revokeObjectURL(firmwareDownload.url);
@@ -1313,7 +1357,7 @@ function EditorPage({
       const response = await fetch('/api/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardId: project.boardId, files: project.files.map(({ path, content }) => ({ path, content })) }),
+        body: JSON.stringify({ boardId: placaId, files: project.files.map(({ path, content }) => ({ path, content })) }),
       });
       const result = await response.json() as CompileResult;
       if (!response.ok || !result.success) {
@@ -1324,12 +1368,13 @@ function EditorPage({
       const artifacts = result.artifacts?.map((artifact) => `${artifact.name} (${artifact.bytes.toLocaleString()} bytes)`).join('\n');
       setCompileState('success');
       setCompileOutput([result.output.trim(), artifacts ? `Artefactos generados:\n${artifacts}` : 'Compilación correcta.'].filter(Boolean).join('\n'));
-      const hex = result.artifacts?.find((artifact) => artifact.name.endsWith('.ino.hex') && artifact.downloadBase64);
+      const hex = result.artifacts?.find((artifact) => /\.ino\.(hex|bin|uf2)$/.test(artifact.name) && artifact.downloadBase64);
       if (hex?.downloadBase64) {
+        const extension = hex.name.split('.').pop() ?? 'hex';
         const binary = atob(hex.downloadBase64);
         const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
         setFirmwareDownload({
-          name: `${project.name.replace(/[^a-zA-Z0-9_-]+/g, '-')}.hex`,
+          name: `${project.name.replace(/[^a-zA-Z0-9_-]+/g, '-')}.${extension}`,
           url: URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' })),
         });
       }
@@ -1377,7 +1422,7 @@ function EditorPage({
           ) : <div className="editor-empty">Selecciona un archivo para editar.</div>}
           <div className={`terminal-panel terminal-${compileState}`}><div className="terminal-heading"><span><TerminalSquare size={14} /> CONSOLA · {compileState === 'compiling' ? 'COMPILANDO' : compileState === 'success' ? 'COMPILACIÓN CORRECTA' : compileState === 'error' ? 'COMPILACIÓN FALLIDA' : 'LISTA'}</span><span className={`terminal-idle ${compileState}`}>{compileState === 'compiling' ? 'EN CURSO' : compileState === 'error' ? 'ERROR' : compileState === 'success' ? 'OK' : 'ARDUINO CLI'}</span></div><pre className="terminal-content compile-output">{compileOutput || 'Listo. Compila el proyecto para verificar el firmware real; la ejecución simulada aún no está disponible.'}</pre>{firmwareDownload && <a className="firmware-download" href={firmwareDownload.url} download={firmwareDownload.name}><Save size={13} /> Descargar firmware HEX</a>}</div>
         </section>
-        <aside className="properties-panel"><div className="properties-heading"><Settings2 size={15} /> PROPIEDADES</div><div className="property-group"><span className="property-label">PROYECTO</span><strong>{project.name}</strong><small>Proyecto local</small></div><div className="property-group"><span className="property-label">MICROCONTROLADOR</span><strong><Cpu size={14} /> {boardLabels[project.boardId]}</strong><small>{project.boardId === 'arduino-uno' ? 'Arduino CLI + core AVR disponible.' : 'El core ESP32 no está instalado.'}</small></div><div className="property-group"><span className="property-label">ARCHIVOS</span><strong>{project.files.length} archivo{project.files.length === 1 ? '' : 's'}</strong><small>{project.files.map((file) => file.path.split('.').pop()?.toUpperCase()).filter(Boolean).join(' · ')}</small></div><div className="property-warning"><AlertCircle size={15} /><span>Compilar verifica el firmware, pero todavía no ejecuta una simulación.</span></div></aside>
+        <aside className="properties-panel"><div className="properties-heading"><Settings2 size={15} /> PROPIEDADES</div><div className="property-group"><span className="property-label">PROYECTO</span><strong>{project.name}</strong><small>Proyecto local</small></div><div className="property-group"><span className="property-label">MICROCONTROLADOR</span><strong><Cpu size={14} /> {boardLabels[project.boardId]}</strong><label className="property-label" htmlFor="placa-compilar">COMPILAR PARA</label><select id="placa-compilar" value={placaId} onChange={(e) => elegirPlaca(e.target.value)}>{placas === null ? <option value={placaId}>{placaId}</option> : [...new Set(placas.map((p) => p.familia))].map((familia) => <optgroup key={familia} label={familia}>{placas.filter((p) => p.familia === familia).map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.instalada ? '' : ' — sin instalar'}</option>)}</optgroup>)}</select><small>{placas === null ? 'Consultando placas…' : placas.length === 0 ? 'No se pudo leer la lista de placas del compilador.' : !placa ? 'Esta placa no está en la lista del compilador.' : placa.instalada ? `Núcleo ${placa.paquete} instalado.` : `Falta el núcleo ${placa.paquete}${placa.descarga_mb ? ` (~${placa.descarga_mb} MB)` : ''}: ver la guía de placas.`}{placa?.notas ? ` ${placa.notas}` : ''}</small></div><div className="property-group"><span className="property-label">ARCHIVOS</span><strong>{project.files.length} archivo{project.files.length === 1 ? '' : 's'}</strong><small>{project.files.map((file) => file.path.split('.').pop()?.toUpperCase()).filter(Boolean).join(' · ')}</small></div><div className="property-warning"><AlertCircle size={15} /><span>Compilar verifica el firmware, pero todavía no ejecuta una simulación.</span></div></aside>
       </div>
       <div className="ide-statusbar"><span><span className="status-dot" /> {boardLabels[project.boardId]}</span><span>UTF-8</span><span>Arduino Framework · no configurado</span><span>{activeFile?.content.split('\n').length ?? 0} líneas</span></div>
     </div>

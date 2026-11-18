@@ -14,9 +14,14 @@ describe('Arduino compile request validation', () => {
     });
   });
 
-  it('rejects boards whose compiler core is not installed', () => {
-    expect(() => validateCompileRequest({ boardId: 'esp32-devkit', files: [{ path: 'main.ino', content: '' }] }))
-      .toThrowError(CompileRequestError);
+  it('rejects boards that are not in the registry', () => {
+    expect(() => validateCompileRequest({ boardId: 'pic16f877a', files: [{ path: 'main.ino', content: '' }] }))
+      .toThrowError(/Placa desconocida/);
+  });
+
+  it('accepts any registry board; whether its core is installed is checked when compiling', () => {
+    expect(validateCompileRequest({ boardId: 'esp32-devkit', files: [{ path: 'main.ino', content: '' }] }).boardId)
+      .toBe('esp32-devkit');
   });
 
   it.each(['../outside.ino', 'folder/../../outside.cpp', 'C:\\outside.ino', 'script.exe'])(
