@@ -136,10 +136,17 @@ Grafana: http://127.0.0.1:3000
 ------------------------------------------------------------
 Desde la carpeta plataforma:
 
-  docker compose exec api python -m shm_plataforma.gestion token --rol lectura --nombre "Consulta UTS"
+  docker compose exec api python -m shm_plataforma.gestion token --rol lectura --proyecto novena --nombre "Consulta UTS"
 
 El token se muestra UNA sola vez: copiarlo en un lugar seguro.
-Roles: lectura < operador < ingeniero; "estacion" solo sube sus crudos.
+Cada token ve SOLO su proyecto (--proyecto). Roles: lectura < operador <
+ingeniero; "estacion" solo sube sus crudos; "admin" (sin --proyecto) ve todos
+los proyectos pero no puede elevar avisos a E3/E4.
+
+Varios proyectos en el mismo servidor: ver proyectos\LEEME.md. Un proyecto
+nuevo = una carpeta proyectos\<id>\proyecto.json + volver a ejecutar iniciar.
+Si algo de un proyecto esta mal, NO arranca nada; el motivo sale con:
+  docker compose logs preparar-db
 
 Probar (en cmd, con curl):
   curl -H "Authorization: Bearer EL_TOKEN" http://127.0.0.1:8000/api/v1/estaciones

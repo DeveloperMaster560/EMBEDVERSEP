@@ -98,23 +98,39 @@ class RepositorioPg:
         return {r["station_id"]: (r["ultimo_visto"], r["periodo_s"]) for r in rows}
 
     # ── API ──
+    # `proyecto` es el alcance de la credencial: un proyecto_id, o None para el
+    # administrador del servidor (todos). Ninguna consulta de la API se hace sin él.
     def credencial(self, token: str) -> Optional[dict]:
         return self.c.execute(
-            "SELECT id, nombre, rol, station_id FROM credenciales WHERE token_sha256 = %s AND activa",
+            "SELECT id, nombre, rol, station_id, proyecto_id FROM credenciales WHERE token_sha256 = %s AND activa",
             (token_hash(token),)).fetchone()
 
-    def auditar(self, quien: str, accion: str, objeto: str, detalle: dict) -> None:
-        self.c.execute("INSERT INTO auditoria (quien, accion, objeto, detalle) VALUES (%s,%s,%s,%s)",
-                       (quien, accion, objeto, Jsonb(detalle)))
+    def auditar(self, quien: str, accion: str, objeto: str, detalle: dict, proyecto: Optional[str] = None) -> None:
+        self.c.execute("INSERT INTO auditoria (quien, accion, objeto, detalle, proyecto_id) VALUES (%s,%s,%s,%s,%s)",
+                       (quien, accion, objeto, Jsonb(detalle), proyecto))
 
     def salud(self) -> bool:
         return self.c.execute("SELECT 1 AS ok").fetchone()["ok"] == 1
 
-    def estaciones(self) -> list[dict]:
+    def proyectos(self, proyecto: Optional[str]) -> list[dict]:
         return self.c.execute(
-            """SELECT e.station_id, e.tipo, e.nombre, e.ubicacion, e.simulada, e.activa, e.periodo_s,
+            """SELECT p.proyecto_id, p.nombre, p.tipo_estructura, p.institucion, p.entidad_responsable,
+                      p.responsable_estructural, p.activo, p.actualizado,
+                      (SELECT count(*) FROM estaciones e WHERE e.proyecto_id = p.proyecto_id AND e.activa) AS estaciones_activas
+               FROM proyectos p WHERE %(p)s::text IS NULL OR p.proyecto_id = %(p)s ORDER BY p.proyecto_id""",
+            {"p": proyecto}).fetchall()
+
+    def proyecto_de_estacion(self, station_id: str) -> Optional[str]:
+        r = self.c.execute("SELECT proyecto_id FROM estaciones WHERE station_id = %s", (station_id,)).fetchone()
+        return r["proyecto_id"] if r else None
+
+    def estaciones(self, proyecto: Optional[str]) -> list[dict]:
+        return self.c.execute(
+            """SELECT e.proyecto_id, e.station_id, e.tipo, e.nombre, e.ubicacion, e.simulada, e.activa, e.periodo_s,
                       s.ultimo_visto, s.estado
-               FROM estaciones e LEFT JOIN estado_estacion s USING (station_id) ORDER BY e.station_id""").fetchall()
+               FROM estaciones e LEFT JOIN estado_estacion s USING (station_id)
+               WHERE %(p)s::text IS NULL OR e.proyecto_id = %(p)s
+               ORDER BY e.proyecto_id, e.station_id""", {"p": proyecto}).fetchall()
 
     def ventanas(self, station_id: str, desde: datetime, hasta: datetime, limite: int, completo: bool) -> list[dict]:
         cols = "*" if completo else ("station_id, inicio, duracion_s, recibido, calidad_tiempo, estados, crc32, "
@@ -128,12 +144,17 @@ class RepositorioPg:
             "SELECT * FROM disponibilidad_horaria WHERE station_id = %s AND hora >= %s ORDER BY hora",
             (station_id, desde)).fetchall()
 
-    def avisos(self, solo_abiertos: bool, limite: int) -> list[dict]:
-        filtro = "WHERE abierto" if solo_abiertos else ""
-        return self.c.execute(f"SELECT * FROM avisos {filtro} ORDER BY creado DESC LIMIT %s", (limite,)).fetchall()
+    def avisos(self, solo_abiertos: bool, limite: int, proyecto: Optional[str]) -> list[dict]:
+        filtro = "AND a.abierto" if solo_abiertos else ""
+        return self.c.execute(
+            f"""SELECT a.*, e.proyecto_id FROM avisos a JOIN estaciones e USING (station_id)
+                WHERE (%(p)s::text IS NULL OR e.proyecto_id = %(p)s) {filtro}
+                ORDER BY a.creado DESC LIMIT %(l)s""", {"p": proyecto, "l": limite}).fetchall()
 
     def aviso(self, aviso_id: int) -> Optional[dict]:
-        return self.c.execute("SELECT * FROM avisos WHERE id = %s", (aviso_id,)).fetchone()
+        return self.c.execute(
+            "SELECT a.*, e.proyecto_id FROM avisos a JOIN estaciones e USING (station_id) WHERE a.id = %s",
+            (aviso_id,)).fetchone()
 
     def reconocer_aviso(self, aviso_id: int, quien: str, nota: str) -> None:
         self.c.execute(
@@ -159,6 +180,79 @@ class RepositorioPg:
     def ficha(self, station_id: str, nombre: str) -> Optional[dict]:
         return self.c.execute(
             "SELECT * FROM archivos_crudos WHERE station_id = %s AND nombre = %s", (station_id, nombre)).fetchone()
+
+    # ── proyectos ──
+    def importar_proyecto(self, pr) -> dict:
+        """Lleva un proyecto.json a la base, en una sola transacción.
+
+        No roba estaciones ni sensores de otro proyecto: si un identificador ya
+        pertenece a otro, se rechaza todo el archivo. Lo que sale del archivo
+        se desactiva; nunca se borran datos medidos.
+        """
+        from .proyecto import ESTADOS_CON_ALTA, ProyectoInvalido
+
+        d = pr.datos
+        pid = d["proyecto_id"]
+        with self.c.transaction():
+            ajenas = self.c.execute(
+                "SELECT station_id, proyecto_id FROM estaciones WHERE station_id = ANY(%s::text[]) AND proyecto_id <> %s",
+                ([e["id"] for e in d["estaciones"]], pid)).fetchall()
+            sensores_ids = [s["id"] for e in d["estaciones"] for s in e.get("sensores", [])]
+            ajenos = self.c.execute(
+                """SELECT s.sensor_id, e.proyecto_id FROM sensores s JOIN estaciones e USING (station_id)
+                   WHERE s.sensor_id = ANY(%s::text[]) AND e.proyecto_id <> %s""", (sensores_ids, pid)).fetchall()
+            problemas = [f"la estación «{r['station_id']}» ya pertenece al proyecto «{r['proyecto_id']}»" for r in ajenas]
+            problemas += [f"el sensor «{r['sensor_id']}» ya pertenece al proyecto «{r['proyecto_id']}»" for r in ajenos]
+            if problemas:
+                raise ProyectoInvalido(problemas)
+
+            self.c.execute(
+                """INSERT INTO proyectos (proyecto_id, nombre, tipo_estructura, institucion, entidad_responsable,
+                                          responsable_estructural, archivo_sha256, definicion, actualizado)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s, now())
+                   ON CONFLICT (proyecto_id) DO UPDATE SET
+                     nombre = EXCLUDED.nombre, tipo_estructura = EXCLUDED.tipo_estructura,
+                     institucion = EXCLUDED.institucion, entidad_responsable = EXCLUDED.entidad_responsable,
+                     responsable_estructural = EXCLUDED.responsable_estructural,
+                     archivo_sha256 = EXCLUDED.archivo_sha256, definicion = EXCLUDED.definicion,
+                     actualizado = now()""",
+                (pid, d["nombre"], d["estructura"]["tipo"], d.get("institucion"), d.get("entidad_responsable"),
+                 d.get("responsable_estructural"), pr.sha256, Jsonb(d)))
+
+            altas, sensores = [], 0
+            for e in d["estaciones"]:
+                if e["estado"] not in ESTADOS_CON_ALTA:
+                    continue
+                ub = e.get("ubicacion") or {}
+                self.c.execute(
+                    """INSERT INTO estaciones (station_id, proyecto_id, tipo, nombre, ubicacion, simulada, activa, periodo_s, notas)
+                       VALUES (%s,%s,%s,%s,%s,%s,true,%s,%s)
+                       ON CONFLICT (station_id) DO UPDATE SET
+                         tipo = EXCLUDED.tipo, nombre = EXCLUDED.nombre, ubicacion = EXCLUDED.ubicacion,
+                         simulada = EXCLUDED.simulada, activa = true, periodo_s = EXCLUDED.periodo_s,
+                         notas = EXCLUDED.notas""",
+                    (e["id"], pid, e["tipo"], e["nombre"], ub.get("descripcion"), e["estado"] == "simulada",
+                     e["comunicacion"]["periodo_s"], e.get("notas")))
+                altas.append(e["id"])
+                for s in e.get("sensores", []):
+                    self.c.execute(
+                        """INSERT INTO sensores (sensor_id, station_id, modelo, ejes, magnitud, unidad, muestreo_hz, notas)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                           ON CONFLICT (sensor_id) DO UPDATE SET
+                             station_id = EXCLUDED.station_id, modelo = EXCLUDED.modelo, ejes = EXCLUDED.ejes,
+                             magnitud = EXCLUDED.magnitud, unidad = EXCLUDED.unidad,
+                             muestreo_hz = EXCLUDED.muestreo_hz, notas = EXCLUDED.notas""",
+                        (s["id"], e["id"], s["modelo"], s["ejes"], s["magnitud"], s["unidad"],
+                         s.get("muestreo_hz"), s.get("notas")))
+                    sensores += 1
+            desactivadas = self.c.execute(
+                """UPDATE estaciones SET activa = false
+                   WHERE proyecto_id = %s AND activa AND NOT (station_id = ANY(%s::text[])) RETURNING station_id""",
+                (pid, altas)).fetchall()
+            self.auditar("migrar", "importar_proyecto", pid,
+                         {"sha256": pr.sha256, "estaciones": altas,
+                          "desactivadas": [r["station_id"] for r in desactivadas]}, pid)
+        return {"altas": len(altas), "desactivadas": len(desactivadas), "sensores": sensores}
 
 
 def dumps(o) -> str:

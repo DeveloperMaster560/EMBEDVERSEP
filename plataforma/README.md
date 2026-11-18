@@ -1,7 +1,10 @@
 # Plataforma de datos SHM — puesta en marcha
 
-Servidor que recibe, valida, guarda y muestra los datos de las estaciones del
-Viaducto de La Novena. Por qué está hecho así: [`ARQUITECTURA.md`](ARQUITECTURA.md).
+Servidor que recibe, valida, guarda y muestra los datos de las estaciones de
+**varios proyectos** (puentes, edificios) a la vez. Cada proyecto se describe en
+`proyectos/<id>/proyecto.json` ([guía del formato](../proyectos/LEEME.md)) y cada
+credencial ve **solo** su proyecto. El primero es el Viaducto de La Novena. Por
+qué está hecho así: [`ARQUITECTURA.md`](ARQUITECTURA.md).
 
 | Servicio | Dirección en tu equipo |
 |---|---|
@@ -52,25 +55,35 @@ un registro cada 10 s. **La señal es sintética; no es una medida del puente.**
 
 ## 3. Crear credenciales de la API
 
+Cada credencial tiene un **alcance**. Fuera de él todo responde «no existe» (404),
+para que nadie pueda averiguar qué tienen otros proyectos.
+
 ```sh
-docker compose exec api python -m shm_plataforma.gestion token --rol lectura --nombre "Consulta UTS"
-docker compose exec api python -m shm_plataforma.gestion token --rol ingeniero --nombre "Ing. responsable"
+docker compose exec api python -m shm_plataforma.gestion token --rol ingeniero --proyecto novena --nombre "Ing. responsable"
+docker compose exec api python -m shm_plataforma.gestion token --rol lectura   --proyecto novena --nombre "Consulta UTS"
+docker compose exec api python -m shm_plataforma.gestion token --rol admin --nombre "Administración CIAI"
 docker compose exec api python -m shm_plataforma.gestion credenciales
+docker compose exec api python -m shm_plataforma.gestion proyectos
 ```
 
 El token se muestra una sola vez. Uso:
 
 ```sh
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/v1/sesion
 curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/v1/estaciones
 curl -H "Authorization: Bearer <token>" "http://127.0.0.1:8000/api/v1/avisos?abiertos=true"
 ```
 
-| Rol | Puede |
-|---|---|
-| `lectura` | consultar estaciones, ventanas, avisos y crudos |
-| `operador` | además, reconocer avisos |
-| `ingeniero` | además, elevar un aviso a E3/E4 (con justificación; queda auditado) |
-| `estacion` | solo subir los crudos de su propia estación |
+| Rol | Alcance | Puede |
+|---|---|---|
+| `lectura` | un proyecto | consultar estaciones, ventanas, avisos y crudos |
+| `operador` | un proyecto | además, reconocer avisos |
+| `ingeniero` | un proyecto | además, elevar un aviso a E3/E4 (con justificación; queda auditado) |
+| `estacion` | una estación | solo subir sus propios crudos |
+| `admin` | todos | consultar y reconocer en todos los proyectos; **no** puede elevar a E3/E4 |
+
+Las credenciales creadas antes de la versión multiproyecto quedaron asignadas a
+La Novena.
 
 ## 4. Pruebas
 
@@ -87,22 +100,33 @@ Windows se omite). El contrato de datos se comprueba también desde la app
 (`npx vitest run src/shm/data-contract-shared.test.ts`) con los mismos casos:
 `contrato/casos.json`.
 
-## 5. Añadir una estación
+## 5. Añadir un proyecto o una estación
 
-1. Darla de alta en la base:
-   `docker compose exec db psql -U shm -d shm -c "INSERT INTO estaciones (station_id, tipo, nombre) VALUES ('SD-L2-1','SD','Luz 2, L/4')"`
-2. Añadir su identificador a `ESTACIONES` en `scripts/preparar.py`, añadir a
-   `.env` la línea `MQTT_SD_L2_1_PASSWORD=<aleatoria>` y volver a ejecutar
-   `iniciar` (el broker vuelve a cifrar los usuarios al arrancar).
-3. Crearle un token de rol `estacion` para la subida de crudos.
+Todo se hace en el archivo del proyecto; no se toca la base a mano.
+
+1. Proyecto nuevo: crear `proyectos/<id>/proyecto.json` a partir de
+   `proyectos/PLANTILLA.proyecto.json`. Estación nueva: añadirla a su proyecto
+   con estado `simulada` o `instalada`.
+2. Volver a ejecutar `iniciar`. Valida todos los proyectos, añade al `.env` la
+   contraseña del broker de cada estación nueva (sin tocar las existentes), y el
+   servicio `preparar-db` carga los cambios en la base.
+3. Crear las credenciales del equipo (sección 3) y, para la subida de crudos, un
+   token de rol `estacion`.
+
+Si un proyecto tiene errores no arranca nada: `docker compose logs preparar-db`.
 
 ## Estado
 
 - **Probado:** el contrato (las mismas reglas en Python y TypeScript), la ingesta
   (duplicados, conflictos, datos fuera de orden, huecos, estaciones calladas,
   suplantación), el almacén en disco, la API (roles, auditoría, subida de
-  crudos) y los registros del firmware real pasando por la ingesta.
-- **Sin probar todavía:** el arranque con Docker, porque el equipo donde se
-  escribió no lo tiene instalado; el almacén en S3; el TLS del broker.
+  crudos, **aislamiento entre proyectos**), el archivo de proyecto y los
+  registros del firmware real pasando por la ingesta.
+- **Funcionando en Docker** (Windows, 18/11/2026): la versión de un solo
+  proyecto.
+- **Sin probar todavía:** la migración multiproyecto contra una base real (su
+  SQL está comprobado con el analizador de PostgreSQL, no ejecutado); Grafana
+  por proyecto (hoy el tablero muestra todos: es la herramienta del
+  administrador); el almacén en S3; el TLS del broker.
 - **Pendiente con ingenierías:** el protocolo de la pasarela real, el formato
   del archivo en la SD, LoRaWAN y los umbrales.

@@ -1,4 +1,5 @@
-# Plataforma SHM — Viaducto de La Novena.
+# Plataforma SHM multiproyecto de EMBEDVERSE: varios puentes y edificios en
+# el mismo servidor, cada uno descrito por proyectos/<id>/proyecto.json.
 # Igual en Windows (Docker Desktop + WSL 2), macOS (Docker Desktop) y Linux.
 #
 #   Primera vez:   python scripts/preparar.py        (crea .env y las credenciales)
@@ -8,6 +9,8 @@
 # Todos los puertos se publican SOLO en 127.0.0.1: nada queda expuesto a la red
 # del equipo. Para el servidor en la nube ver ARQUITECTURA.md §10.
 
+# El nombre se conserva aunque ya no sea solo La Novena: cambiarlo crearía
+# volúmenes nuevos y la base existente quedaría huérfana.
 name: shm-novena
 
 services:
@@ -64,9 +67,27 @@ services:
     ports:
       - "${PUERTOS_IP:-127.0.0.1}:1883:1883"
 
+  # Un solo uso, antes que la ingesta y la API: aplica las migraciones de la
+  # base y carga proyectos/*/proyecto.json. Si un proyecto es inválido, falla
+  # y no arranca nada más (docker compose logs preparar-db dice por qué).
+  preparar-db:
+    build: ./servicios
+    image: shm-novena/servicios:0.2.0
+    pull_policy: build
+    command: ["python", "-m", "shm_plataforma.migrar"]
+    environment:
+      DATABASE_URL: postgresql://shm:${DB_PASSWORD}@db:5432/shm
+      PROYECTOS_DIR: /proyectos
+    volumes:
+      - ../proyectos:/proyectos:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   ingesta:
     build: ./servicios
-    image: shm-novena/servicios:0.1.0
+    image: shm-novena/servicios:0.2.0
     # Imagen propia: se construye aquí, nunca se busca en Docker Hub.
     pull_policy: build
     restart: unless-stopped
@@ -77,14 +98,14 @@ services:
       MQTT_USER: shm-ingesta
       MQTT_PASSWORD: ${MQTT_INGESTA_PASSWORD:?falta MQTT_INGESTA_PASSWORD}
     depends_on:
-      db:
-        condition: service_healthy
+      preparar-db:
+        condition: service_completed_successfully
       broker:
         condition: service_started
 
   api:
     build: ./servicios
-    image: shm-novena/servicios:0.1.0
+    image: shm-novena/servicios:0.2.0
     pull_policy: build
     restart: unless-stopped
     command: ["uvicorn", "--factory", "shm_plataforma.api:app_desde_entorno", "--host", "0.0.0.0", "--port", "8000"]
@@ -96,11 +117,12 @@ services:
       AWS_REGION: ${AWS_REGION:-}
     volumes:
       - crudos:/datos
+      - ../proyectos:/proyectos:ro
     ports:
       - "${PUERTOS_IP:-127.0.0.1}:8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      preparar-db:
+        condition: service_completed_successfully
       ingesta:
         condition: service_started
 

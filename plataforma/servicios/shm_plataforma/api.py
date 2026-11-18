@@ -1,12 +1,19 @@
 """
 API de la plataforma SHM (FastAPI). Documentación interactiva en /api/docs.
 
-Roles (token Bearer; en la base solo se guarda su SHA-256):
-  lectura    consultar estaciones, ventanas, avisos y crudos
+Varios proyectos (puentes, edificios) comparten el servidor. Cada credencial
+tiene un ALCANCE y nunca ve nada fuera de él:
+
+  lectura    su proyecto: estaciones, ventanas, avisos y crudos
   operador   lo anterior + reconocer avisos
   ingeniero  lo anterior + elevar un aviso a E3/E4 (único camino a esos niveles)
   estacion   solo subir crudos de SU estación
-Toda acción que cambia algo queda en `auditoria`.
+  admin      administrador del servidor: consulta todos los proyectos y reconoce
+             avisos; NO puede elevar a E3/E4 (eso es del ingeniero de cada obra)
+
+Lo que está fuera del alcance responde 404, igual que si no existiera: así no se
+puede averiguar qué estaciones tienen otros proyectos.
+Toda acción que cambia algo queda en `auditoria`, con su proyecto.
 """
 
 from __future__ import annotations
@@ -20,7 +27,14 @@ from pydantic import BaseModel, Field
 
 from .almacen import ErrorAlmacen
 
-ORDEN_ROLES = {"estacion": 0, "lectura": 1, "operador": 2, "ingeniero": 3}
+# Qué roles cumplen cada exigencia. «admin» lee y opera en todos los proyectos,
+# pero no decide niveles estructurales.
+CUMPLEN = {
+    "lectura": {"lectura", "operador", "ingeniero", "admin"},
+    "operador": {"operador", "ingeniero", "admin"},
+    "ingeniero": {"ingeniero"},
+}
+NO_EXISTE_ESTACION = "No existe esa estación."
 MAX_CRUDO = 64 * 1024 * 1024
 
 
@@ -34,7 +48,7 @@ class CambioNivel(BaseModel):
 
 
 def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
-    app = FastAPI(title="Plataforma SHM — Viaducto de La Novena", version="0.1.0",
+    app = FastAPI(title="Plataforma SHM — EMBEDVERSE", version="0.2.0",
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
 
     def repo():
@@ -50,10 +64,33 @@ def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
 
     def exige(rol_minimo: str):
         def dep(c: dict = Depends(quien)) -> dict:
-            if c["rol"] == "estacion" or ORDEN_ROLES[c["rol"]] < ORDEN_ROLES[rol_minimo]:
+            if c["rol"] not in CUMPLEN[rol_minimo]:
                 raise HTTPException(403, f"Hace falta el rol «{rol_minimo}».")
             return c
         return dep
+
+    def alcance(c: dict):
+        """None = todos los proyectos (solo admin); si no, el proyecto de la credencial."""
+        if c["rol"] == "admin":
+            return None
+        if not c.get("proyecto_id"):  # defensa: una credencial sin proyecto no ve nada
+            raise HTTPException(403, "La credencial no tiene proyecto asignado.")
+        return c["proyecto_id"]
+
+    def estacion_visible(station_id: str, c: dict, r) -> str:
+        """Devuelve el proyecto de la estación, o 404 si no existe o es de otro proyecto."""
+        proyecto = r.proyecto_de_estacion(station_id)
+        a = alcance(c)
+        if proyecto is None or (a is not None and proyecto != a):
+            raise HTTPException(404, NO_EXISTE_ESTACION)
+        return proyecto
+
+    def aviso_visible(aviso_id: int, c: dict, r) -> dict:
+        av = r.aviso(aviso_id)
+        a = alcance(c)
+        if not av or (a is not None and av["proyecto_id"] != a):
+            raise HTTPException(404, "No existe ese aviso.")
+        return av
 
     def rango(desde: Optional[datetime], hasta: Optional[datetime]) -> tuple[datetime, datetime]:
         hasta = hasta or datetime.now(timezone.utc)
@@ -74,40 +111,51 @@ def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
             raise HTTPException(503, "La base de datos no responde.")
         return {"estado": "ok"}
 
+    @app.get("/api/v1/sesion")
+    def sesion(c=Depends(quien)):
+        """Quién soy y qué alcance tengo (sin el token)."""
+        return {"nombre": c["nombre"], "rol": c["rol"], "proyecto_id": c.get("proyecto_id"),
+                "station_id": c.get("station_id")}
+
+    @app.get("/api/v1/proyectos")
+    def proyectos(c=Depends(exige("lectura")), r=Depends(repo)):
+        return r.proyectos(alcance(c))
+
     @app.get("/api/v1/estaciones")
-    def estaciones(_c=Depends(exige("lectura")), r=Depends(repo)):
-        return r.estaciones()
+    def estaciones(c=Depends(exige("lectura")), r=Depends(repo)):
+        return r.estaciones(alcance(c))
 
     @app.get("/api/v1/estaciones/{station_id}/ventanas")
     def ventanas(station_id: str, desde: Optional[datetime] = None, hasta: Optional[datetime] = None,
-                 limite: int = 500, completo: bool = False, _c=Depends(exige("lectura")), r=Depends(repo)):
+                 limite: int = 500, completo: bool = False, c=Depends(exige("lectura")), r=Depends(repo)):
+        estacion_visible(station_id, c, r)
         d, h = rango(desde, hasta)
         return r.ventanas(station_id, d, h, max(1, min(limite, 5000)), completo)
 
     @app.get("/api/v1/estaciones/{station_id}/disponibilidad")
-    def disponibilidad(station_id: str, horas: int = 24, _c=Depends(exige("lectura")), r=Depends(repo)):
+    def disponibilidad(station_id: str, horas: int = 24, c=Depends(exige("lectura")), r=Depends(repo)):
+        estacion_visible(station_id, c, r)
         horas = max(1, min(horas, 24 * 31))
         return r.disponibilidad(station_id, datetime.now(timezone.utc) - timedelta(hours=horas))
 
     @app.get("/api/v1/avisos")
-    def avisos(abiertos: bool = True, limite: int = 200, _c=Depends(exige("lectura")), r=Depends(repo)):
-        return r.avisos(abiertos, max(1, min(limite, 2000)))
+    def avisos(abiertos: bool = True, limite: int = 200, c=Depends(exige("lectura")), r=Depends(repo)):
+        return r.avisos(abiertos, max(1, min(limite, 2000)), alcance(c))
 
     @app.post("/api/v1/avisos/{aviso_id}/reconocer")
     def reconocer(aviso_id: int, cuerpo: Reconocer, c=Depends(exige("operador")), r=Depends(repo)):
-        if not r.aviso(aviso_id):
-            raise HTTPException(404, "No existe ese aviso.")
+        av = aviso_visible(aviso_id, c, r)
         r.reconocer_aviso(aviso_id, c["nombre"], cuerpo.nota)
-        r.auditar(c["nombre"], "reconocer_aviso", str(aviso_id), {"nota": cuerpo.nota})
+        r.auditar(c["nombre"], "reconocer_aviso", str(aviso_id), {"nota": cuerpo.nota}, av["proyecto_id"])
         return {"ok": True}
 
     @app.post("/api/v1/avisos/{aviso_id}/nivel")
     def nivel(aviso_id: int, cuerpo: CambioNivel, c=Depends(exige("ingeniero")), r=Depends(repo)):
-        """E3/E4 solo los asigna una persona con rol ingeniero, con justificación escrita."""
-        if not r.aviso(aviso_id):
-            raise HTTPException(404, "No existe ese aviso.")
+        """E3/E4 solo los asigna el ingeniero DEL PROYECTO, con justificación escrita."""
+        av = aviso_visible(aviso_id, c, r)
         r.cambiar_nivel(aviso_id, cuerpo.nivel, c["nombre"], cuerpo.justificacion)
-        r.auditar(c["nombre"], "cambiar_nivel", str(aviso_id), {"nivel": cuerpo.nivel, "justificacion": cuerpo.justificacion})
+        r.auditar(c["nombre"], "cambiar_nivel", str(aviso_id),
+                  {"nivel": cuerpo.nivel, "justificacion": cuerpo.justificacion}, av["proyecto_id"])
         return {"ok": True}
 
     @app.put("/api/v1/crudos/{station_id}/{nombre}", status_code=201)
@@ -134,17 +182,20 @@ def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
             raise HTTPException(409 if "inmutables" in str(e) else 422, str(e))
         r.guardar_ficha(ficha, ventana)
         if ficha.nuevo:
-            r.auditar(c["nombre"], "subir_crudo", ficha.clave, {"bytes": ficha.bytes, "sha256": ficha.sha256})
+            r.auditar(c["nombre"], "subir_crudo", ficha.clave, {"bytes": ficha.bytes, "sha256": ficha.sha256},
+                      c.get("proyecto_id"))
         else:
             response.status_code = 200
         return {"clave": ficha.clave, "bytes": ficha.bytes, "sha256": ficha.sha256, "nuevo": ficha.nuevo}
 
     @app.get("/api/v1/crudos/{station_id}")
-    def listar_crudos(station_id: str, limite: int = 200, _c=Depends(exige("lectura")), r=Depends(repo)):
+    def listar_crudos(station_id: str, limite: int = 200, c=Depends(exige("lectura")), r=Depends(repo)):
+        estacion_visible(station_id, c, r)
         return r.fichas(station_id, max(1, min(limite, 2000)))
 
     @app.get("/api/v1/crudos/{station_id}/{nombre}")
-    def bajar_crudo(station_id: str, nombre: str, _c=Depends(exige("lectura")), r=Depends(repo)):
+    def bajar_crudo(station_id: str, nombre: str, c=Depends(exige("lectura")), r=Depends(repo)):
+        estacion_visible(station_id, c, r)
         f = r.ficha(station_id, nombre)
         if not f:
             raise HTTPException(404, "No existe ese archivo.")

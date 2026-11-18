@@ -1,0 +1,67 @@
+{
+  "formato": "embedverse-proyecto-shm/1",
+  "proyecto_id": "novena",
+  "nombre": "Viaducto de La Novena — monitoreo estructural",
+  "estructura": {
+    "tipo": "puente",
+    "nombre": "Viaducto Provincial Alejandro Galvis Ramírez (La Novena)",
+    "modelo": "../../Planos/viaducto-novena-solicitud.json"
+  },
+  "ubicacion": {
+    "pais": "Colombia",
+    "region": "Santander",
+    "municipio": "Bucaramanga",
+    "latitud": 7.10817,
+    "longitud": -73.12984,
+    "procedencia": "Structurae, aproximada — PENDIENTE de levantamiento"
+  },
+  "institucion": "CIAI — Universitaria Tecnológica de Santander (UTS)",
+  "entidad_responsable": null,
+  "responsable_estructural": null,
+  "estaciones": [
+    {
+      "id": "SD-V2-M",
+      "tipo": "SD",
+      "nombre": "Estación dinámica simulada",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": null,
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "stm32h743-adxl355",
+        "firmware": "firmware/shm-station",
+        "firmware_version": "0.1.0-esqueleto"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "ADXL355-SD-V2-M",
+          "modelo": "ADXL355",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": ["longitudinal", "transversal", "vertical"],
+          "rango": 2,
+          "rango_unidad": "g",
+          "muestreo_hz": 200,
+          "calibracion": null
+        }
+      ],
+      "notas": "Firmware real en el ordenador o en Renode, con placa simulada. Señal sintética. No existe en el puente. Mapa de registros del ADXL355 sin cotejar con la hoja de datos."
+    }
+  ],
+  "criterios": {
+    "estado": "sin_definir",
+    "aprobados_por": null,
+    "fecha": null,
+    "umbrales": []
+  },
+  "notas": [
+    "Las estaciones del diseño preliminar (Planos/Diseno_SHM_Viaducto_Novena) se añadirán aquí con estado «diseno» cuando ingeniería apruebe sus posiciones.",
+    "El prototipo ESP32 + MPU6050 de octubre de 2026 usa otro contrato de datos (resúmenes por segundo) y no se registra en esta plataforma."
+  ]
+}

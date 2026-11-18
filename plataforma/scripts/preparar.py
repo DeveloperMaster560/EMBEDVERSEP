@@ -3,7 +3,9 @@
 Prepara la plataforma en este equipo (Windows, macOS o Linux). Solo usa la
 biblioteca estándar de Python 3.9 o posterior.
 
-  - crea plataforma/.env con contraseñas aleatorias (si no existe);
+  - lee los proyectos (proyectos/*/proyecto.json) y comprueba que son válidos;
+  - crea plataforma/.env con contraseñas aleatorias (si no existe) y le AÑADE
+    la de cada estación nueva de cualquier proyecto;
   - crea plataforma/secretos/mqtt-usuarios.txt con los usuarios del broker;
   - comprueba que Docker esté instalado y en marcha.
 
@@ -24,9 +26,22 @@ RAIZ = Path(__file__).resolve().parents[1]
 ENV = RAIZ / ".env"
 SECRETOS = RAIZ / "secretos"
 USUARIOS = SECRETOS / "mqtt-usuarios.txt"
+PROYECTOS = RAIZ.parent / "proyectos"
 
-# Estaciones con usuario en el broker. Hoy solo existe la simulada.
-ESTACIONES = ["SD-V2-M"]
+# El validador de proyectos es el mismo que usa la plataforma (solo stdlib).
+sys.path.insert(0, str(RAIZ / "servicios"))
+from shm_plataforma.proyecto import ProyectoInvalido, cargar_carpeta  # noqa: E402
+
+
+def estaciones_de_proyectos() -> list[str]:
+    """Estaciones simuladas o instaladas de todos los proyectos: las que tienen usuario en el broker."""
+    if not PROYECTOS.is_dir():
+        return []
+    proyectos = cargar_carpeta(PROYECTOS)
+    for pr in proyectos:
+        n = len(pr.estaciones_con_alta())
+        print(f"· Proyecto «{pr.id}»: {n} estacion{'es' if n != 1 else ''} con alta.")
+    return [e["id"] for pr in proyectos for e in pr.estaciones_con_alta()]
 
 
 def clave() -> str:
@@ -37,21 +52,31 @@ def var_estacion(sid: str) -> str:
     return "MQTT_" + sid.replace("-", "_") + "_PASSWORD"
 
 
-def preparar_env() -> dict[str, str]:
+def preparar_env(estaciones: list[str]) -> dict[str, str]:
     if ENV.exists():
         valores = {}
         for linea in ENV.read_text(encoding="utf-8").splitlines():
             if "=" in linea and not linea.lstrip().startswith("#"):
                 k, v = linea.split("=", 1)
                 valores[k.strip()] = v.strip()
-        print(f"· {ENV.name} ya existe: se conserva.")
+        nuevas = {var_estacion(s): clave() for s in estaciones if var_estacion(s) not in valores}
+        if nuevas:
+            texto = ENV.read_text(encoding="utf-8")
+            with open(ENV, "a", encoding="utf-8", newline="\n") as f:
+                if texto and not texto.endswith("\n"):
+                    f.write("\n")
+                f.writelines(f"{k}={v}\n" for k, v in nuevas.items())
+            valores.update(nuevas)
+            print(f"✓ {ENV.name}: añadidas contraseñas de {len(nuevas)} estación(es) nueva(s); el resto se conserva.")
+        else:
+            print(f"· {ENV.name} ya existe: se conserva.")
         return valores
     valores = {
         "DB_PASSWORD": clave(),
         "GRAFANA_DB_PASSWORD": clave(),
         "GRAFANA_ADMIN_PASSWORD": clave(),
         "MQTT_INGESTA_PASSWORD": clave(),
-        **{var_estacion(s): clave() for s in ESTACIONES},
+        **{var_estacion(s): clave() for s in estaciones},
         "ALMACEN": "disco",
     }
     texto = ["# Generado por scripts/preparar.py. NO subir al repositorio.", *(f"{k}={v}" for k, v in valores.items())]
@@ -64,10 +89,10 @@ def preparar_env() -> dict[str, str]:
     return valores
 
 
-def preparar_usuarios(valores: dict[str, str]) -> None:
+def preparar_usuarios(valores: dict[str, str], estaciones: list[str]) -> None:
     SECRETOS.mkdir(exist_ok=True)
     lineas = [f"shm-ingesta:{valores['MQTT_INGESTA_PASSWORD']}"]
-    for s in ESTACIONES:
+    for s in estaciones:
         if var_estacion(s) in valores:
             lineas.append(f"{s}:{valores[var_estacion(s)]}")
     # Se reescribe siempre a partir del .env (fuente única); el broker las cifra al arrancar.
@@ -106,8 +131,15 @@ def main() -> int:
     if sys.version_info < (3, 9):
         print("Hace falta Python 3.9 o posterior.")
         return 1
-    valores = preparar_env()
-    preparar_usuarios(valores)
+    try:
+        estaciones = estaciones_de_proyectos()
+    except ProyectoInvalido as e:
+        print("✗ Hay proyectos con errores; corrígelos antes de arrancar:")
+        for p in e.problemas:
+            print("   -", p)
+        return 1
+    valores = preparar_env(estaciones)
+    preparar_usuarios(valores, estaciones)
     return 0 if comprobar_docker() else 2
 
 

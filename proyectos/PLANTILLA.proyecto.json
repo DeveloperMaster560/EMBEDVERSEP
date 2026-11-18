@@ -1,0 +1,64 @@
+{
+  "formato": "embedverse-proyecto-shm/1",
+  "proyecto_id": "plantilla",
+  "nombre": "Nombre del proyecto de monitoreo",
+  "estructura": {
+    "tipo": "edificio",
+    "nombre": "Nombre oficial de la estructura",
+    "modelo": null
+  },
+  "ubicacion": {
+    "pais": "Colombia",
+    "region": null,
+    "municipio": null,
+    "latitud": null,
+    "longitud": null,
+    "procedencia": null
+  },
+  "institucion": null,
+  "entidad_responsable": null,
+  "responsable_estructural": null,
+  "estaciones": [
+    {
+      "id": "PLA-SD-N1",
+      "tipo": "SD",
+      "nombre": "Estación dinámica, nivel 1",
+      "estado": "diseno",
+      "ubicacion": {
+        "descripcion": "PENDIENTE: la define el ingeniero estructural",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": null,
+        "firmware": null,
+        "firmware_version": null
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "PLA-SD-N1-ACC",
+          "modelo": "PENDIENTE",
+          "magnitud": "aceleracion",
+          "unidad": "m/s2",
+          "ejes": ["x", "y", "z"],
+          "rango": null,
+          "rango_unidad": null,
+          "muestreo_hz": null,
+          "calibracion": null
+        }
+      ],
+      "notas": null
+    }
+  ],
+  "criterios": {
+    "estado": "sin_definir",
+    "aprobados_por": null,
+    "fecha": null,
+    "umbrales": []
+  },
+  "notas": []
+}
