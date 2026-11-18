@@ -34,3 +34,7 @@ EMBEDVERSE_BUILDING_001/
 # La solicitud que los produjo (viaducto-novena-solicitud.json) SÍ se guarda:
 # es el registro de con qué parámetros se hizo, y ocupa 1 KB.
 Planos/*.glb
+
+# Temporales de Python
+__pycache__/
+*.pyc

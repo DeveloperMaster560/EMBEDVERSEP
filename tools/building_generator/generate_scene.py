@@ -209,6 +209,14 @@ def main() -> int:
     try:
         result = build_scene(spec)
     except Exception as exc:  # noqa: BLE001 - se reporta tal cual al cliente local
+        import deps
+
+        falta = deps.mensaje_dependencia(exc)
+        if falta:
+            json.dump({"ok": False, "spec_rejected": False, "code": "MISSING_DEPENDENCY",
+                       "error": "El entorno de Python del generador está incompleto.",
+                       "detail": falta}, sys.stdout)
+            return 1
         import params as P
 
         rejected = isinstance(exc, (P.SpecError, ValueError))
