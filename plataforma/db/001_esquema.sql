@@ -135,4 +135,4 @@ SELECT station_id,
 FROM ventanas
 GROUP BY 1, 2;
 
--- El usuario de solo lectura de Grafana se crea en 002_roles.sh (necesita la contraseña del .env).
+-- El usuario de solo lectura de Grafana lo crea shm_plataforma.migrar (servicio preparar-db).

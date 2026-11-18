@@ -25,6 +25,31 @@ from .proyecto import ProyectoInvalido, cargar_carpeta
 
 MIGRACIONES = Path(__file__).with_name("migraciones")
 
+# Lo que Grafana puede leer. No incluye credenciales, auditoría ni rechazos.
+TABLAS_GRAFANA = ("estaciones", "sensores", "ventanas", "estado_estacion", "avisos",
+                  "archivos_crudos", "disponibilidad_horaria", "proyectos")
+
+
+def asegurar_rol_grafana(conn, clave: str) -> str:
+    """Crea o repara el usuario de solo lectura de Grafana.
+
+    Antes lo creaba db/002_roles.sh al inicializar la base, pero Docker Desktop
+    monta ese script de forma que no se puede ejecutar («bad interpreter:
+    Permission denied») y Grafana se quedaba sin acceso. Aquí se hace en cada
+    arranque: crea el usuario si falta y le fija la contraseña del .env.
+    """
+    from psycopg import sql
+
+    existe = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = 'grafana_lectura'").fetchone()
+    orden = "ALTER ROLE grafana_lectura WITH LOGIN PASSWORD {}" if existe else \
+            "CREATE ROLE grafana_lectura LOGIN PASSWORD {}"
+    with conn.transaction():
+        conn.execute(sql.SQL(orden).format(sql.Literal(clave)))
+        conn.execute("GRANT USAGE ON SCHEMA public TO grafana_lectura")
+        conn.execute(sql.SQL("GRANT SELECT ON {} TO grafana_lectura").format(
+            sql.SQL(", ").join(sql.Identifier(t) for t in TABLAS_GRAFANA)))
+    return "reparado" if existe else "creado"
+
 
 def aplicar_migraciones(conn) -> list[str]:
     conn.execute("""CREATE TABLE IF NOT EXISTS schema_migraciones (
@@ -52,6 +77,11 @@ def main() -> int:
     repo = RepositorioPg(conectar())
     nuevas = aplicar_migraciones(repo.c)
     print("Migraciones aplicadas: " + (", ".join(nuevas) if nuevas else "ninguna (la base ya estaba al día)."))
+    clave_grafana = os.environ.get("GRAFANA_DB_PASSWORD")
+    if clave_grafana:
+        print(f"Usuario de lectura de Grafana: {asegurar_rol_grafana(repo.c, clave_grafana)}.")
+    else:
+        print("GRAFANA_DB_PASSWORD no está definida: no se toca el usuario de Grafana.")
     if a.solo_migraciones:
         return 0
 

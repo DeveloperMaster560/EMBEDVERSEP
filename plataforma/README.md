@@ -122,11 +122,16 @@ Si un proyecto tiene errores no arranca nada: `docker compose logs preparar-db`.
   suplantación), el almacén en disco, la API (roles, auditoría, subida de
   crudos, **aislamiento entre proyectos**), el archivo de proyecto y los
   registros del firmware real pasando por la ingesta.
-- **Funcionando en Docker** (Windows, 18/11/2026): la versión de un solo
-  proyecto.
-- **Sin probar todavía:** la migración multiproyecto contra una base real (su
-  SQL está comprobado con el analizador de PostgreSQL, no ejecutado); Grafana
-  por proyecto (hoy el tablero muestra todos: es la herramienta del
-  administrador); el almacén en S3; el TLS del broker.
+- **Funcionando en Docker** (18/11/2026): en Windows la versión de un solo
+  proyecto; en macOS la multiproyecto completa, con dos proyectos y tokens
+  reales (cada uno ve solo lo suyo, lo ajeno da 404, admin ve todo), la
+  migración de una base con datos del esquema anterior (se conserva todo) y
+  Grafana leyendo la base.
+- **Corregido ese día:** el usuario de lectura de Grafana nunca se creaba en
+  Docker Desktop (el script `db/002_roles.sh` no se podía ejecutar). Ahora lo
+  crea o repara `preparar-db` en cada arranque.
+- **Sin probar todavía:** Grafana separado por proyecto (hoy el tablero muestra
+  todos: es la herramienta del administrador); el almacén en S3; el TLS del
+  broker.
 - **Pendiente con ingenierías:** el protocolo de la pasarela real, el formato
   del archivo en la SD, LoRaWAN y los umbrales.

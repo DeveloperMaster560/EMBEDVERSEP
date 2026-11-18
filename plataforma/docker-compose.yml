@@ -25,6 +25,8 @@ services:
       TIMESCALEDB_TELEMETRY: "off"
     volumes:
       - db-datos:/var/lib/postgresql/data
+      # Solo SQL: Docker Desktop no deja ejecutar scripts .sh montados aquí.
+      # El usuario de Grafana lo crea preparar-db (shm_plataforma.migrar).
       - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shm -d shm"]
@@ -77,6 +79,7 @@ services:
     command: ["python", "-m", "shm_plataforma.migrar"]
     environment:
       DATABASE_URL: postgresql://shm:${DB_PASSWORD}@db:5432/shm
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?falta GRAFANA_DB_PASSWORD}
       PROYECTOS_DIR: /proyectos
     volumes:
       - ../proyectos:/proyectos:ro
