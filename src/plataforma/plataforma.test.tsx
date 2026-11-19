@@ -76,6 +76,13 @@ describe('plataforma: vista', () => {
     expect(renderToStaticMarkup(<AvisoIntegridad def={firmado as unknown as ProyectoDef} />)).toBe('');
   });
 
+  it('la casa no habla de estructura: su tablero mide energía', () => {
+    const html = renderToStaticMarkup(<AvisoIntegridad def={casa as unknown as ProyectoDef} />);
+    expect(html).toContain('Sin ingeniero responsable');
+    expect(html).not.toContain('estructural');
+    expect(html).not.toContain('estado de la estructura');
+  });
+
   it('la tabla muestra lo que dice el proyecto y lo que dice la estación', () => {
     const filas = filasEstaciones(novena as unknown as ProyectoDef, [db('SD-V2-M', hace_s(5))], AHORA);
     const html = renderToStaticMarkup(<TablaEstaciones filas={filas} seleccion="SD-V2-M" ahora={AHORA} onSeleccionar={() => undefined} />);

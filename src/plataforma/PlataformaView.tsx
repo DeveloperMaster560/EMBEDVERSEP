@@ -64,11 +64,16 @@ export function AvisoIntegridad({ def }: { def: ProyectoDef | null }) {
   const sinResponsable = !def.responsable_estructural;
   const sinCriterios = def.criterios.estado !== 'aprobados';
   if (!sinResponsable && !sinCriterios) return null;
+  // Monitoreo estructural = alguna estación envía ventanas de aceleración o inclinación.
+  // El tablero de una casa mide energía: ahí el responsable es otro ingeniero.
+  const estructural = def.estaciones.some((e) => tiposDeDatos(e).ventanas);
   return (
     <p className="shm-warn">
-      {sinResponsable && <><b>Sin ingeniero estructural responsable asignado</b>: ubicaciones y criterios están PENDIENTES. </>}
+      {sinResponsable && <><b>Sin ingeniero {estructural ? 'estructural ' : ''}responsable asignado</b>: ubicaciones y criterios están PENDIENTES. </>}
       {sinCriterios && <><b>Sin umbrales aprobados</b>: la plataforma solo clasifica comunicación y calidad de la medición; no
-        emite juicios sobre el estado de la estructura (los niveles E3/E4 solo los asigna el ingeniero del proyecto).</>}
+        emite juicios sobre el estado {estructural
+          ? <>de la estructura (los niveles E3/E4 solo los asigna el ingeniero del proyecto)</>
+          : <>de lo que se mide (eso lo decide el ingeniero responsable del proyecto)</>}.</>}
     </p>
   );
 }
