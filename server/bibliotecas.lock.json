@@ -1,0 +1,2568 @@
+{
+ "_nota": "Biblioteca oficial de EMBEDVERSE. Generado por scripts/biblioteca_oficial.py desde server/bibliotecas.json; NO editar a mano. Versiones fijas: el servidor compila siempre con estas. «licencia» null = aún sin revisar: antes de entregar binarios compilados al público hay que revisar las GPL/LGPL.",
+ "generado": "2026-11-19T15:09:14Z",
+ "indice": {
+  "archivo": "library_index.json",
+  "bytes": 60847199
+ },
+ "bibliotecas": [
+  {
+   "nombre": "AccelStepper",
+   "version": "1.64.0",
+   "grupo": "actuadores",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "AccelStepper.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Mike McCauley <mikem@airspayce.com>",
+   "repositorio": "https://github.com/waspinator/AccelStepper.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/waspinator/AccelStepper-1.64.0.zip",
+   "checksum": "SHA-256:45d152991271f8480bc939a7f325e006bfa3695a865eda383770bb68f0140e05",
+   "bytes": 94346,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ADS1X15",
+   "version": "2.6.2",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ADS1X15.h",
+    "AdafruitADS1X15.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ADS1X15.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ADS1X15-2.6.2.zip",
+   "checksum": "SHA-256:a7c0e3c936a98847034ce7e720cab964b6ca651dfd761a62b6d7b55374d9bacb",
+   "bytes": 15097,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ADXL343",
+   "version": "1.6.4",
+   "grupo": "vibracion",
+   "requerida_por": [
+    "Adafruit ADXL375"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ADXL343.h",
+    "AdafruitADXL343.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ADXL343.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ADXL343-1.6.4.zip",
+   "checksum": "SHA-256:076bc08c090b91b6b37db0ce3ca340c385f11c1ecff98eab3a9970685781699b",
+   "bytes": 17499,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ADXL345",
+   "version": "1.3.4",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ADXL345.h",
+    "AdafruitADXL345.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ADXL345.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ADXL345-1.3.4.zip",
+   "checksum": "SHA-256:bf4220590813326fd9fa81261cc9830e71212ba0ba3265cd4734436a3b7a7d1e",
+   "bytes": 12816,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ADXL375",
+   "version": "1.1.2",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ADXL375.h",
+    "AdafruitADXL375.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ADXL375.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ADXL375-1.1.2.zip",
+   "checksum": "SHA-256:6db4afa5b862f8da63ac2824f33f9d8dd3475d5f7658c73053a6e5ec8d9ecd3c",
+   "bytes": 9239,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit AHTX0",
+   "version": "2.0.6",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_AHTX0.h",
+    "AdafruitAHTX0.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_AHTX0.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_AHTX0-2.0.6.zip",
+   "checksum": "SHA-256:441d8b785b9a2f6c7517976d1ce2620f359488e73bf3dc475234b5e11a959006",
+   "bytes": 913025,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BME280 Library",
+   "version": "2.3.0",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BME280_Library.h",
+    "AdafruitBME280Library.h",
+    "Adafruit_BME280.h",
+    "AdafruitBME280.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_BME280_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BME280_Library-2.3.0.zip",
+   "checksum": "SHA-256:5aa74162cd944abb85143d2e9daa18b6dbe64f167f54c95d4e9e4f283573cfe5",
+   "bytes": 454847,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BME680 Library",
+   "version": "2.0.6",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BME680_Library.h",
+    "AdafruitBME680Library.h",
+    "Adafruit_BME680.h",
+    "AdafruitBME680.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_BME680.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BME680_Library-2.0.6.zip",
+   "checksum": "SHA-256:824ea4a31716b41cab109e547971ab7ae58e5d24c8b2eea99d22ae15b936996a",
+   "bytes": 749966,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BMP280 Library",
+   "version": "3.0.0",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BMP280_Library.h",
+    "AdafruitBMP280Library.h",
+    "Adafruit_BMP280.h",
+    "AdafruitBMP280.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_BMP280_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BMP280_Library-3.0.0.zip",
+   "checksum": "SHA-256:415531a76ae32f65290e23cf41b21360244259e953838dd7c4d5ff571283e02e",
+   "bytes": 475447,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BNO055",
+   "version": "1.6.4",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BNO055.h",
+    "AdafruitBNO055.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit <info@adafruit.com>",
+   "repositorio": "https://github.com/adafruit/Adafruit_BNO055.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BNO055-1.6.4.zip",
+   "checksum": "SHA-256:5c20e194016faad4c9c90926ec7254e33e68e222fdfd5179283c0d0aa7f43650",
+   "bytes": 7859580,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BNO08x",
+   "version": "1.2.7",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BNO08x.h",
+    "AdafruitBNO08x.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_BNO08x.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BNO08x-1.2.7.zip",
+   "checksum": "SHA-256:0868e739a374507953d958e2f172edf09017ed7b0e397a1f7fefd1aad911db19",
+   "bytes": 534020,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit BusIO",
+   "version": "1.17.4",
+   "grupo": "base",
+   "requerida_por": [
+    "Adafruit MPU6050",
+    "Adafruit GFX Library",
+    "Adafruit ADXL345",
+    "Adafruit ADXL343",
+    "Adafruit LIS3DH",
+    "Adafruit LSM6DS",
+    "Adafruit MMA8451 Library",
+    "Adafruit BNO055",
+    "Adafruit BNO08x",
+    "Adafruit ICM20X",
+    "Adafruit LIS3MDL",
+    "Adafruit BME280 Library",
+    "Adafruit BMP280 Library",
+    "Adafruit BME680 Library",
+    "Adafruit SHT31 Library",
+    "Adafruit SHT4x Library",
+    "Adafruit SH110X",
+    "Adafruit AHTX0",
+    "Adafruit HTU21DF Library",
+    "Adafruit Si7021 Library",
+    "Adafruit MCP9808 Library",
+    "Adafruit TMP117",
+    "Adafruit MAX31865 library",
+    "Adafruit MAX31855 library",
+    "Adafruit MLX90614 Library",
+    "Adafruit TSL2591 Library",
+    "Adafruit VEML7700 Library",
+    "Adafruit TSC2007",
+    "Adafruit seesaw Library",
+    "Adafruit VL53L1X",
+    "Adafruit SGP30 Sensor",
+    "Adafruit CCS811 Library",
+    "Adafruit SCD30",
+    "Adafruit PM25 AQI Sensor",
+    "Adafruit NAU7802 Library",
+    "Adafruit ADS1X15",
+    "Adafruit MCP3008",
+    "Adafruit INA219",
+    "Adafruit INA260 Library",
+    "RTClib"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_BusIO.h",
+    "AdafruitBusIO.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_BusIO.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_BusIO-1.17.4.zip",
+   "checksum": "SHA-256:c7bab1b6c6eee64b50964c8e149b795719a01f1d9dfcdcef170b35daa696349b",
+   "bytes": 31084,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit CCS811 Library",
+   "version": "1.1.3",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_CCS811_Library.h",
+    "AdafruitCCS811Library.h",
+    "Adafruit_CCS811.h",
+    "AdafruitCCS811.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_CCS811.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_CCS811_Library-1.1.3.zip",
+   "checksum": "SHA-256:fef54f03d15ed34131935e25cc58285341787b3b4180d864b9682fb05ef0cfd6",
+   "bytes": 14047,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit GFX Library",
+   "version": "1.13.0",
+   "grupo": "pantallas",
+   "requerida_por": [
+    "Adafruit MPU6050",
+    "Adafruit SSD1306",
+    "Adafruit BME680 Library",
+    "Adafruit SH110X",
+    "Adafruit ILI9341",
+    "Adafruit ST7735 and ST7789 Library",
+    "Adafruit_VL53L0X",
+    "Adafruit CCS811 Library",
+    "Adafruit INA219"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_GFX_Library.h",
+    "AdafruitGFXLibrary.h",
+    "Adafruit_GFX.h",
+    "AdafruitGFX.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit-GFX-Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_GFX_Library-1.13.0.zip",
+   "checksum": "SHA-256:202ec716ff222fb08ffc544a5f315cb47b8630c35fbbc9944fc9f8c93d903924",
+   "bytes": 357665,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit GPS Library",
+   "version": "1.9.0",
+   "grupo": "tiempo_posicion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_GPS_Library.h",
+    "AdafruitGPSLibrary.h",
+    "Adafruit_GPS.h",
+    "AdafruitGPS.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_GPS.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_GPS_Library-1.9.0.zip",
+   "checksum": "SHA-256:b7756acb7b3fdde12426b43b29ee32be716800688355cd088a45d44c4f1e4071",
+   "bytes": 161007,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit HTU21DF Library",
+   "version": "1.1.2",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_HTU21DF_Library.h",
+    "AdafruitHTU21DFLibrary.h",
+    "Adafruit_HTU21DF.h",
+    "AdafruitHTU21DF.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_HTU21DF_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_HTU21DF_Library-1.1.2.zip",
+   "checksum": "SHA-256:880caff4918f647a889a8c27e5b0d32e98502ff076a8785cb8e03d4fb68c33c0",
+   "bytes": 5293,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ICM20X",
+   "version": "2.0.7",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ICM20X.h",
+    "AdafruitICM20X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ICM20X.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ICM20X-2.0.7.zip",
+   "checksum": "SHA-256:47b8d7254dcba84603da8001337d0e8b3a8a948b3ce32943ade84543f9f19af7",
+   "bytes": 1150273,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ILI9341",
+   "version": "1.7.0",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit VEML6070 Library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ILI9341.h",
+    "AdafruitILI9341.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_ILI9341.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ILI9341-1.7.0.zip",
+   "checksum": "SHA-256:1eb034e7ff1954c463f4668cbba3b2242edafc4334d402d9aa9e4b49348046ea",
+   "bytes": 45371,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit INA219",
+   "version": "1.2.3",
+   "grupo": "energia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_INA219.h",
+    "AdafruitINA219.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_INA219.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_INA219-1.2.3.zip",
+   "checksum": "SHA-256:7187663dc53a87c2d4d83216ccd66f680453c9e9b48416d4632d6f00632e631e",
+   "bytes": 273102,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit INA260 Library",
+   "version": "1.5.4",
+   "grupo": "energia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_INA260_Library.h",
+    "AdafruitINA260Library.h",
+    "Adafruit_INA260.h",
+    "AdafruitINA260.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_INA260.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_INA260_Library-1.5.4.zip",
+   "checksum": "SHA-256:5ec2aeed837134bbce444b48e40d1f15bd5320eba5bd052bb785f4a6fce5decf",
+   "bytes": 13072,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit LIS3DH",
+   "version": "1.3.0",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_LIS3DH.h",
+    "AdafruitLIS3DH.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit <info@adafruit.com>",
+   "repositorio": "https://github.com/adafruit/Adafruit_LIS3DH.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_LIS3DH-1.3.0.zip",
+   "checksum": "SHA-256:95d652abd0ed616429c124bc6a8287cf59d32af93f258c6bea61dbea3a999850",
+   "bytes": 478961,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit LIS3MDL",
+   "version": "1.2.5",
+   "grupo": "inclinacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_LIS3MDL.h",
+    "AdafruitLIS3MDL.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit <info@adafruit.com>",
+   "repositorio": "https://github.com/adafruit/Adafruit_LIS3MDL.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_LIS3MDL-1.2.5.zip",
+   "checksum": "SHA-256:c1586f5b7168da2386f0f59c08ae8bfe8d61a4a5193c7f0d55f2a7ef3ff99432",
+   "bytes": 199027,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit LSM6DS",
+   "version": "4.7.4",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_LSM6DS.h",
+    "AdafruitLSM6DS.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit <info@adafruit.com>",
+   "repositorio": "https://github.com/adafruit/Adafruit_LSM6DS.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_LSM6DS-4.7.4.zip",
+   "checksum": "SHA-256:ac00d7ee748882c39e905631c33bd458de8aacce04f876464a1fecb72640b79e",
+   "bytes": 591582,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MAX31855 library",
+   "version": "1.4.2",
+   "grupo": "temperatura_industrial",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MAX31855_library.h",
+    "AdafruitMAX31855library.h",
+    "Adafruit_MAX31855.h",
+    "AdafruitMAX31855.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit-MAX31855-library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MAX31855_library-1.4.2.zip",
+   "checksum": "SHA-256:f610ed2d257b490867818cf18a842552fc1800f669a21ce3805c756cd5adb790",
+   "bytes": 9323,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MAX31865 library",
+   "version": "1.6.2",
+   "grupo": "temperatura_industrial",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MAX31865_library.h",
+    "AdafruitMAX31865library.h",
+    "Adafruit_MAX31865.h",
+    "AdafruitMAX31865.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_MAX31865.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MAX31865_library-1.6.2.zip",
+   "checksum": "SHA-256:4ede9629b48f79a4fc75bc7a2e6eead858f44c6d8fd517d3171d7e7bd6939eb3",
+   "bytes": 323572,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MCP3008",
+   "version": "1.3.3",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MCP3008.h",
+    "AdafruitMCP3008.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_MCP3008.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MCP3008-1.3.3.zip",
+   "checksum": "SHA-256:0e51ab5810c05c1d04a1a7da8fa966ca4b03409c5137570c34a4aa61c7f5dd34",
+   "bytes": 265181,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MCP9808 Library",
+   "version": "2.0.2",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MCP9808_Library.h",
+    "AdafruitMCP9808Library.h",
+    "Adafruit_MCP9808.h",
+    "AdafruitMCP9808.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_MCP9808_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MCP9808_Library-2.0.2.zip",
+   "checksum": "SHA-256:683d53eb28653ecb97b7a67a5941063fd526bfdafd63159b97d9c35fdf2a9d42",
+   "bytes": 145894,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MLX90614 Library",
+   "version": "2.1.7",
+   "grupo": "temperatura_industrial",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MLX90614_Library.h",
+    "AdafruitMLX90614Library.h",
+    "Adafruit_MLX90614.h",
+    "AdafruitMLX90614.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit-MLX90614-Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MLX90614_Library-2.1.7.zip",
+   "checksum": "SHA-256:9fd110a82e440df3a6001808c315449ab4d749e61f66e90e4d300bb2003e0670",
+   "bytes": 11088,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MMA8451 Library",
+   "version": "1.2.3",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MMA8451_Library.h",
+    "AdafruitMMA8451Library.h",
+    "Adafruit_MMA8451.h",
+    "AdafruitMMA8451.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_MMA8451_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MMA8451_Library-1.2.3.zip",
+   "checksum": "SHA-256:2441f678933b7a80eed5a4b0ef73161e3ce10598860df2444eb310a64cf50274",
+   "bytes": 8594,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit MPU6050",
+   "version": "2.2.9",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_MPU6050.h",
+    "AdafruitMPU6050.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_MPU6050.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_MPU6050-2.2.9.zip",
+   "checksum": "SHA-256:acaad12ee2399f3225e6725e421d92699b006d7359cdda6ea5281c6b832cfc56",
+   "bytes": 345663,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit NAU7802 Library",
+   "version": "1.0.8",
+   "grupo": "fuerza_deformacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_NAU7802_Library.h",
+    "AdafruitNAU7802Library.h",
+    "Adafruit_NAU7802.h",
+    "AdafruitNAU7802.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_NAU7802.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_NAU7802_Library-1.0.8.zip",
+   "checksum": "SHA-256:b5bcfe2b9c211d1ee9ebfed0460e0601d3bfae58d7b4a39185a59cc9af1e66f4",
+   "bytes": 326741,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit NeoPixel",
+   "version": "1.15.5",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit INA219",
+    "Adafruit INA260 Library"
+   ],
+   "cabeceras": [
+    "Adafruit_NeoPixel.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_NeoPixel.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_NeoPixel-1.15.5.zip",
+   "checksum": "SHA-256:3d767caa011ab3078df7fe3c3e0456359ce2bc309eba343932690a2c1612fd16",
+   "bytes": 85934,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit PM25 AQI Sensor",
+   "version": "2.0.0",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_PM25_AQI_Sensor.h",
+    "AdafruitPM25AQISensor.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_PM25AQI.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_PM25_AQI_Sensor-2.0.0.zip",
+   "checksum": "SHA-256:26df29b9f7820cf758b08ec06bd7d66ac3fcf39fb05313ee6c5f9c84d73a86a5",
+   "bytes": 20885,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SCD30",
+   "version": "1.0.11",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SCD30.h",
+    "AdafruitSCD30.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SCD30.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SCD30-1.0.11.zip",
+   "checksum": "SHA-256:2f8292a7f671b1d1f963f269f5eef54b5aac3958670144620f7567cf368de729",
+   "bytes": 16874929,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit seesaw Library",
+   "version": "1.7.9",
+   "grupo": "suelo_agua",
+   "requerida_por": [
+    "Adafruit ST7735 and ST7789 Library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_seesaw_Library.h",
+    "AdafruitseesawLibrary.h",
+    "Adafruit_seesaw.h",
+    "Adafruitseesaw.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_Seesaw.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_seesaw_Library-1.7.9.zip",
+   "checksum": "SHA-256:42d054ad49c386d9a9757c5c36ad5d25115c4524dc8243515cc283d57ef39482",
+   "bytes": 127253,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SGP30 Sensor",
+   "version": "2.0.3",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SGP30_Sensor.h",
+    "AdafruitSGP30Sensor.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SGP30.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SGP30_Sensor-2.0.3.zip",
+   "checksum": "SHA-256:b294fcc816b18288c85d1baeb82a4cdd1cc1ffddf0ddf1bdc72282a0edbb164d",
+   "bytes": 373086,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SH110X",
+   "version": "2.1.15",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit SHT4x Library",
+    "Adafruit AHTX0",
+    "Adafruit MCP9808 Library",
+    "Adafruit TSC2007",
+    "Adafruit PM25 AQI Sensor"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SH110X.h",
+    "AdafruitSH110X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SH110x.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SH110X-2.1.15.zip",
+   "checksum": "SHA-256:24b29e1315d5cd42ebe3c1f9d0bc26d200f501a3e79a1f7b8a7284a17a0776be",
+   "bytes": 24487,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SHT31 Library",
+   "version": "2.2.2",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SHT31_Library.h",
+    "AdafruitSHT31Library.h",
+    "Adafruit_SHT31.h",
+    "AdafruitSHT31.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SHT31.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SHT31_Library-2.2.2.zip",
+   "checksum": "SHA-256:3b5aad3dabb11d5738d363e41abfc396362305c9dad389e256fee062b2ce4af3",
+   "bytes": 438768,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SHT4x Library",
+   "version": "1.0.5",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SHT4x_Library.h",
+    "AdafruitSHT4xLibrary.h",
+    "Adafruit_SHT4x.h",
+    "AdafruitSHT4x.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SHT4X.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SHT4x_Library-1.0.5.zip",
+   "checksum": "SHA-256:547f1b1e531e38a903a98301455afd5c07a1a476671dc35aefdf38076dcf0e87",
+   "bytes": 249016,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit Si7021 Library",
+   "version": "1.5.3",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_Si7021_Library.h",
+    "AdafruitSi7021Library.h",
+    "Adafruit_Si7021.h",
+    "AdafruitSi7021.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_Si7021.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_Si7021_Library-1.5.3.zip",
+   "checksum": "SHA-256:d99135e5f87f1d8cbece52426a38c48b96ad95f024cc301aef26b6301ec4efb9",
+   "bytes": 460409,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit SSD1306",
+   "version": "2.5.17",
+   "grupo": "pantallas",
+   "requerida_por": [
+    "Adafruit MPU6050",
+    "Adafruit BME680 Library",
+    "Adafruit SHT4x Library",
+    "Adafruit TMP117",
+    "Adafruit VEML7700 Library",
+    "Adafruit_VL53L0X",
+    "Adafruit CCS811 Library",
+    "Adafruit SCD30",
+    "Adafruit INA219"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_SSD1306.h",
+    "AdafruitSSD1306.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_SSD1306.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_SSD1306-2.5.17.zip",
+   "checksum": "SHA-256:9b8a9c29a16576d66bce16ed9f6a731632fecbb477171f38a6bc033fda15dd06",
+   "bytes": 41831,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit ST7735 and ST7789 Library",
+   "version": "1.12.0",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit seesaw Library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_ST7735_and_ST7789_Library.h",
+    "AdafruitST7735andST7789Library.h",
+    "Adafruit_ST7735_and_ST7789.h",
+    "AdafruitST7735andST7789.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit-ST7735-Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_ST7735_and_ST7789_Library-1.12.0.zip",
+   "checksum": "SHA-256:60a88b11a026559712154df97488cc7512b72d5ac1b8ec91c8cace9c2ef853a8",
+   "bytes": 70018,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit STMPE610",
+   "version": "1.1.6",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit ILI9341"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_STMPE610.h",
+    "AdafruitSTMPE610.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_STMPE610.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_STMPE610-1.1.6.zip",
+   "checksum": "SHA-256:5a9cea9485f11c8ccf7b2b56ffc90f0c8d3a4b0e48c77d7feadccc1873057753",
+   "bytes": 294252,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit TMP117",
+   "version": "1.0.5",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_TMP117.h",
+    "AdafruitTMP117.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_TMP117.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_TMP117-1.0.5.zip",
+   "checksum": "SHA-256:96b80bfd373b736ca54a1ddc49bbb95feecc857f7e57ca23c051270531ea1adc",
+   "bytes": 23397,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit TouchScreen",
+   "version": "1.1.6",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit ILI9341"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_TouchScreen.h",
+    "AdafruitTouchScreen.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_TouchScreen.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_TouchScreen-1.1.6.zip",
+   "checksum": "SHA-256:5e5a00da7bab6da6064d156f22cfd865730b6cb67664133806c041ebf9635965",
+   "bytes": 11046,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit TSC2007",
+   "version": "1.1.2",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit ILI9341"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_TSC2007.h",
+    "AdafruitTSC2007.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_TSC2007.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_TSC2007-1.1.2.zip",
+   "checksum": "SHA-256:4024ced1ffd58d1adfddc5b835e7824acc6de156fe14f7c939bd9d516a21fa64",
+   "bytes": 593426,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit TSL2561",
+   "version": "1.1.3",
+   "grupo": "luz",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_TSL2561.h",
+    "AdafruitTSL2561.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_TSL2561.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_TSL2561-1.1.3.zip",
+   "checksum": "SHA-256:12c0a290ccbfd359b775e4b1ff99bf1f5b385bf4cebd77cc082bd5d9d1b93580",
+   "bytes": 12610,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit TSL2591 Library",
+   "version": "1.4.5",
+   "grupo": "luz",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_TSL2591_Library.h",
+    "AdafruitTSL2591Library.h",
+    "Adafruit_TSL2591.h",
+    "AdafruitTSL2591.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_TSL2591_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_TSL2591_Library-1.4.5.zip",
+   "checksum": "SHA-256:f03c8d510c643718a70775e4b25e2fb1bf6158d0b459ee8fe937fdd3c440663e",
+   "bytes": 14586,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit Unified Sensor",
+   "version": "1.1.15",
+   "grupo": "base",
+   "requerida_por": [
+    "Adafruit MPU6050",
+    "Adafruit ADXL345",
+    "Adafruit ADXL343",
+    "Adafruit LIS3DH",
+    "Adafruit LSM6DS",
+    "Adafruit MMA8451 Library",
+    "Adafruit BNO055",
+    "Adafruit BNO08x",
+    "Adafruit ICM20X",
+    "Adafruit LIS3MDL",
+    "DHT sensor library",
+    "Adafruit BME280 Library",
+    "Adafruit BMP280 Library",
+    "Adafruit BME680 Library",
+    "Adafruit SHT4x Library",
+    "Adafruit AHTX0",
+    "Adafruit HTU21DF Library",
+    "Adafruit MCP9808 Library",
+    "Adafruit TMP117",
+    "Adafruit TSL2591 Library",
+    "Adafruit TSL2561",
+    "Adafruit SCD30"
+   ],
+   "cabeceras": [
+    "Adafruit_Sensor.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit <info@adafruit.com>",
+   "repositorio": "https://github.com/adafruit/Adafruit_Sensor.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_Unified_Sensor-1.1.15.zip",
+   "checksum": "SHA-256:d64cdec0b817535f568fc3b8b8d44e7e097749f5ab8040aea573f412a3cbaec6",
+   "bytes": 15418,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit VEML6070 Library",
+   "version": "1.0.8",
+   "grupo": "luz",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_VEML6070_Library.h",
+    "AdafruitVEML6070Library.h",
+    "Adafruit_VEML6070.h",
+    "AdafruitVEML6070.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_VEML6070.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_VEML6070_Library-1.0.8.zip",
+   "checksum": "SHA-256:8aa2c928f94e0607e466792666be50f7480c4fec33c569631e44815a73aa2110",
+   "bytes": 6737,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit VEML7700 Library",
+   "version": "2.1.6",
+   "grupo": "luz",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_VEML7700_Library.h",
+    "AdafruitVEML7700Library.h",
+    "Adafruit_VEML7700.h",
+    "AdafruitVEML7700.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_VEML7700.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_VEML7700_Library-2.1.6.zip",
+   "checksum": "SHA-256:64d11bcaf18425ebe643c3bab180f74642ca2d9e7003eb44d518d6ee63195497",
+   "bytes": 11386,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit VL53L1X",
+   "version": "3.1.2",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_VL53L1X.h",
+    "AdafruitVL53L1X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_VL53L1X.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_VL53L1X-3.1.2.zip",
+   "checksum": "SHA-256:88bed4d3e5b46f2862a26a5cad9169cca9bdc022e98bfab27837f82e2b1f28b5",
+   "bytes": 57171,
+   "licencia": null
+  },
+  {
+   "nombre": "Adafruit_VL53L0X",
+   "version": "1.2.5",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Adafruit_VL53L0X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/Adafruit_VL53L0X.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/Adafruit_VL53L0X-1.2.5.zip",
+   "checksum": "SHA-256:1ed5350dc2c242836beed10565f1ecfd80b48a56d07d74370912b2bd66819e32",
+   "bytes": 128907,
+   "licencia": null
+  },
+  {
+   "nombre": "ADS1220_WE",
+   "version": "1.0.25",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [
+    "ADS1220_WE.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Wolfgang Ewald <wolfgang.ewald@wolles-elektronikkiste.de>",
+   "repositorio": "https://github.com/wollewald/ADS1220_WE.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/wollewald/ADS1220_WE-1.0.25.zip",
+   "checksum": "SHA-256:debb93bf6542137ff3058509f53ab0a28e7596095d318c044b321414b40f0825",
+   "bytes": 374429,
+   "licencia": null
+  },
+  {
+   "nombre": "ADS1256",
+   "version": "1.6.0",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [
+    "ADS1256.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "avr",
+    "stm32",
+    "esp32",
+    "renesas_uno",
+    "rp2040"
+   ],
+   "autor": "Curious Scientist <contact@curiousscientist.tech>",
+   "repositorio": "https://github.com/CuriousScientist0/ADS1256.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/CuriousScientist0/ADS1256-1.6.0.zip",
+   "checksum": "SHA-256:5e69a335270f298977390d1454743c712971cecaf5cc585a7ddc57a1b13ea8d8",
+   "bytes": 932314,
+   "licencia": null
+  },
+  {
+   "nombre": "ADS1X15",
+   "version": "0.6.2",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [
+    "ADS1X15.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Rob Tillaart <rob.tillaart@gmail.com>",
+   "repositorio": "https://github.com/RobTillaart/ADS1X15.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/RobTillaart/ADS1X15-0.6.2.zip",
+   "checksum": "SHA-256:56e0041598897568fa12b7c980162196629b90755758f354030e1aea5caacbf4",
+   "bytes": 58867,
+   "licencia": null
+  },
+  {
+   "nombre": "ADXL345_WE",
+   "version": "3.1.0",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [
+    "ADXL345_WE.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Wolfgang Ewald <wolfgang.ewald@wolles-elektronikkiste.de>",
+   "repositorio": "https://github.com/wollewald/ADXL345_WE.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/wollewald/ADXL345_WE-3.1.0.zip",
+   "checksum": "SHA-256:a2d37e70f6285633e3e7fe350d3a25787f79b3c276e4b53e9ffb4c48b12e0a1c",
+   "bytes": 430577,
+   "licencia": null
+  },
+  {
+   "nombre": "Arduino_BMI270_BMM150",
+   "version": "1.2.4",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [
+    "Arduino_BMI270_BMM150.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "samd",
+    "mbed_portenta",
+    "mbed_nano",
+    "mbed_edge",
+    "esp32",
+    "rp2040"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/Arduino_BMI270_BMM150.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/Arduino_BMI270_BMM150-1.2.4.zip",
+   "checksum": "SHA-256:bc7dc36a757c674033bc243ee2a967be73312d606405b90390951a1cafdfd83e",
+   "bytes": 222712,
+   "licencia": null
+  },
+  {
+   "nombre": "Arduino_LSM6DS3",
+   "version": "1.1.0",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [
+    "Arduino_LSM6DS3.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/Arduino_LSM6DS3.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/Arduino_LSM6DS3-1.1.0.zip",
+   "checksum": "SHA-256:784af28e334dd6bd206282a0bd6402c5a41e878189ad51a9280025c25e0e4e2a",
+   "bytes": 20847,
+   "licencia": null
+  },
+  {
+   "nombre": "ArduinoHttpClient",
+   "version": "0.6.2",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "ArduinoHttpClient.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/ArduinoHttpClient.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/ArduinoHttpClient-0.6.2.zip",
+   "checksum": "SHA-256:4e1f20d155ac1d4f71a324c0a4aa291c69e98ad7dbfaba7fcbccfd7493458954",
+   "bytes": 57050,
+   "licencia": null
+  },
+  {
+   "nombre": "ArduinoJson",
+   "version": "7.4.3",
+   "grupo": "base",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "ArduinoJson.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Benoit Blanchon <blog.benoitblanchon.fr>",
+   "repositorio": "https://github.com/bblanchon/ArduinoJson.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/bblanchon/ArduinoJson-7.4.3.zip",
+   "checksum": "SHA-256:cd8d2f7e4f06eb7e215beecb0de5326a82d047a994e84246572ad73ddc52746f",
+   "bytes": 517250,
+   "licencia": null
+  },
+  {
+   "nombre": "ArduinoModbus",
+   "version": "1.0.9",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "ArduinoModbus.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "megaavr",
+    "samd",
+    "mbed_nano",
+    "mbed_portenta",
+    "mbed_opta"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/ArduinoModbus.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/ArduinoModbus-1.0.9.zip",
+   "checksum": "SHA-256:24c206ecd4985e021dab3fda62f2decb33cd8741a39ba9c5497920111f07a8e9",
+   "bytes": 76681,
+   "licencia": null
+  },
+  {
+   "nombre": "ArduinoMqttClient",
+   "version": "0.1.8",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "ArduinoMqttClient.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/ArduinoMqttClient.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/ArduinoMqttClient-0.1.8.zip",
+   "checksum": "SHA-256:97a19eab1ecb74bcdd6311cd5873dd15d265bd4f5f8a4a45fa0ac0871847c936",
+   "bytes": 34829,
+   "licencia": null
+  },
+  {
+   "nombre": "ArduinoRS485",
+   "version": "1.1.1",
+   "grupo": "comunicacion",
+   "requerida_por": [
+    "ArduinoModbus"
+   ],
+   "cabeceras": [
+    "ArduinoRS485.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "samd",
+    "mbed_portenta",
+    "mbed_opta",
+    "mbed_nano",
+    "renesas_uno",
+    "zephyr"
+   ],
+   "autor": "Arduino",
+   "repositorio": "https://github.com/arduino-libraries/ArduinoRS485.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/ArduinoRS485-1.1.1.zip",
+   "checksum": "SHA-256:5ba87df4df0d2141ca006d564b5415181e33ba8b7b77c215bc15ea7fab6a757a",
+   "bytes": 20034,
+   "licencia": null
+  },
+  {
+   "nombre": "AUnit",
+   "version": "1.7.1",
+   "grupo": null,
+   "requerida_por": [
+    "Adafruit VEML6070 Library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "AUnit.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Brian T. Park <brian@xparks.net>",
+   "repositorio": "https://github.com/bxparks/AUnit.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/bxparks/AUnit-1.7.1.zip",
+   "checksum": "SHA-256:32ba9479d215b07b550703674ccd44575a58341340d143dc7e091bdaf99be796",
+   "bytes": 1428540,
+   "licencia": null
+  },
+  {
+   "nombre": "BH1750",
+   "version": "1.3.0",
+   "grupo": "luz",
+   "requerida_por": [],
+   "cabeceras": [
+    "BH1750.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "avr",
+    "sam",
+    "esp8266",
+    "esp32",
+    "stm32"
+   ],
+   "autor": "Christopher Laws",
+   "repositorio": "https://github.com/claws/BH1750.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/claws/BH1750-1.3.0.zip",
+   "checksum": "SHA-256:740c39179835c056afd84eb3d90e23633d98e54252ad7de988c27d33f385bde2",
+   "bytes": 288693,
+   "licencia": null
+  },
+  {
+   "nombre": "CQRobotTDS",
+   "version": "0.1.1",
+   "grupo": "suelo_agua",
+   "requerida_por": [],
+   "cabeceras": [
+    "CQRobotTDS.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "redPanther",
+   "repositorio": "https://github.com/redPanther/CQRobotTDS.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/redPanther/CQRobotTDS-0.1.1.zip",
+   "checksum": "SHA-256:60e54be8503fc48e95cd5630c470a724082344445a8ae2455ffaeb8464ddc757",
+   "bytes": 16238,
+   "licencia": null
+  },
+  {
+   "nombre": "DallasTemperature",
+   "version": "4.0.6",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "DallasTemperature.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Miles Burton <mail@milesburton.com>, Tim Newsome <nuisance@casualhacker.net>, Guil Barros <gfbarros@bappos.com>, Rob Tillaart <rob.tillaart@gmail.com>",
+   "repositorio": "https://github.com/milesburton/Arduino-Temperature-Control-Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/milesburton/DallasTemperature-4.0.6.zip",
+   "checksum": "SHA-256:fb90dffd2bbd10b8eb5943968e8300ada5e4af17793b0f80c10359702d9de4e4",
+   "bytes": 46621,
+   "licencia": null
+  },
+  {
+   "nombre": "DFRobot_PH",
+   "version": "1.0.0",
+   "grupo": "suelo_agua",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "DFRobot_PH.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "DFRobot",
+   "repositorio": "https://github.com/DFRobot/DFRobot_PH.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/DFRobot/DFRobot_PH-1.0.0.zip",
+   "checksum": "SHA-256:6167628912259eef1ea6d970cc750f5134196cfd4d0c36b4725b73f85664baf4",
+   "bytes": 425624,
+   "licencia": null
+  },
+  {
+   "nombre": "DHT sensor library",
+   "version": "1.4.7",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "DHT_sensor_library.h",
+    "DHTsensorlibrary.h",
+    "DHT.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/DHT-sensor-library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/DHT_sensor_library-1.4.7.zip",
+   "checksum": "SHA-256:5c5d3881b49840c7be98cc0848a48930bbac364fadc7edb7965fe98f9bb1463f",
+   "bytes": 18874,
+   "licencia": null
+  },
+  {
+   "nombre": "DHT sensor library for ESPx",
+   "version": "1.19.0",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [
+    "DHTesp.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "esp8266",
+    "esp32",
+    "samd",
+    "avr"
+   ],
+   "autor": "beegee_tokyo",
+   "repositorio": "https://github.com/beegee-tokyo/DHTesp.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/beegee-tokyo/DHT_sensor_library_for_ESPx-1.19.0.zip",
+   "checksum": "SHA-256:24a5bcab04be57484ee3408cb9746dc572b070d3493ea4fd4e9b208b29503472",
+   "bytes": 30109,
+   "licencia": null
+  },
+  {
+   "nombre": "EmonLib",
+   "version": "1.1.0",
+   "grupo": "energia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "EmonLib.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "OpenEnergyMonitor",
+   "repositorio": "https://github.com/openenergymonitor/EmonLib.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/openenergymonitor/EmonLib-1.1.0.zip",
+   "checksum": "SHA-256:24069657940afc210f60fd2cd8a257906421ea0322788cb362c398057ac843b7",
+   "bytes": 8049,
+   "licencia": null
+  },
+  {
+   "nombre": "ESP32Servo",
+   "version": "3.2.1",
+   "grupo": "actuadores",
+   "requerida_por": [],
+   "cabeceras": [
+    "ESP32PWM.h",
+    "ESP32Servo.h",
+    "ESP32Tone.h",
+    "analogWrite.h",
+    "tone.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "esp32"
+   ],
+   "autor": "Kevin Harrington,John K. Bennett",
+   "repositorio": "https://github.com/madhephaestus/ESP32Servo.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/madhephaestus/ESP32Servo-3.2.1.zip",
+   "checksum": "SHA-256:2fdebd81b1fb17cc52737ed1412ef23cd475ddec44e3a298f12d88cc881d9fa6",
+   "bytes": 57102,
+   "licencia": null
+  },
+  {
+   "nombre": "Ethernet",
+   "version": "2.0.2",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "Ethernet.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Various (see AUTHORS file for details)",
+   "repositorio": "https://github.com/arduino-libraries/Ethernet.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/Ethernet-2.0.2.zip",
+   "checksum": "SHA-256:e8688e417039c79d547d005f4deecbdaffde965823cfa79f64a18d67df1112d6",
+   "bytes": 104551,
+   "licencia": null
+  },
+  {
+   "nombre": "HX711",
+   "version": "0.6.6",
+   "grupo": "fuerza_deformacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "HX711.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Rob Tillaart <rob.tillaart@gmail.com>",
+   "repositorio": "https://github.com/RobTillaart/HX711.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/RobTillaart/HX711-0.6.6.zip",
+   "checksum": "SHA-256:e1196d41efb6cfe7e215fd46979bde20aec1e471b8b2399aa1c01a50eef33c41",
+   "bytes": 43695,
+   "licencia": null
+  },
+  {
+   "nombre": "HX711 Arduino Library",
+   "version": "0.7.5",
+   "grupo": "fuerza_deformacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "HX711_Arduino_Library.h",
+    "HX711ArduinoLibrary.h",
+    "HX711.h"
+   ],
+   "arquitecturas": [],
+   "autor": "Bogdan Necula <bogde@bogde.ro>, Andreas Motl <andreas.motl@elmyra.de>",
+   "repositorio": "https://github.com/bogde/HX711.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/bogde/HX711_Arduino_Library-0.7.5.zip",
+   "checksum": "SHA-256:11a72d1d462a0306e8e0c5cf33d215cefded2e9c9b7ce05e1f1d2d42b47291f6",
+   "bytes": 19509,
+   "licencia": null
+  },
+  {
+   "nombre": "HX711_ADC",
+   "version": "1.2.12",
+   "grupo": "fuerza_deformacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "HX711_ADC.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Olav Kallhovd",
+   "repositorio": "https://github.com/olkal/HX711_ADC.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/olkal/HX711_ADC-1.2.12.zip",
+   "checksum": "SHA-256:b2a0ce81e68d8338a7b409d5a1adddc83b0fd731c8b3d32b046a77368b4eadba",
+   "bytes": 257998,
+   "licencia": null
+  },
+  {
+   "nombre": "INA226",
+   "version": "0.6.6",
+   "grupo": "energia",
+   "requerida_por": [],
+   "cabeceras": [
+    "INA226.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Rob Tillaart <rob.tillaart@gmail.com>",
+   "repositorio": "https://github.com/RobTillaart/INA226.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/RobTillaart/INA226-0.6.6.zip",
+   "checksum": "SHA-256:44aeddef872d040468f842b4352d4faa68ec2bb24af55b841821a6d5dbad1f77",
+   "bytes": 35801,
+   "licencia": null
+  },
+  {
+   "nombre": "LiquidCrystal",
+   "version": "1.0.7",
+   "grupo": null,
+   "requerida_por": [
+    "MAX6675 library",
+    "Adafruit MAX31855 library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "LiquidCrystal.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Arduino, Adafruit",
+   "repositorio": "https://github.com/arduino-libraries/LiquidCrystal.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/LiquidCrystal-1.0.7.zip",
+   "checksum": "SHA-256:f7b14c42afbbdcfbe66073e6ef1e4cbaa03f5d11f52f9ab91c916b6ccac38434",
+   "bytes": 19947,
+   "licencia": null
+  },
+  {
+   "nombre": "LiquidCrystal I2C",
+   "version": "1.1.2",
+   "grupo": "pantallas",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "LiquidCrystal_I2C.h",
+    "LiquidCrystalI2C.h"
+   ],
+   "arquitecturas": [
+    "avr"
+   ],
+   "autor": "Frank de Brabander",
+   "repositorio": "https://github.com/johnrickman/LiquidCrystal_I2C.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/johnrickman/LiquidCrystal_I2C-1.1.2.zip",
+   "checksum": "SHA-256:7f288f4aa7ad33a25122727b057e49c48ef5f0d3a4943b7aca33ed2b78982adb",
+   "bytes": 20811,
+   "licencia": null
+  },
+  {
+   "nombre": "LoRa",
+   "version": "0.8.0",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "LoRa.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Sandeep Mistry <sandeep.mistry@gmail.com>",
+   "repositorio": "https://github.com/sandeepmistry/arduino-LoRa.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sandeepmistry/LoRa-0.8.0.zip",
+   "checksum": "SHA-256:a173d1125619ea98e766faaa9b990098a07bd5104bc12247f9684d20f5005bc0",
+   "bytes": 28927,
+   "licencia": null
+  },
+  {
+   "nombre": "MAX6675 library",
+   "version": "1.1.2",
+   "grupo": "temperatura_industrial",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "MAX6675_library.h",
+    "MAX6675library.h",
+    "MAX6675.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/MAX6675-library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/MAX6675_library-1.1.2.zip",
+   "checksum": "SHA-256:6e2a2edc8cebb18d2b99398a2f241573575002ab93d2dffd29fce745625f7671",
+   "bytes": 8192,
+   "licencia": null
+  },
+  {
+   "nombre": "MCCI LoRaWAN LMIC library",
+   "version": "6.1.0",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "MCCI_LoRaWAN_LMIC_library.h",
+    "MCCILoRaWANLMIClibrary.h",
+    "MCCI_LoRaWAN_LMIC.h",
+    "MCCILoRaWANLMIC.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "IBM, Matthijs Kooijman, Terry Moore, ChaeHee Won, Frank Rose, Tristan Webber, Benjamin Freeman, Dhinesh Kumar, Pontus Oldberg",
+   "repositorio": "https://github.com/mcci-catena/arduino-lmic.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/mcci-catena/MCCI_LoRaWAN_LMIC_library-6.1.0.zip",
+   "checksum": "SHA-256:d358ce8bc39a61e895828f0920b7d5b9a54bd4fea9c66021f7f9d9783e5a6de4",
+   "bytes": 4803518,
+   "licencia": null
+  },
+  {
+   "nombre": "ModbusMaster",
+   "version": "2.0.1",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "ModbusMaster.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Doc Walker",
+   "repositorio": "https://github.com/4-20ma/ModbusMaster.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/4-20ma/ModbusMaster-2.0.1.zip",
+   "checksum": "SHA-256:32685055fd5576a6cef69de396ae13ae4ef3de49884e6241e08c42e5e048c7ff",
+   "bytes": 269266,
+   "licencia": null
+  },
+  {
+   "nombre": "MPU6050",
+   "version": "1.4.5",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [
+    "MPU6050.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Electronic Cats",
+   "repositorio": "https://github.com/ElectronicCats/mpu6050.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/ElectronicCats/MPU6050-1.4.5.zip",
+   "checksum": "SHA-256:461cd421d995f56ace37f19d0a6d5443297057a634d357eb4ad54933fc6afce1",
+   "bytes": 121827,
+   "licencia": null
+  },
+  {
+   "nombre": "MPU9250",
+   "version": "0.4.8",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "MPU9250.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "hideakitai",
+   "repositorio": "https://github.com/hideakitai/MPU9250.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/hideakitai/MPU9250-0.4.8.zip",
+   "checksum": "SHA-256:75ec82326b95bcecda6d4418a3809e775d7e0a5254612f4794e36746b314307b",
+   "bytes": 37125,
+   "licencia": null
+  },
+  {
+   "nombre": "MQUnifiedsensor",
+   "version": "3.0.0",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "MQUnifiedsensor.h"
+   ],
+   "arquitecturas": [
+    "avr",
+    "esp8266",
+    "esp32"
+   ],
+   "autor": "Miguel Califa <miguelangel5612@gmail.com>, Yersson Carrillo<miguelangel5612@gmail.com>, Ghiordy Contreras<miguelangel5612@gmail.com>",
+   "repositorio": "https://github.com/miguel5612/MQSensorsLib.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/miguel5612/MQUnifiedsensor-3.0.0.zip",
+   "checksum": "SHA-256:1d4c983ad00e4eb471269e1e6d384ea4d5a53a98e26ebcb3cb50a30ab972f8ce",
+   "bytes": 528317,
+   "licencia": null
+  },
+  {
+   "nombre": "NewPing",
+   "version": "1.9.7",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [
+    "NewPing.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "avr",
+    "arm",
+    "megaavr",
+    "esp32"
+   ],
+   "autor": "Tim Eckel <eckel.tim@gmail.com>",
+   "repositorio": "https://bitbucket.org/teckel12/arduino-new-ping.git",
+   "url": "https://downloads.arduino.cc/libraries/bitbucket.org/teckel12/NewPing-1.9.7.zip",
+   "checksum": "SHA-256:7f4c4ef7f39a1ce8a6bf05580717712fc3e669ee5b0c343479569d5e2e374564",
+   "bytes": 20057,
+   "licencia": null
+  },
+  {
+   "nombre": "Nova Fitness Sds dust sensors library",
+   "version": "1.5.1",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [
+    "SdsDustSensor.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "avr",
+    "esp8266",
+    "esp32",
+    "sam",
+    "samd"
+   ],
+   "autor": "Paweł Kołodziejczyk <lewapek@gmail.com>",
+   "repositorio": "https://github.com/lewapek/sds-dust-sensors-arduino-library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/lewapek/Nova_Fitness_Sds_dust_sensors_library-1.5.1.zip",
+   "checksum": "SHA-256:61933e3f1fb505e86e258f24678ddad9a5ae29d0cca1dbfc037c0e752596f63a",
+   "bytes": 17014,
+   "licencia": null
+  },
+  {
+   "nombre": "OneWire",
+   "version": "2.3.8",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "OneWire.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Jim Studt, Tom Pollard, Robin James, Glenn Trewitt, Jason Dangel, Guillermo Lovato, Paul Stoffregen, Scott Roberts, Bertrik Sikken, Mark Tillotson, Ken Butcher, Roger Clark, Love Nystrom",
+   "repositorio": "https://github.com/PaulStoffregen/OneWire.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/PaulStoffregen/OneWire-2.3.8.zip",
+   "checksum": "SHA-256:dd76d1480a2f4c94348e8c8307ea74206d2936d9c80c73be67783fd200f2be17",
+   "bytes": 23091,
+   "licencia": null
+  },
+  {
+   "nombre": "PL ADXL355",
+   "version": "1.4.2",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "PL_ADXL355.h",
+    "PLADXL355.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "plasmapper",
+   "repositorio": "https://github.com/plasmapper/adxl355-arduino.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/plasmapper/PL_ADXL355-1.4.2.zip",
+   "checksum": "SHA-256:3573ff5615fda9d23612f6471777fd4e164e39421f0785f7d192f16cc9aaf81d",
+   "bytes": 23243,
+   "licencia": null
+  },
+  {
+   "nombre": "ProtoCentral ADS1220 24-bit ADC Library",
+   "version": "1.2.1",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "ProtoCentral_ADS1220_24bit_ADC_Library.h",
+    "ProtoCentralADS122024bitADCLibrary.h",
+    "ProtoCentral_ADS1220_24bit_ADC.h",
+    "ProtoCentralADS122024bitADC.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "ProtoCentral",
+   "repositorio": "https://github.com/Protocentral/Protocentral_ADS1220.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/Protocentral/ProtoCentral_ADS1220_24_bit_ADC_Library-1.2.1.zip",
+   "checksum": "SHA-256:9b155035f87deacf51b1f86b24760c4b2f6c8120c71c792169c0ad92f3e44c03",
+   "bytes": 2806336,
+   "licencia": null
+  },
+  {
+   "nombre": "ProtoCentral ADS1262 32-bit precision ADC Library",
+   "version": "2.0.0",
+   "grupo": "adc_precision",
+   "requerida_por": [],
+   "cabeceras": [
+    "ads1262.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Ashwin Whitchurch, Protocentral Electronics <support@protocentral.com>",
+   "repositorio": "https://github.com/Protocentral/ProtoCentral_ads1262.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/Protocentral/ProtoCentral_ADS1262_32_bit_precision_ADC_Library-2.0.0.zip",
+   "checksum": "SHA-256:d715dba0a5d93108f24598830eaf57d612202a4acc6e73083d5add926a700100",
+   "bytes": 2600448,
+   "licencia": null
+  },
+  {
+   "nombre": "PubSubClient",
+   "version": "2.8.0",
+   "grupo": "base",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "PubSubClient.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Nick O'Leary <nick.oleary@gmail.com>",
+   "repositorio": "https://github.com/knolleary/pubsubclient.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/knolleary/PubSubClient-2.8.0.zip",
+   "checksum": "SHA-256:f0849b93a2b02e263a6c157c374d6103caefba753a47dcbef64bbec620b079fe",
+   "bytes": 44426,
+   "licencia": null
+  },
+  {
+   "nombre": "PZEM004Tv30",
+   "version": "1.2.1",
+   "grupo": "energia",
+   "requerida_por": [],
+   "cabeceras": [
+    "PZEM004Tv30.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "avr",
+    "stm32",
+    "esp8266",
+    "esp32"
+   ],
+   "autor": "Jakub Mandula",
+   "repositorio": "https://github.com/mandulaj/PZEM-004T-v30.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/mandulaj/PZEM004Tv30-1.2.1.zip",
+   "checksum": "SHA-256:52aa70959a46e0fc1a04ee2815ae82e5c0d7ec97ad8618edf77e107a76f21878",
+   "bytes": 24844,
+   "licencia": null
+  },
+  {
+   "nombre": "RadioLib",
+   "version": "8.0.0",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [
+    "RadioLib.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Jan Gromes <gromes.jan@gmail.com>",
+   "repositorio": "https://github.com/jgromes/RadioLib.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/jgromes/RadioLib-8.0.0.zip",
+   "checksum": "SHA-256:cecc3f6d9366670d01292c852d1cdea7d83417cf1bace5a8b22b4c87b2bdcd9a",
+   "bytes": 5606935,
+   "licencia": null
+  },
+  {
+   "nombre": "RTClib",
+   "version": "2.1.4",
+   "grupo": "tiempo_posicion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "RTClib.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Adafruit",
+   "repositorio": "https://github.com/adafruit/RTClib.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/adafruit/RTClib-2.1.4.zip",
+   "checksum": "SHA-256:8dc4bbf8f25e12353533778f13295e9fe12ed6a92d66a8e8c062b24d83fe70dd",
+   "bytes": 52803,
+   "licencia": null
+  },
+  {
+   "nombre": "SCL3300",
+   "version": "3.3.1",
+   "grupo": "inclinacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SCL3300.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "David Armstrong <mamoru.tbreesama@gmail.com>",
+   "repositorio": "https://github.com/DavidArmstrong/SCL3300.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/DavidArmstrong/SCL3300-3.3.1.zip",
+   "checksum": "SHA-256:80cd4720c36edf8bd1e28b313e5cd0602914b8032d6f9632aba291df208b7ca2",
+   "bytes": 23208,
+   "licencia": null
+  },
+  {
+   "nombre": "SD",
+   "version": "1.3.0",
+   "grupo": "almacenamiento",
+   "requerida_por": [
+    "Adafruit ST7735 and ST7789 Library"
+   ],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SD.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Arduino, SparkFun",
+   "repositorio": "https://github.com/arduino-libraries/SD.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/SD-1.3.0.zip",
+   "checksum": "SHA-256:94b030f2ef4b55658e8505dc3043946878e6dc7644cbdcbf2b51bdea8bebff32",
+   "bytes": 82919,
+   "licencia": null
+  },
+  {
+   "nombre": "SdFat",
+   "version": "2.3.0",
+   "grupo": "almacenamiento",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SdFat.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Bill Greiman <fat16lib@sbcglobal.net>",
+   "repositorio": "https://github.com/greiman/SdFat.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/greiman/SdFat-2.3.0.zip",
+   "checksum": "SHA-256:44337637960a3fe3d02377fae13d2f5a288197515361ac7f31c9f3d1f3bd579d",
+   "bytes": 4202351,
+   "licencia": null
+  },
+  {
+   "nombre": "Sensirion Core",
+   "version": "0.7.3",
+   "grupo": null,
+   "requerida_por": [
+    "Sensirion I2C SCD4x"
+   ],
+   "cabeceras": [
+    "SensirionCore.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [],
+   "autor": "Sensirion",
+   "repositorio": "https://github.com/sensirion/arduino-core.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sensirion/Sensirion_Core-0.7.3.zip",
+   "checksum": "SHA-256:01b140113496278f4c56048c49d8dff0a07d7a55855c7c0a296da6d053bb0760",
+   "bytes": 38344,
+   "licencia": null
+  },
+  {
+   "nombre": "Sensirion I2C SCD4x",
+   "version": "1.1.0",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [
+    "SensirionI2cScd4x.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Sensirion",
+   "repositorio": "https://github.com/Sensirion/arduino-i2c-scd4x.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/Sensirion/Sensirion_I2C_SCD4x-1.1.0.zip",
+   "checksum": "SHA-256:66bd4abea0e87ac6e5b3edd682f040d8d29f8b2bb9931f6c8b576074d71f3b22",
+   "bytes": 1997388,
+   "licencia": null
+  },
+  {
+   "nombre": "Servo",
+   "version": "1.3.0",
+   "grupo": "actuadores",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "Servo.h"
+   ],
+   "arquitecturas": [
+    "avr",
+    "megaavr",
+    "sam",
+    "samd",
+    "nrf52",
+    "stm32f4",
+    "mbed",
+    "mbed_nano",
+    "mbed_portenta",
+    "mbed_rp2040",
+    "renesas",
+    "renesas_portenta",
+    "renesas_uno",
+    "zephyr"
+   ],
+   "autor": "Michael Margolis, Arduino",
+   "repositorio": "https://github.com/arduino-libraries/Servo.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/arduino-libraries/Servo-1.3.0.zip",
+   "checksum": "SHA-256:d25b0d77f10a810d24876c570410f32cc3129f9cc3d0370c861a278b969b4b38",
+   "bytes": 133580,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun 9DoF IMU Breakout - ICM 20948 - Arduino Library",
+   "version": "1.3.2",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_9DoF_IMU_Breakout__ICM_20948__Arduino_Library.h",
+    "SparkFun9DoFIMUBreakoutICM20948ArduinoLibrary.h",
+    "SparkFun_9DoF_IMU_Breakout__ICM_20948.h",
+    "SparkFun9DoFIMUBreakoutICM20948.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics <techsupport@sparkfun.com>",
+   "repositorio": "https://github.com/sparkfun/SparkFun_ICM-20948_ArduinoLibrary.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_9DoF_IMU_Breakout___ICM_20948___Arduino_Library-1.3.2.zip",
+   "checksum": "SHA-256:0e9c05aa41e5263bc9eee4f6ad7cf1832369db8b8303a103afbc5aaff726a5ae",
+   "bytes": 218753,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun Indoor Air Quality Sensor - ENS160",
+   "version": "1.1.0",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_Indoor_Air_Quality_Sensor__ENS160.h",
+    "SparkFunIndoorAirQualitySensorENS160.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics <techsupport@sparkfun.com>",
+   "repositorio": "https://github.com/sparkfun/SparkFun_Indoor_Air_Quality_Sensor-ENS160_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_Indoor_Air_Quality_Sensor___ENS160-1.1.0.zip",
+   "checksum": "SHA-256:c0ef570131b3406018c6d8cd7b90be3bd979bdb9bc128a828bd3ab51d04a77e9",
+   "bytes": 1682101,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun MMA8452Q Accelerometer",
+   "version": "1.4.0",
+   "grupo": "vibracion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_MMA8452Q_Accelerometer.h",
+    "SparkFunMMA8452QAccelerometer.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics <techsupport@sparkfun.com>",
+   "repositorio": "https://github.com/sparkfun/SparkFun_MMA8452Q_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_MMA8452Q_Accelerometer-1.4.0.zip",
+   "checksum": "SHA-256:72a1f34cb3e6d7b92ef149b0348c92458da6049b53e27363d8e106fdd95e38dc",
+   "bytes": 24835,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun Qwiic Scale NAU7802 Arduino Library",
+   "version": "1.0.6",
+   "grupo": "fuerza_deformacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h",
+    "SparkFunQwiicScaleNAU7802ArduinoLibrary.h",
+    "SparkFun_Qwiic_Scale_NAU7802.h",
+    "SparkFunQwiicScaleNAU7802.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics",
+   "repositorio": "https://github.com/sparkfun/SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_Qwiic_Scale_NAU7802_Arduino_Library-1.0.6.zip",
+   "checksum": "SHA-256:b8407f21888a65f22bc419b51afffc645c6f45c6439c3d312cad8efca2617162",
+   "bytes": 29504,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun SCD30 Arduino Library",
+   "version": "1.0.20",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_SCD30_Arduino_Library.h",
+    "SparkFunSCD30ArduinoLibrary.h",
+    "SparkFun_SCD30.h",
+    "SparkFunSCD30.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics",
+   "repositorio": "https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_SCD30_Arduino_Library-1.0.20.zip",
+   "checksum": "SHA-256:d34a4a2f3dae2334ef8d5b2e259a0b0063f068e394bfa7e66d7586392e12ca9a",
+   "bytes": 466067,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun SGP40 Arduino Library",
+   "version": "1.0.4",
+   "grupo": "aire_gases",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_SGP40_Arduino_Library.h",
+    "SparkFunSGP40ArduinoLibrary.h",
+    "SparkFun_SGP40.h",
+    "SparkFunSGP40.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics",
+   "repositorio": "https://github.com/sparkfun/SparkFun_SGP40_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_SGP40_Arduino_Library-1.0.4.zip",
+   "checksum": "SHA-256:4aef3bdebd46055fcbee6573d05c9442fedcb2cfce453d29d3dd66f94b8e2b5a",
+   "bytes": 24114,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun u-blox GNSS v3",
+   "version": "3.1.15",
+   "grupo": "tiempo_posicion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_ublox_GNSS_v3.h",
+    "SparkFunubloxGNSSv3.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics <techsupport@sparkfun.com>",
+   "repositorio": "https://github.com/sparkfun/SparkFun_u-blox_GNSS_v3.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_u_blox_GNSS_v3-3.1.15.zip",
+   "checksum": "SHA-256:0745bf98fbcd764674fd2e30ca9c941923195fc8899c4fb86e53bb26c33be66d",
+   "bytes": 693855,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun VL53L1X 4m Laser Distance Sensor",
+   "version": "1.2.12",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_VL53L1X_4m_Laser_Distance_Sensor.h",
+    "SparkFunVL53L1X4mLaserDistanceSensor.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics <techsupport@sparkfun.com>",
+   "repositorio": "https://github.com/sparkfun/SparkFun_VL53L1X_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_VL53L1X_4m_Laser_Distance_Sensor-1.2.12.zip",
+   "checksum": "SHA-256:525c8198af6705ca28d00016f49561ba248339eb70f8abc9471af44b8fda0792",
+   "bytes": 51741,
+   "licencia": null
+  },
+  {
+   "nombre": "SparkFun Weather Meter Kit Arduino Library",
+   "version": "1.1.2",
+   "grupo": "ambiente",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "SparkFun_Weather_Meter_Kit_Arduino_Library.h",
+    "SparkFunWeatherMeterKitArduinoLibrary.h",
+    "SparkFun_Weather_Meter_Kit.h",
+    "SparkFunWeatherMeterKit.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "SparkFun Electronics",
+   "repositorio": "https://github.com/sparkfun/SparkFun_Weather_Meter_Kit_Arduino_Library.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/sparkfun/SparkFun_Weather_Meter_Kit_Arduino_Library-1.1.2.zip",
+   "checksum": "SHA-256:53491ae6091219f97aa2b6139936e377dfa56a77e4071f49a354a2ca75555840",
+   "bytes": 321499,
+   "licencia": null
+  },
+  {
+   "nombre": "TFLI2C",
+   "version": "0.2.0",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [
+    "TFLI2C.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Bud Ryerson <bud@budryerson.com>",
+   "repositorio": "https://github.com/budryerson/TFLuna-I2C.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/budryerson/TFLI2C-0.2.0.zip",
+   "checksum": "SHA-256:136040ce1eff87e2f703ff184e1c3746eeecccc5892a22240384f03357276f10",
+   "bytes": 3959028,
+   "licencia": null
+  },
+  {
+   "nombre": "TFMPlus",
+   "version": "1.5.0",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [
+    "TFMPlus.h"
+   ],
+   "cabeceras_probables": [],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Bud Ryerson <bud@budryerson.com>",
+   "repositorio": "https://github.com/budryerson/TFMini-Plus.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/budryerson/TFMPlus-1.5.0.zip",
+   "checksum": "SHA-256:af1ff2b1f5c039e3310a10d92fd92b7fd97298e922071b51b960695b423f0954",
+   "bytes": 14093440,
+   "licencia": null
+  },
+  {
+   "nombre": "TinyGPSPlus",
+   "version": "1.0.3",
+   "grupo": "tiempo_posicion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "TinyGPSPlus.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Mikal Hart",
+   "repositorio": "https://github.com/mikalhart/TinyGPSPlus.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/mikalhart/TinyGPSPlus-1.0.3.zip",
+   "checksum": "SHA-256:4f057c0dfa1f047a968eb00fb2ee98e33e07448493fbf5209c82c2a8a3281cc2",
+   "bytes": 47759,
+   "licencia": null
+  },
+  {
+   "nombre": "U8g2",
+   "version": "2.36.19",
+   "grupo": "pantallas",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "U8g2.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "oliver <olikraus@gmail.com>",
+   "repositorio": "https://github.com/olikraus/U8g2_Arduino.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/olikraus/U8g2-2.36.19.zip",
+   "checksum": "SHA-256:c9de6e5a5aa2e2884d3296c6a86be4bc2770e27b11d4302ab5134273ccb6a670",
+   "bytes": 14101913,
+   "licencia": null
+  },
+  {
+   "nombre": "VL53L0X",
+   "version": "1.3.1",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "VL53L0X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Pololu",
+   "repositorio": "https://github.com/pololu/vl53l0x-arduino.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/pololu/VL53L0X-1.3.1.zip",
+   "checksum": "SHA-256:ec5dedc3be0af0ace3dba598aa501c3b22753602dd83c6878d4a168a18a7c74a",
+   "bytes": 19086,
+   "licencia": null
+  },
+  {
+   "nombre": "VL53L1X",
+   "version": "1.3.1",
+   "grupo": "distancia",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "VL53L1X.h"
+   ],
+   "arquitecturas": [
+    "*"
+   ],
+   "autor": "Pololu",
+   "repositorio": "https://github.com/pololu/vl53l1x-arduino.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/pololu/VL53L1X-1.3.1.zip",
+   "checksum": "SHA-256:993d7525cbd14bb55e9b394e8abe3047774754cf15139aafe95a3b2260fe5223",
+   "bytes": 33235,
+   "licencia": null
+  },
+  {
+   "nombre": "WiFiManager",
+   "version": "2.0.17",
+   "grupo": "comunicacion",
+   "requerida_por": [],
+   "cabeceras": [],
+   "cabeceras_probables": [
+    "WiFiManager.h"
+   ],
+   "arquitecturas": [
+    "esp8266",
+    "esp32"
+   ],
+   "autor": "tzapu",
+   "repositorio": "https://github.com/tzapu/WiFiManager.git",
+   "url": "https://downloads.arduino.cc/libraries/github.com/tzapu/WiFiManager-2.0.17.zip",
+   "checksum": "SHA-256:88b64b7dd123f30b2e7fec0f96f260abd354507dff347c038b2abfd929ba35e1",
+   "bytes": 159779,
+   "licencia": null
+  }
+ ],
+ "cabeceras_repetidas": {},
+ "problemas": []
+}

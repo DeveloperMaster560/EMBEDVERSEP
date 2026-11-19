@@ -4,6 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Connect } from 'vite';
+import {
+  analizar, anotarSolicitudes, bibliotecasEn, cabecerasDelNucleo, mensajeAjenas, mensajePendientes, mensajeVersiones,
+} from './bibliotecaOficial.js';
 import { buscarPlaca, comoInstalar, nucleoInstalado, PLACAS, type Placa } from './placas.js';
 
 const maxRequestBytes = 2 * 1024 * 1024;
@@ -299,6 +302,23 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
     );
   }
 
+  // Biblioteca oficial: el cliente compila con NUESTRAS bibliotecas (versión fija).
+  const analisis = analizar(
+    project.files,
+    await cabecerasDelNucleo(dataDirectory, placa),
+    await bibliotecasEn(path.join(userDirectory, 'libraries')),
+  );
+  if (analisis.ajenas.length) {
+    if (!process.env.VITEST) await anotarSolicitudes(rootDirectory, analisis.ajenas, placa.id).catch(() => undefined);
+    throw new CompileRequestError(mensajeAjenas(analisis.ajenas), 422, 'BIBLIOTECA_NO_OFICIAL');
+  }
+  if (analisis.pendientes.length) {
+    throw new CompileRequestError(mensajePendientes(analisis.pendientes), 503, 'BIBLIOTECA_OFICIAL_NO_INSTALADA');
+  }
+  if (analisis.versionesDistintas.length) {
+    throw new CompileRequestError(mensajeVersiones(analisis.versionesDistintas), 503, 'BIBLIOTECA_VERSION_DISTINTA');
+  }
+
   const workspace = await mkdtemp(path.join(os.tmpdir(), 'embedverse-compile-'));
   const sketchDirectory = path.join(workspace, 'EmbedverseSketch');
   const outputDirectory = path.join(workspace, 'output');
@@ -321,8 +341,10 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
 
     const sketchFile = project.files.find((file) => file.path.toLowerCase().endsWith('.ino'));
     for (const file of project.files) {
+      // arduino-cli exige que el .ino principal se llame como su carpeta: el
+      // del cliente (cacao.ino, src/main.cpp…) se guarda con ese nombre.
       const sourcePath =
-        !sketchFile && path.posix.basename(file.path).toLowerCase() === 'main.cpp'
+        file === sketchFile || (!sketchFile && path.posix.basename(file.path).toLowerCase() === 'main.cpp')
           ? 'EmbedverseSketch.ino'
           : file.path;
       const destination = path.resolve(sketchDirectory, ...sourcePath.split('/'));

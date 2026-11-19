@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 nucleo esp32-devkit
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 nucleo vendedor:arq URL
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 biblioteca "DHT sensor library" "BH1750"
+#   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 oficial      (TODA la biblioteca oficial, versiones exactas)
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 grupo ambiente
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 grupos
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 zip C:\ruta\biblioteca.zip
@@ -68,6 +69,19 @@ switch ($orden) {
     foreach ($b in $resto) { Write-Host "· $b"; Cli lib install $b }
     Write-Host "Bibliotecas en .tools\arduino-user\libraries"
   }
+  "oficial" {
+    $lock = Get-Content -Raw -Encoding UTF8 (Join-Path $raiz "server\bibliotecas.lock.json") | ConvertFrom-Json
+    Cli lib update-index
+    Write-Host "· Biblioteca oficial: $($lock.bibliotecas.Count) bibliotecas con version fija (puede tardar)"
+    $fallos = 0
+    foreach ($b in $lock.bibliotecas) {
+      $ref = "$($b.nombre)@$($b.version)"
+      try { Cli lib install --no-deps $ref | Out-Null; Write-Host "  ok $ref" }
+      catch { Write-Host "  FALLO $ref"; $fallos++ }
+    }
+    if ($fallos -eq 0) { Write-Host "Biblioteca oficial completa en .tools\arduino-user\libraries" }
+    else { Write-Host "$fallos no se instalaron (mira arriba); vuelve a ejecutar 'oficial' para reintentarlas" }
+  }
   "grupo" {
     if ($resto.Count -lt 1) { Write-Host "Uso: scripts\placas.ps1 grupo <nombre>  (ver: scripts\placas.ps1 grupos)"; exit 1 }
     $lista = $grupos.($resto[0])
@@ -88,5 +102,5 @@ switch ($orden) {
     Cli lib install --zip-path $resto[0]
   }
   "instaladas" { Write-Host "Nucleos:"; Cli core list; Write-Host ""; Write-Host "Bibliotecas:"; Cli lib list }
-  default { Get-Content $PSCommandPath -TotalCount 13 | Select-Object -Skip 1 }
+  default { Get-Content $PSCommandPath -TotalCount 14 | Select-Object -Skip 1 }
 }

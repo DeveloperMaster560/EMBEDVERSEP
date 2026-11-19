@@ -5,6 +5,8 @@
 #   sh scripts/placas.sh nucleo esp32-devkit           núcleo de una placa de server/placas.json
 #   sh scripts/placas.sh nucleo vendedor:arq URL       un núcleo que no está en la lista
 #   sh scripts/placas.sh biblioteca "DHT sensor library" "BH1750"
+#   sh scripts/placas.sh oficial                       TODA la biblioteca oficial, versiones exactas
+#                                                      (server/bibliotecas.lock.json): lo que usa el servidor
 #   sh scripts/placas.sh grupo ambiente                un grupo de server/bibliotecas.json
 #   sh scripts/placas.sh grupos                        los grupos y lo que llevan
 #   sh scripts/placas.sh zip ruta/biblioteca.zip       una biblioteca que no está en el gestor
@@ -65,6 +67,19 @@ let f='';for(const p of d.placas){if(p.familia!==f){f=p.familia;console.log('\n'
     for b in "$@"; do echo "· $b"; cli lib install "$b"; done
     echo "✓ Bibliotecas en .tools/arduino-user/libraries"
     ;;
+  oficial)
+    cli lib update-index
+    TOTAL=$(node -e "console.log(require('$RAIZ/server/bibliotecas.lock.json').bibliotecas.length)")
+    echo "· Biblioteca oficial: $TOTAL bibliotecas con versión fija (puede tardar)"
+    FALLOS=0
+    node -e "for (const b of require('$RAIZ/server/bibliotecas.lock.json').bibliotecas) console.log(b.nombre+'@'+b.version)" | {
+      while IFS= read -r b; do
+        if cli lib install --no-deps "$b" >/dev/null 2>&1; then echo "  ✓ $b"; else echo "  ✗ $b"; FALLOS=$((FALLOS+1)); fi
+      done
+      [ "$FALLOS" -eq 0 ] && echo "✓ Biblioteca oficial completa en .tools/arduino-user/libraries" \
+        || echo "✗ $FALLOS no se instalaron (mira arriba); vuelve a ejecutar «oficial» para reintentarlas"
+    }
+    ;;
   grupo)
     [ $# -ge 1 ] || { echo "Uso: sh scripts/placas.sh grupo <nombre>  (ver: sh scripts/placas.sh grupos)"; exit 1; }
     cli lib update-index
@@ -83,6 +98,6 @@ let f='';for(const p of d.placas){if(p.familia!==f){f=p.familia;console.log('\n'
     echo "Núcleos:"; cli core list; echo; echo "Bibliotecas:"; cli lib list
     ;;
   *)
-    sed -n '2,15p' "$0"
+    sed -n '2,17p' "$0"
     ;;
 esac
