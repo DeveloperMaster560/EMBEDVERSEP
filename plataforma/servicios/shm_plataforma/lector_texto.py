@@ -20,8 +20,10 @@ estaciones por un mismo receptor):
 
     "comunicacion": {"protocolo": "lora", "periodo_s": 60, "prefijo": "AGUA"}
 
-Nada se inventa: un valor que no viene, no es número o es NaN va como null con
-su motivo. Una línea en la que no aparece ningún sensor de la estación se
+Nada se inventa: un valor que no viene, no es número, es NaN, es un centinela
+o es físicamente imposible (pH 18, turbidez negativa: casi siempre una
+conversión mal hecha en el firmware) va como null con su motivo, y los demás
+sensores de la línea se envían igual. Una línea en la que no aparece ningún sensor de la estación se
 ignora (mensajes de arranque, depuración). Los valores se envían tal cual, en
 la unidad que declara el proyecto: convertir o calibrar es cosa del firmware
 o del ingeniero, no de la pasarela.
@@ -38,7 +40,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from .contrato_medidas import CENTINELAS
+from .contrato_medidas import CENTINELAS, MAGNITUDES
 
 PAR = re.compile(r"([A-Za-z_][\w.%/+-]*)\s*[=:]\s*([^\s,;]+)")
 SEPARADORES = re.compile(r"[,;\t]")
@@ -67,6 +69,15 @@ def problemas_de_lectura(lectura: Any) -> list[str]:
     if otras:
         p.append(f"«lectura» no admite {sorted(otras)}")
     return p
+
+
+def _imposible(magnitud: str, v: float) -> Optional[str]:
+    lim = MAGNITUDES.get(magnitud) or {}
+    if lim.get("min") is not None and v < lim["min"]:
+        return f"es físicamente imposible (mínimo {lim['min']})"
+    if lim.get("max") is not None and v > lim["max"]:
+        return f"es físicamente imposible (máximo {lim['max']})"
+    return None
 
 
 class LectorTexto:
@@ -125,6 +136,9 @@ class LectorTexto:
                     elif v in CENTINELAS:
                         # El contrato rechaza el mensaje entero; aquí solo se pierde este sensor.
                         m["error"] = f"{crudo} es un valor de «sin lectura» (centinela), no una medida"
+                    elif (imposible := _imposible(s["magnitud"], v)):
+                        # Igual: el sensor (o la conversión del firmware) está mal; los demás no.
+                        m["error"] = f"{crudo} {s['unidad']} {imposible}: revisar el sensor o la conversión del firmware"
                     else:
                         m["value"] = v
             medidas.append(m)

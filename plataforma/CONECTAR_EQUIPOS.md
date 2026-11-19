@@ -15,10 +15,13 @@ Ejemplos listos: `firmware/esp32-mpu6050` (vibración, MQTT directo),
 
 ## Sin placa: simulador
 
-`firmware/simulador-host` ejecuta el sketch en el PC con sensores de un
-escenario CSV y, con `--enviar`, manda lo que publica a la plataforma como si
-fuera la estación. Detecta tópicos propios, `-999`, mensajes sin hora o
-demasiado largos antes de cablear nada. Ver su `LEEME.md`.
+`firmware/simulador-host` ejecuta el sketch en el PC, con sus bibliotecas
+reales y los sensores leyendo un escenario CSV (I2C, SPI, puertos serie, GPS,
+Modbus y LoRa entre nodos simulados). Con `--enviar` manda lo que publica a la
+plataforma como si fuera la estación, y con `--pasarela` prueba también el
+camino de texto libre (USB o LoRa). Detecta tópicos propios, `-999`, mensajes
+sin hora o demasiado largos, conversiones imposibles y fallos de bibliotecas
+antes de cablear nada. Ver su `LEEME.md`.
 
 ## Dar de alta un equipo
 

@@ -55,6 +55,14 @@ class TestLectorTexto(unittest.TestCase):
         self.assertEqual([x["value"] for x in m["measurements"]], [None, 12.7])
         self.assertIn("centinela", m["measurements"][0]["error"])
 
+    def test_un_valor_imposible_tampoco(self):
+        # Nodo 2 de la prueba: el STM32 lee 10 bits y el sketch divide entre 4095.
+        m = LectorTexto(AGUA).medida("AGUA,19.50,-1838.3,18.11", T)
+        self.assertEqual(validate_measurement_message(m), [])
+        self.assertEqual([x["value"] for x in m["measurements"]], [19.5, None, None])
+        self.assertIn("mínimo 0", m["measurements"][1]["error"])
+        self.assertIn("conversión del firmware", m["measurements"][2]["error"])
+
     def test_lineas_sin_sensores_se_ignoran(self):
         self.assertIsNone(LectorTexto(UNO).medida("Iniciando sensores...", T))
         self.assertIsNone(LectorTexto(UNO).medida("ets Jun  8 2016 00:22:57", T))

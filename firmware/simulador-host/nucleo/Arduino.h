@@ -121,21 +121,43 @@ template <class T, class L, class H> inline T constrain(T x, L lo, H hi) { retur
 int sim_gettimeofday(struct timeval *tv, void *);
 #define gettimeofday sim_gettimeofday
 
+/* Formatos de trama para begin(baudios, formato): el simulador solo usa los baudios. */
+#define SERIAL_5N1 0x00
+#define SERIAL_6N1 0x02
+#define SERIAL_7N1 0x04
+#define SERIAL_8N1 0x06
+#define SERIAL_8N2 0x0E
+#define SERIAL_7E1 0x24
+#define SERIAL_8E1 0x26
+#define SERIAL_8E2 0x2E
+#define SERIAL_7O1 0x34
+#define SERIAL_8O1 0x36
+#define SERIAL_8O2 0x3E
+
 /* Puerto serie. Serial = el USB: lo que escribe sale por la consola.
-   Serial1/Serial2 = UART hacia otros equipos: en el simulador no hay nada
-   conectado (se avisa, y read() da -1). */
+   Serial1/2/3 = UART hacia otros equipos: llegan a lo que el escenario
+   conecte (#@ conectar GPS serie=Serial2); si no hay nada, read() da -1. */
+#include "sim_serie.h"
 class HardwareSerial : public Stream {
  public:
-  explicit HardwareSerial(int n) : n_(n) {}
-  template <class... A> void begin(unsigned long, A...) { if (n_ > 0) sim::nota("Serial1/Serial2: en el simulador no hay nada conectado a ese puerto"); }
+  explicit HardwareSerial(int n) : n_(n), p_("Serial" + std::to_string(n)) {}
+  template <class... A> void begin(unsigned long b, A...) { if (n_ > 0) p_.begin(b); }
   void end() {}
   operator bool() const { return true; }
-  int available() override { return 0; }
-  int read() override { return -1; }
-  int peek() override { return -1; }
-  void flush() override { fflush(stdout); }
-  size_t write(uint8_t c) override { if (n_ == 0) { fputc(c, stdout); if (c == '\n') fflush(stdout); } return 1; }
-  size_t write(const uint8_t *b, size_t n) override { if (n_ == 0) fwrite(b, 1, n, stdout); return n; }
+  int available() override { return n_ ? p_.available() : 0; }
+  int read() override { return n_ ? p_.read() : -1; }
+  int peek() override { return n_ ? p_.peek() : -1; }
+  void flush() override { if (n_) p_.flush(); else fflush(stdout); }
+  size_t write(uint8_t c) override {
+    if (n_) return p_.write(c);
+    consola(c);
+    if (c == '\n') fflush(stdout);
+    return 1;
+  }
+  size_t write(const uint8_t *b, size_t n) override {
+    for (size_t i = 0; i < n; ++i) { if (n_) p_.write(b[i]); else consola(b[i]); }
+    return n;
+  }
   using Print::write;
 #ifdef SIM_PRINTF
   int printf(const char *f, ...) __attribute__((format(printf, 2, 3))) {
@@ -144,17 +166,25 @@ class HardwareSerial : public Stream {
     va_start(a, f);
     int r = vsnprintf(b, sizeof b, f, a);
     va_end(a);
-    write((const uint8_t *)b, strlen(b));
-    fflush(stdout);
+    this->write((const uint8_t *)b, strlen(b));
+    if (!n_) fflush(stdout);
     return r;
   }
 #endif
  private:
+  /* Cada línea de la consola sale con la hora simulada en que empezó (@@L µs). */
+  static void consola(uint8_t c) {
+    if (sim::linea_nueva) { ::printf("@@L %llu ", (unsigned long long)sim::us()); sim::linea_nueva = false; }
+    fputc(c, stdout);
+    if (c == '\n') sim::linea_nueva = true;
+  }
   int n_;
+  sim::PuertoSerie p_;
 };
 extern HardwareSerial Serial;
 extern HardwareSerial Serial1;
 extern HardwareSerial Serial2;
+extern HardwareSerial Serial3;
 typedef HardwareSerial SimSerial;   /* nombre antiguo, para las imitaciones */
 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
@@ -194,6 +224,8 @@ long random(long max);
 long random(long min, long max);
 void randomSeed(unsigned long semilla);
 inline uint16_t makeWord(uint8_t h, uint8_t l) { return (uint16_t)((h << 8) | l); }
+inline uint16_t makeWord(uint16_t w) { return w; }
+#define word(...) makeWord(__VA_ARGS__)   /* como el núcleo de Arduino: word(alto, bajo) */
 
 /* API propia de cada familia (lo que las bibliotecas usan según la placa). */
 #if defined(ARDUINO_ARCH_ESP32)

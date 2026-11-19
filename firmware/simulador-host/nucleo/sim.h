@@ -20,4 +20,6 @@ bool hay_columna(const std::string &columna);
 /* Publicación MQTT: va a la salida estándar con un prefijo que lee el lanzador. */
 void publicar(const char *topico, const uint8_t *datos, unsigned n);
 void nota(const char *texto);
+/* La consola está al principio de una línea (las marcas @@ también cortan la línea). */
+extern bool linea_nueva;
 }  // namespace sim

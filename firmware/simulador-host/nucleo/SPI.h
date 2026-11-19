@@ -1,8 +1,10 @@
-/* SPI del simulador: el bus existe, pero aún no hay modelos de chip SPI.
-   Una transferencia sin chip devuelve 0 (y se avisa una vez): el programa ve
-   lo mismo que con el sensor desconectado. */
+/* SPI del simulador: cada byte va al chip cuyo CS está en LOW (lo maneja el
+   programa con digitalWrite, como en la placa). Los chips se conectan desde el
+   escenario: «#@ conectar MAX31865 cs=10». Sin chip seleccionado, MISO lee 0
+   (y se avisa una vez): lo mismo que con el sensor desconectado. */
 #pragma once
 #include "Arduino.h"
+#include "sim_dispositivos.h"
 #define SPI_MODE0 0x00
 #define SPI_MODE1 0x01
 #define SPI_MODE2 0x02
@@ -35,14 +37,21 @@ class SPIClass {
   void setDataMode(uint8_t) {}
   void setClockDivider(uint8_t) {}
   void setFrequency(uint32_t) {}
-  uint8_t transfer(uint8_t) { sin_chip(); return 0; }
-  uint16_t transfer16(uint16_t) { sin_chip(); return 0; }
-  void transfer(void *b, size_t n) { sin_chip(); memset(b, 0, n); }
-  void transfer(const void *, void *rx, size_t n, void * = nullptr) { sin_chip(); if (rx) memset(rx, 0, n); }
-  void transferBytes(const uint8_t *, uint8_t *rx, uint32_t n) { sin_chip(); if (rx) memset(rx, 0, n); }
-  void writeBytes(const uint8_t *, uint32_t) { sin_chip(); }
+  uint8_t transfer(uint8_t b) { return sim::spi_intercambiar(b); }
+  uint16_t transfer16(uint16_t v) {
+    uint8_t h = transfer((uint8_t)(v >> 8)), l = transfer((uint8_t)v);
+    return (uint16_t)((h << 8) | l);
+  }
+  void transfer(void *b, size_t n) { uint8_t *p = (uint8_t *)b; for (size_t i = 0; i < n; ++i) p[i] = transfer(p[i]); }
+  void transfer(const void *tx, void *rx, size_t n, void * = nullptr) {
+    for (size_t i = 0; i < n; ++i) {
+      uint8_t r = transfer(tx ? ((const uint8_t *)tx)[i] : 0xFF);
+      if (rx) ((uint8_t *)rx)[i] = r;
+    }
+  }
+  void transferBytes(const uint8_t *tx, uint8_t *rx, uint32_t n) { transfer(tx, rx, n); }
+  void writeBytes(const uint8_t *tx, uint32_t n) { transfer(tx, nullptr, n); }
  private:
-  static void sin_chip() { sim::nota("SPI: el simulador aún no tiene modelos de chip SPI; las lecturas dan 0"); }
   int n_;
 };
 extern SPIClass SPI;

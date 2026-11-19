@@ -371,10 +371,13 @@ def compilar(sketch_dir: Path, destino: Path, compilador: Optional[str] = None,
         rutas = base if f.is_relative_to(sk) else ["-I", str(NUCLEO), "-I", str(nucleo)]
         return ["-O1", "-w", "-fno-strict-aliasing", *ps.flags, *rutas,
                 *[x for b in visibles for d in b.incluir for x in ("-I", str(d))]]
-    fuentes = [sk / "sketch.cpp", NUCLEO / "sim.cpp", *sorted(MODELOS.glob("*.cpp")),
+    # El orden importa: los objetos globales se construyen en el orden de enlace, y en la placa
+    # el núcleo (Serial, Wire…) existe antes que los del sketch (PZEM004Tv30 pzem(Serial2) abre
+    # el puerto en su constructor).
+    fuentes = [NUCLEO / "sim.cpp", *sorted(MODELOS.glob("*.cpp")),
                *[nucleo / n for n in DEL_NUCLEO_ARDUINO if n.endswith(".cpp") and (nucleo / n).is_file()],
-               *[p for p in sk.iterdir() if p.suffix in FUENTES and p.name != "sketch.cpp"],
-               *[f for b in bibliotecas for f in b.fuentes]]
+               *[f for b in bibliotecas for f in b.fuentes],
+               sk / "sketch.cpp", *[p for p in sk.iterdir() if p.suffix in FUENTES and p.name != "sketch.cpp"]]
     # Si cambia el simulador (sus cabeceras, sus modelos), ningún objeto viejo sirve.
     firma = hashlib.sha256("".join(f"{q}{q.stat().st_mtime_ns}" for q in sorted(SIMULADOR.rglob("*"))
                                    if q.is_file()).encode()).hexdigest()
@@ -429,12 +432,33 @@ def validar(topico: str, carga: str) -> list[str]:
     return p
 
 
+def preparar_aire(aire: Path, nombre: str) -> None:
+    """Quita del aire lo que transmitió este mismo nodo en una simulación anterior."""
+    if aire.is_file():
+        lineas = aire.read_text(encoding="utf-8").splitlines()
+        aire.write_text("".join(l + "\n" for l in lineas if l.split(" ", 1)[0] != nombre), encoding="utf-8")
+    else:
+        aire.parent.mkdir(parents=True, exist_ok=True)
+        aire.touch()
+
+
 def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
              al_publicar: Optional[Callable[[Mensaje], None]] = None,
-             al_serie: Optional[Callable[[str], None]] = None, limite_s: float = 120) -> Resultado:
+             al_serie: Optional[Callable[[str], None]] = None, limite_s: float = 120,
+             conexiones: Optional[list[str]] = None, aire: Optional[Path] = None,
+             nombre: str = "placa", reloj_placa: Optional[list[float]] = None) -> Resultado:
+    """conexiones: «MAX31865 cs=10»… (se suman a las «#@ conectar» del escenario).
+    aire: archivo compartido por los nodos LoRa simulados (ver modelos/sx127x.cpp).
+    reloj_placa: [s] que se actualiza con la hora simulada de cada línea de la consola."""
+    nombre = re.sub(r"\s+", "_", nombre) or "placa"
     env = dict(os.environ, SIM_ESCENARIO=str(escenario.resolve()), SIM_DURACION_S=str(duracion_s),
-               SIM_INICIO_MS=str(inicio_ms))
+               SIM_INICIO_MS=str(inicio_ms), SIM_NOMBRE=nombre,
+               SIM_CONEXIONES="\n".join("conectar " + c for c in conexiones or []))
+    if aire is not None:
+        preparar_aire(aire, nombre)
+        env["SIM_AIRE"] = str(aire.resolve())
     mensajes, serie, notas, t_fin = [], [], [], 0.0
+    hora = reloj_placa if reloj_placa is not None else [0.0]
     cortado = threading.Event()
     with subprocess.Popen([str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                           encoding="utf-8", errors="replace", env=env) as proc:
@@ -458,6 +482,13 @@ def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
                     notas.append(linea[6:])
                 elif linea.startswith("@@FIN "):
                     t_fin = int(linea[6:]) / 1e6
+                elif linea.startswith("@@L "):
+                    _, t_us, *resto = linea.split(" ", 2)
+                    hora[0] = int(t_us) / 1e6
+                    linea = resto[0] if resto else ""
+                    serie.append(linea)
+                    if al_serie:
+                        al_serie(linea)
                 elif linea:
                     serie.append(linea)
                     if al_serie:
@@ -474,6 +505,41 @@ def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
     return Resultado(mensajes, serie, notas, t_fin)
 
 
+def _pasarela(proyecto: Path, estaciones: list[str], inicio_ms: int, hora: list[float],
+              mensajes: list[Mensaje], al_mensaje: Callable[[Mensaje], None], callado: bool):
+    """La pasarela de texto libre, con la hora simulada de cada línea."""
+    from .lector_texto import LectorTexto
+    from .pasarela_serie import Pasarela
+    from .proyecto import ProyectoInvalido, cargar_archivo
+    try:
+        datos = cargar_archivo(proyecto).datos
+    except ProyectoInvalido as e:
+        raise ErrorSimulacion("Proyecto no válido:\n  " + "\n  ".join(e.problemas)) from e
+    por_id = {e["id"]: e for e in datos["estaciones"]}
+    if not estaciones:
+        raise ErrorSimulacion("--pasarela necesita al menos una --estacion")
+    faltan = [e for e in estaciones if e not in por_id]
+    if faltan:
+        raise ErrorSimulacion(f"{', '.join(faltan)} no está en {proyecto}")
+    try:
+        lectores = [LectorTexto(por_id[e]) for e in estaciones]
+    except ValueError as e:
+        raise ErrorSimulacion(str(e)) from e
+
+    def publicar(topico: str, carga: bytes) -> None:
+        m = Mensaje(hora[0], topico, carga.decode("utf-8"))
+        m.problemas = validar(topico, m.carga)
+        mensajes.append(m)
+        al_mensaje(m)
+
+    def salida(texto: str) -> None:
+        if not callado and not texto.startswith("placa: "):
+            print(f"        pasarela: {texto}")
+
+    return Pasarela(estaciones, publicar, None, salida=salida, lectores=lectores,
+                    reloj=lambda: inicio_ms / 1000 + hora[0])
+
+
 def principal(argv: Optional[list[str]] = None) -> int:
     ap = argparse.ArgumentParser(description="Simula un sketch de ESP32/Arduino en el PC con sensores de un escenario.")
     ap.add_argument("sketch", type=Path, help="carpeta del sketch (la que tiene el .ino)")
@@ -485,27 +551,34 @@ def principal(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--broker-puerto", type=int, default=1883)
     ap.add_argument("--env", type=Path, default=Path(__file__).resolve().parents[2] / ".env")
     ap.add_argument("--json", action="store_true", help="resumen en JSON (para la app)")
+    ap.add_argument("--conectar", action="append", default=[], metavar="'MODELO clave=valor…'",
+                    help="dispositivo SPI o serie, como «#@ conectar» en el escenario (se puede repetir)")
+    ap.add_argument("--aire", type=Path, help="archivo del «aire» LoRa compartido entre nodos simulados")
+    ap.add_argument("--pasarela", type=Path, metavar="PROYECTO.json",
+                    help="pasar la consola por la pasarela de texto libre (como pasarela_serie --proyecto)")
+    ap.add_argument("--estacion", action="append", default=[], help="estación de --pasarela (se puede repetir)")
     a = ap.parse_args(argv)
 
     # La simulación termina «ahora»: los datos quedan en el pasado reciente y Grafana los muestra.
     inicio_ms = int(time.time() * 1000 - a.duracion * 1000)
-    cliente = None
+    clientes: dict = {}          # una sesión del broker por estación, con su contraseña
     enviados = 0
 
     def publicar(m: Mensaje) -> None:
-        nonlocal cliente, enviados
+        nonlocal enviados
         if not a.enviar:
             return
         est = TOPICO.match(m.topico)
         if not est:
             return
+        cliente = clientes.get(est.group(1))
         if cliente is None:
             from .pasarela_serie import MqttMinimo, leer_env
             env = leer_env(a.env)
             clave = env.get(f"MQTT_{est.group(1).replace('-', '_')}_PASSWORD")
             if not clave:
                 raise ErrorSimulacion(f"No hay contraseña MQTT para {est.group(1)} en {a.env}: ¿está dada de alta en un proyecto?")
-            cliente = MqttMinimo(a.broker, a.broker_puerto, est.group(1), clave)
+            cliente = clientes[est.group(1)] = MqttMinimo(a.broker, a.broker_puerto, est.group(1), clave)
             cliente.conectar()
         cliente.publicar(m.topico, m.carga.encode("utf-8"))
         enviados += 1
@@ -516,11 +589,22 @@ def principal(argv: Optional[list[str]] = None) -> int:
             print(f"[{m.t_s:8.1f} s] {m.topico}  {marca}")
         publicar(m)
 
+    hora = [0.0]
+    de_pasarela: list[Mensaje] = []
+    pasarela = None
+    al_serie = None if a.json else (lambda l: print(f"           placa: {l}"))
     try:
+        if a.pasarela:
+            pasarela = _pasarela(a.pasarela, a.estacion, inicio_ms, hora, de_pasarela, mostrar, a.json)
+            def al_serie(l: str, eco=al_serie) -> None:
+                if eco:
+                    eco(l)
+                pasarela.linea(l)
         with tempfile.TemporaryDirectory(prefix="sim-placa-") as tmp:
             exe = compilar(a.sketch, Path(tmp), placa=a.placa)
-            r = ejecutar(exe, a.escenario, a.duracion, inicio_ms, mostrar,
-                         None if a.json else (lambda l: print(f"           placa: {l}")))
+            r = ejecutar(exe, a.escenario, a.duracion, inicio_ms, mostrar, al_serie,
+                         conexiones=a.conectar, aire=a.aire, nombre=a.sketch.resolve().name, reloj_placa=hora)
+            r.mensajes.extend(de_pasarela)
     except ErrorSimulacion as e:
         if a.json:
             print(json.dumps({"error": str(e)}, ensure_ascii=False))
@@ -528,9 +612,12 @@ def principal(argv: Optional[list[str]] = None) -> int:
             print(f"✗ {e}", file=sys.stderr)
         return 1
     finally:
-        if cliente is not None:
-            cliente.cerrar()
+        for c in clientes.values():
+            c.cerrar()
     res = r.resumen() | {"enviados": enviados}
+    if pasarela is not None:
+        res["rechazados_por_la_pasarela"] = pasarela.rechazados
+        res["con_problemas"] += pasarela.rechazados
     if a.json:
         print(json.dumps(res | {"mensajes_detalle": [m.__dict__ for m in r.mensajes[:200]]}, ensure_ascii=False))
     else:

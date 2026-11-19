@@ -9,16 +9,19 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <functional>
 
 #include "Arduino.h"
 #include "Wire.h"
 #include "esp_sntp.h"
 #include "esp_timer.h"
 #include "sim_i2c.h"
+#include "sim_dispositivos.h"
 
 HardwareSerial Serial(0);
 HardwareSerial Serial1(1);
 HardwareSerial Serial2(2);
+HardwareSerial Serial3(3);
 TwoWire Wire(0);
 #include "SPI.h"
 SPIClass SPI(0);
@@ -42,6 +45,15 @@ std::set<std::string> g_avisadas;
 sntp_sync_time_cb_t g_ntp_cb = nullptr;
 int64_t g_ntp_en_us = -1;
 uint64_t g_fin_us = 0;
+std::vector<std::string> g_conexiones;          /* «#@ conectar …» del escenario y --conectar */
+std::multimap<uint64_t, std::function<void()>> g_eventos;
+bool g_en_eventos = false;
+bool g_dispositivos_listos = false;
+sim::ModeloDispositivo *g_modelos_disp = nullptr;
+std::vector<sim::Dispositivo *> g_disp;
+std::map<std::string, sim::EquipoSerie *> g_puertos;
+struct Interrupcion { void (*f)(void); int modo; int nivel; };
+std::map<int, Interrupcion> g_isr;
 
 void comprobar_ntp() {
   if (g_ntp_en_us >= 0 && (int64_t)g_us >= g_ntp_en_us) {
@@ -57,6 +69,7 @@ void cargar_escenario(const char *ruta) {
   bool cabecera = true;
   while (std::getline(f, linea)) {
     if (!linea.empty() && linea.back() == '\r') linea.pop_back();
+    if (linea.rfind("#@", 0) == 0) { g_conexiones.push_back(linea.substr(2)); continue; }
     if (linea.empty() || linea[0] == '#') continue;
     std::vector<std::string> celdas;
     std::stringstream ss(linea);
@@ -82,9 +95,23 @@ void cargar_escenario(const char *ruta) {
 }  // namespace
 
 namespace sim {
+bool linea_nueva = true;
 uint64_t us() { return g_us; }
 void avanzar_us(uint64_t d) {
-  g_us += d;
+  uint64_t destino = g_us + d;
+  /* Lo que pasa entre medias (una radio que termina de transmitir, un dato que
+     llega) ocurre a su hora: el reloj se para en cada evento. */
+  while (!g_en_eventos && !g_eventos.empty() && g_eventos.begin()->first <= destino) {
+    auto e = g_eventos.begin();
+    std::function<void()> f = std::move(e->second);
+    if (e->first > g_us) g_us = e->first;
+    g_eventos.erase(e);
+    g_en_eventos = true;
+    f();
+    g_en_eventos = false;
+    if (g_us > destino) destino = g_us;
+  }
+  g_us = destino;
   comprobar_ntp();
   /* El fin llega aunque el sketch esté parado en setup() (p. ej. while (true) delay(1000);). */
   if (g_fin_us && g_us >= g_fin_us) { printf("\n@@FIN %llu\n", (unsigned long long)g_us); fflush(stdout); exit(0); }
@@ -117,12 +144,13 @@ bool hay_columna(const std::string &col) {
 void publicar(const char *topico, const uint8_t *datos, unsigned n) {
   std::string p((const char *)datos, n);
   for (auto &ch : p) if (ch == '\n' || ch == '\r') ch = ' ';
+  linea_nueva = true;
   printf("\n@@PUB %llu %s %s\n", (unsigned long long)g_us, topico, p.c_str());
   fflush(stdout);
 }
 
 void nota(const char *texto) {
-  if (g_avisadas.insert(texto).second) { printf("\n@@SIM %s\n", texto); fflush(stdout); }
+  if (g_avisadas.insert(texto).second) { linea_nueva = true; printf("\n@@SIM %s\n", texto); fflush(stdout); }
 }
 }  // namespace sim
 
@@ -179,6 +207,10 @@ int sim_gettimeofday(struct timeval *tv, void *) {
   return 0;
 }
 
+static void pin_a_dispositivos(uint8_t pin, uint8_t v);
+static int pin_de_dispositivo(uint8_t pin);
+namespace sim { void conectar_dispositivos(const char *env); }
+
 /* Consultar la hora, ceder o leer un pin cuesta tiempo en la placa: 1 µs aquí.
    Así terminan los bucles que esperan a un pin o a un tiempo límite (RadioLib,
    esperas activas), que en el PC darían vueltas para siempre. */
@@ -188,12 +220,14 @@ void delay(unsigned long ms) { sim::avanzar_us((uint64_t)ms * 1000); }
 void delayMicroseconds(unsigned int us) { sim::avanzar_us(us); }
 void yield() { sim::avanzar_us(1); }
 void pinMode(uint8_t, uint8_t) {}
-void digitalWrite(uint8_t, uint8_t) {}
+void digitalWrite(uint8_t pin, uint8_t v) { pin_a_dispositivos(pin, v); }
 int digitalRead(uint8_t pin) {
   sim::avanzar_us(1);
   /* Se llama millones de veces en las esperas activas: nada de texto por llamada. */
   static std::string col[256];
   static signed char hay[256] = {0};   /* 0 sin mirar · 1 hay columna · -1 no hay */
+  int n = pin_de_dispositivo(pin);
+  if (n >= 0) return n;
   if (!hay[pin]) {
     col[pin] = "D" + std::to_string(pin);
     hay[pin] = sim::hay_columna(col[pin]) ? 1 : -1;
@@ -222,8 +256,15 @@ void analogSetPinAttenuation(uint8_t, int) {}
 void analogSetAttenuation(int) {}
 void analogWrite(uint8_t, int) {}
 unsigned long pulseInLong(uint8_t p, uint8_t e, unsigned long t) { return pulseIn(p, e, t); }
-void attachInterrupt(uint8_t, void (*)(void), int) { sim::nota("attachInterrupt: el simulador no genera interrupciones"); }
-void detachInterrupt(uint8_t) {}
+void attachInterrupt(uint8_t pin, void (*f)(void), int modo) {
+  int n = pin_de_dispositivo(pin);
+  if (n < 0) {
+    std::string t = "attachInterrupt(" + std::to_string(pin) + "): ningún dispositivo conectado maneja ese pin; no habrá interrupciones";
+    sim::nota(t.c_str());
+  }
+  g_isr[pin] = {f, modo, n < 0 ? 0 : n};
+}
+void detachInterrupt(uint8_t pin) { g_isr.erase(pin); }
 void tone(uint8_t, unsigned int, unsigned long) {}
 void noTone(uint8_t) {}
 void shiftOut(uint8_t, uint8_t, uint8_t, uint8_t) {}
@@ -254,6 +295,7 @@ int main() {
   if (!esc || !dur || !ini) { fprintf(stderr, "Faltan SIM_ESCENARIO, SIM_DURACION_S o SIM_INICIO_MS\n"); return 2; }
   cargar_escenario(esc);
   sim::conectar_chips();
+  sim::conectar_dispositivos(getenv("SIM_CONEXIONES"));
   g_inicio_ms = atoll(ini);
   uint64_t fin = (uint64_t)(atof(dur) * 1e6);
   g_fin_us = fin;
@@ -266,4 +308,164 @@ int main() {
   }
   printf("\n@@FIN %llu\n", (unsigned long long)g_us);
   return 0;
+}
+
+/* ------------------------------------------- dispositivos (SPI, serie, pines) */
+
+namespace sim {
+std::string Parametros::texto(const std::string &k, const std::string &def) const {
+  auto i = m.find(k);
+  return i == m.end() ? def : i->second;
+}
+double Parametros::real(const std::string &k, double def) const { return hay(k) ? atof(m.at(k).c_str()) : def; }
+long Parametros::entero(const std::string &k, long def) const { return hay(k) ? strtol(m.at(k).c_str(), nullptr, 0) : def; }
+int Parametros::pin(const std::string &k) const {
+  if (!hay(k)) return -1;
+  const std::string &v = m.at(k);
+  if (v.size() >= 3 && v[0] == 'P' && v[1] >= 'A' && v[1] <= 'C') return (v[1] - 'A') * 16 + atoi(v.c_str() + 2);
+  if (!v.empty() && (v[0] == 'D' || v[0] == 'G')) return atoi(v.c_str() + (v[0] == 'G' ? 4 : 1));   /* D10, GPIO26 */
+  return atoi(v.c_str());
+}
+
+void registrar_dispositivo(ModeloDispositivo *m) { m->siguiente = g_modelos_disp; g_modelos_disp = m; }
+
+void programar(uint64_t t_us, std::function<void()> f) { g_eventos.emplace(t_us, std::move(f)); }
+
+void pin_cambio(int pin, int nivel) {
+  auto i = g_isr.find(pin);
+  if (i == g_isr.end()) return;
+  int antes = i->second.nivel;
+  i->second.nivel = nivel;
+  bool dispara = (i->second.modo == RISING && !antes && nivel) || (i->second.modo == FALLING && antes && !nivel) ||
+                 (i->second.modo == CHANGE && antes != nivel);
+  if (dispara && i->second.f) i->second.f();
+}
+
+uint8_t spi_intercambiar(uint8_t mosi) {
+  avanzar_us(1);   /* un byte a ~8 MHz: así terminan las esperas que solo leen registros */
+  int r = -1;
+  for (auto *d : g_disp) {
+    auto *c = dynamic_cast<ChipSPI *>(d);
+    if (c && c->seleccionado()) r = c->intercambiar(mosi) & (r < 0 ? 0xFF : r);   /* MISO compartido */
+  }
+  if (r < 0) {
+    nota("SPI: transferencia sin ningún chip seleccionado (falta «#@ conectar <chip> cs=<pin>» en el escenario, "
+         "o el CS no coincide): MISO lee 0");
+    return 0;
+  }
+  return (uint8_t)r;
+}
+
+EquipoSerie *equipo_en(const std::string &puerto) {
+  auto i = g_puertos.find(puerto);
+  return i == g_puertos.end() ? nullptr : i->second;
+}
+
+/* «MAX31865 cs=10 rref=430» → dispositivo conectado. */
+void conectar_dispositivos(const char *env) {
+  std::vector<std::string> lineas = g_conexiones;
+  if (env) {
+    std::string t(env), l;
+    std::stringstream ss(t);
+    while (std::getline(ss, l, '\n')) lineas.push_back(l);
+  }
+  for (auto &l : lineas) {
+    std::stringstream ss(l);
+    std::string palabra, modelo;
+    ss >> palabra;
+    if (palabra != "conectar") { nota(("escenario: «#@" + l + "» no se entiende (se espera «#@ conectar MODELO clave=valor…»)").c_str()); continue; }
+    ss >> modelo;
+    Parametros p;
+    while (ss >> palabra) {
+      size_t eq = palabra.find('=');
+      if (eq != std::string::npos) p.m[palabra.substr(0, eq)] = palabra.substr(eq + 1);
+    }
+    ModeloDispositivo *m = g_modelos_disp;
+    while (m && modelo != m->nombre) m = m->siguiente;
+    if (!m) {
+      std::string disp;
+      for (ModeloDispositivo *x = g_modelos_disp; x; x = x->siguiente) disp += std::string(disp.empty() ? "" : ", ") + x->nombre;
+      nota(("conectar " + modelo + ": el simulador no tiene ese modelo (hay: " + disp + ")").c_str());
+      continue;
+    }
+    Dispositivo *d = m->crear(p);
+    g_disp.push_back(d);
+    std::string donde;
+    if (auto *c = dynamic_cast<ChipSPI *>(d)) {
+      if (c->cs() < 0) { nota((modelo + ": falta cs=<pin> (el pin de selección del chip)").c_str()); continue; }
+      donde = "SPI, CS en el pin " + std::to_string(c->cs());
+    } else if (auto *e = dynamic_cast<EquipoSerie *>(d)) {
+      std::string puerto = p.hay("serie") ? p.texto("serie") : p.hay("rx") ? "rx" + std::to_string(p.pin("rx")) : "";
+      if (puerto.empty()) { nota((modelo + ": falta serie=Serial1|Serial2 o rx=<pin> (SoftwareSerial)").c_str()); continue; }
+      g_puertos[puerto] = e;
+      donde = (puerto[0] == 'r' ? "SoftwareSerial con RX en el pin " + puerto.substr(2) : puerto) + " a " +
+              std::to_string(e->baudios()) + " baudios";
+    }
+    nota((modelo + " conectado (" + donde + ")").c_str());
+  }
+  g_dispositivos_listos = true;
+}
+
+/* ------------------------------------------------------------ puerto serie */
+/* Los objetos globales del sketch abren el puerto antes de que el escenario
+   conecte nada (p. ej. PZEM004Tv30 pzem(Serial2) llama a begin en su
+   constructor): el equipo se busca cada vez hasta encontrarlo. */
+EquipoSerie *PuertoSerie::equipo() {
+  if (!eq_ && g_dispositivos_listos) {
+    eq_ = equipo_en(nombre_);
+    if (eq_ && baudios_ && (long)baudios_ != eq_->baudios()) {
+      nota((nombre_ + ": el programa usa " + std::to_string(baudios_) + " baudios y " + eq_->nombre() + " " +
+            std::to_string(eq_->baudios()) + ": llegará basura, como en la placa").c_str());
+    }
+    if (!eq_ && baudios_ && !avisado_vacio_) {
+      avisado_vacio_ = true;
+      nota((nombre_ + ": no hay nada conectado a ese puerto (#@ conectar <equipo> " +
+            (nombre_[0] == 'r' ? "rx=" + nombre_.substr(2) : "serie=" + nombre_) + ")").c_str());
+    }
+  }
+  return eq_;
+}
+void PuertoSerie::begin(unsigned long b) {
+  baudios_ = b;
+  eq_ = nullptr;   /* vuelve a comprobar la velocidad */
+  equipo();
+}
+void PuertoSerie::llenar() {
+  if (!equipo()) return;
+  uint64_t ahora = us();
+  bool basura = baudios_ && (long)baudios_ != eq_->baudios();
+  eq_->generar(ahora, [&](uint64_t t, uint8_t b) { en_camino_.emplace_back(t, basura ? (uint8_t)(b ^ 0xA5) | 0x80 : b); });
+  while (!en_camino_.empty() && en_camino_.front().first <= ahora) {
+    if (!baudios_) { /* el puerto no está abierto: lo que llega se pierde */ }
+    else if (bufer_.size() < SIM_BUFER_SERIE) bufer_.push_back(en_camino_.front().second);
+    else if (++perdidos_ == 1) {
+      nota((nombre_ + ": se perdieron bytes porque el programa no lee a tiempo (búfer de " +
+            std::to_string(SIM_BUFER_SERIE) + " bytes lleno)").c_str());
+    }
+    en_camino_.pop_front();
+  }
+}
+int PuertoSerie::available() { avanzar_us(1); llenar(); return (int)bufer_.size(); }
+int PuertoSerie::read() {
+  llenar();
+  if (bufer_.empty()) return -1;
+  int c = bufer_.front();
+  bufer_.pop_front();
+  return c;
+}
+int PuertoSerie::peek() { llenar(); return bufer_.empty() ? -1 : bufer_.front(); }
+size_t PuertoSerie::write(uint8_t c) {
+  uint64_t por_byte = baudios_ ? (uint64_t)(10000000.0 / baudios_) : 0;
+  salida_us_ = std::max(salida_us_, us()) + por_byte;
+  if (equipo() && baudios_) eq_->del_programa((long)baudios_ == eq_->baudios() ? c : (uint8_t)(c ^ 0xA5), salida_us_);
+  return 1;
+}
+void PuertoSerie::flush() { if (salida_us_ > us()) avanzar_us(salida_us_ - us()); }
+}  // namespace sim
+
+/* Pines que maneja un dispositivo (CS, RST de entrada; DIO0 de salida). */
+static void pin_a_dispositivos(uint8_t pin, uint8_t v) { for (auto *d : g_disp) d->pin_escrito(pin, v); }
+static int pin_de_dispositivo(uint8_t pin) {
+  for (auto *d : g_disp) { int n = d->pin_leido(pin); if (n >= 0) return n; }
+  return -1;
 }
