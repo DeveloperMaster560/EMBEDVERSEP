@@ -33,6 +33,7 @@ import {
 import { categoryLabels, componentCatalog } from './domain/catalog';
 import { PhotoIdentifier } from './vision/PhotoIdentifier';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
+import { firmwareDelEditor, guardarFirmwareDelEditor } from './model-viewer/firmwareDelEditor';
 import { loadBridgeScene } from './bridge-designer/persistence';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
@@ -528,6 +529,7 @@ function App() {
                 onSelectFile={(id) => updateProject((current) => ({ ...current, activeFileId: id }))}
                 onUpdateContent={updateFileContent}
                 onOpenTwin={() => openTwin(selectedProject)}
+                onOpenBridge={() => { setSelectedProject(selectedProject); setWorkspaceTab('bridge'); setView('workspace'); }}
                 onBack={() => setView('projects')}
               />
             ) : (
@@ -764,6 +766,7 @@ function WorkspacePanel({
           onSelectFile={onSelectFile}
           onUpdateContent={onUpdateContent}
           onOpenTwin={onOpenTwin}
+          onOpenBridge={() => onSelectTab('bridge')}
           onBack={() => onSelectTab('summary')}
         />
       )}
@@ -1479,6 +1482,7 @@ function EditorPage({
   onSelectFile,
   onUpdateContent,
   onOpenTwin,
+  onOpenBridge,
   onBack,
 }: {
   project: EmbeddedProject;
@@ -1489,11 +1493,14 @@ function EditorPage({
   onSelectFile: (id: string) => void;
   onUpdateContent: (content: string) => void;
   onOpenTwin: () => void;
+  /** Abre el estudio de puentes del proyecto, donde el firmware compilado mueve las luces. */
+  onOpenBridge?: () => void;
   onBack: () => void;
 }) {
   const [compileState, setCompileState] = useState<'idle' | 'compiling' | 'success' | 'error'>('idle');
   const [compileOutput, setCompileOutput] = useState('');
   const [firmwareDownload, setFirmwareDownload] = useState<{ name: string; url: string } | null>(null);
+  const [firmwarePara3d, setFirmwarePara3d] = useState(() => firmwareDelEditor(project.id) !== null);
   const [placas, setPlacas] = useState<PlacaCompilador[] | null>(null);
   const [placaId, setPlacaId] = useState(() => leerPlacaGuardada(project.id, project.boardId));
   const [simState, setSimState] = useState<'idle' | 'running'>('idle');
@@ -1558,6 +1565,14 @@ function EditorPage({
           url: URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' })),
         });
       }
+      // Si es un .hex de Uno, el armario del puente 3D lo puede ejecutar tal cual.
+      const paraEl3d = hex?.downloadBase64 && hex.name.endsWith('.hex')
+        ? guardarFirmwareDelEditor(project.id, Uint8Array.from(atob(hex.downloadBase64), (c) => c.charCodeAt(0)), nombreDescarga(hex.name))
+        : null;
+      setFirmwarePara3d(paraEl3d?.ok === true);
+      if (paraEl3d?.ok) {
+        setCompileOutput((t) => `${t}\n\nPuente 3D: pulsa «Probar en el puente 3D» y, en el panel «El puente en marcha», «Poner en marcha». Este firmware mandará las luces del modelo (D4 vial, D5 tirantes, D6 torres, D7 barreras; fotocelda A0, pulsador D2).`);
+      }
     } catch (error) {
       setCompileState('error');
       setCompileOutput(error instanceof Error ? error.message : 'No se pudo contactar al compilador local.');
@@ -1592,7 +1607,7 @@ function EditorPage({
 
   return (
     <div className="ide-page">
-      <div className="ide-titlebar"><div><button className="subtle-link" onClick={onBack}>Proyectos</button><span className="breadcrumb-separator">/</span><strong>{project.name}</strong></div><div className="ide-actions"><span className={`save-indicator ${saveState}`}><span />{saveState === 'saving' ? 'Guardando…' : saveState === 'error' ? 'Error al guardar' : 'Guardado local'}</span><button className="secondary-button save-button" onClick={onSave}><Save size={15} /> Guardar</button><button className="secondary-button save-button" onClick={onOpenTwin}><Box size={15} /> Ver 3D</button><button className="secondary-button compile-button" disabled={ocupado} onClick={() => void simulateProject()} title="Ejecuta el programa en el PC contra el escenario del panel de propiedades"><Play size={15} /> {simState === 'running' ? 'Simulando…' : 'Simular'}</button><button className="primary-button compile-button" disabled={ocupado} onClick={() => void compileProject()}><Zap size={15} /> {ocupado && simState !== 'running' ? 'Compilando…' : 'Compilar'}</button></div></div>
+      <div className="ide-titlebar"><div><button className="subtle-link" onClick={onBack}>Proyectos</button><span className="breadcrumb-separator">/</span><strong>{project.name}</strong></div><div className="ide-actions"><span className={`save-indicator ${saveState}`}><span />{saveState === 'saving' ? 'Guardando…' : saveState === 'error' ? 'Error al guardar' : 'Guardado local'}</span><button className="secondary-button save-button" onClick={onSave}><Save size={15} /> Guardar</button><button className="secondary-button save-button" onClick={onOpenTwin}><Box size={15} /> Ver 3D</button>{firmwarePara3d && onOpenBridge && <button className="secondary-button save-button" onClick={onOpenBridge} title="El .hex recién compilado manda las luces del puente en el visor 3D"><Box size={15} /> Probar en el puente 3D</button>}<button className="secondary-button compile-button" disabled={ocupado} onClick={() => void simulateProject()} title="Ejecuta el programa en el PC contra el escenario del panel de propiedades"><Play size={15} /> {simState === 'running' ? 'Simulando…' : 'Simular'}</button><button className="primary-button compile-button" disabled={ocupado} onClick={() => void compileProject()}><Zap size={15} /> {ocupado && simState !== 'running' ? 'Compilando…' : 'Compilar'}</button></div></div>
       <div className="ide-workspace">
         <aside className="file-explorer">
           <div className="explorer-heading"><span>EXPLORADOR</span><button className="icon-button compact-button" onClick={onAddFile} aria-label="Agregar archivo"><FilePlus2 size={15} /></button></div>

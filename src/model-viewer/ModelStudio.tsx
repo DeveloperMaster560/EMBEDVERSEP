@@ -45,6 +45,7 @@ import { MASS_BASIS_NOTE, MODELLED_MASS_LABEL, formatModelledMass } from './mass
 import { BridgeSimulationPanel } from './BridgeSimulationPanel';
 import { useBridgeSimulation } from './useBridgeSimulation';
 import { readBridgeFirmware } from './firmware-lighting';
+import { firmwareDelEditor } from './firmwareDelEditor';
 import { DatosDelComponente, EstacionesEnElModelo } from '../plataforma/DatosDelComponente';
 
 const ZONE_LIGHT_COLOR: Record<string, string> = {
@@ -133,7 +134,11 @@ export function ModelStudio<S>({
   // poner en marcha se vea algo encendido.
   const [photocellLight, setPhotocellLight] = useState(0.05);
   // Firmware propio para el armario (el .hex que el usuario compiló para el Uno).
-  const [customFirmware, setCustomFirmware] = useState<{ hex: string; name: string } | null>(null);
+  // Si el editor de este proyecto acaba de compilar un .hex de Uno, ese es el firmware del armario.
+  const [customFirmware, setCustomFirmware] = useState<{ hex: string; name: string } | null>(() => {
+    const f = firmwareDelEditor(projectId);
+    return f ? { hex: f.hex, name: `${f.name} (compilado en el editor)` } : null;
+  });
   const [firmwareFileError, setFirmwareFileError] = useState<string | null>(null);
   const [accentZonesOn, setAccentZonesOn] = useState<Set<string>>(
     () => new Set(['tirantes', 'torres', 'barreras']),
