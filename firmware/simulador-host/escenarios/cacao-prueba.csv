@@ -1,0 +1,14 @@
+# ESCENARIO DE PRUEBA, NO SON DATOS MEDIDOS. Sirve para ver el sketch funcionando.
+# 10 minutos: la luz baja (nube), el suelo se seca un poco, alguien se acerca
+# al sensor de distancia hacia el minuto 5, y el DHT22 falla entre 400 y 440 s.
+# A34 = lectura cruda del sensor de suelo en el GPIO 34 (3000 seco, 1300 mojado).
+t_s,temperatura,humedad,luz,A34,distancia_cm
+0,26.0,82,850,1900,
+120,26.4,81,820,1920,
+240,26.9,79,300,1950,
+300,27.1,78,280,1960,180
+330,27.2,78,300,1965,40
+360,27.3,77,500,1970,
+400,,,600,1980,
+440,27.6,76,700,1990,
+600,28.0,75,880,2020,
