@@ -777,6 +777,110 @@
    },
    "valido": true,
    "problema_contiene": null
+  },
+  {
+   "nombre": "agua: turbidez, oxígeno disuelto y redox",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "TURB-1",
+      "quantity": "turbidez",
+      "value": 3.2,
+      "unit": "NTU"
+     },
+     {
+      "sensor_id": "OD-1",
+      "quantity": "oxigeno_disuelto",
+      "value": 7.8,
+      "unit": "mg/L"
+     },
+     {
+      "sensor_id": "ORP-1",
+      "quantity": "potencial_redox",
+      "value": -120.0,
+      "unit": "mV"
+     }
+    ]
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "posición GPS",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "GPS-LAT",
+      "quantity": "latitud",
+      "value": 7.1193,
+      "unit": "deg"
+     },
+     {
+      "sensor_id": "GPS-LON",
+      "quantity": "longitud",
+      "value": -73.1227,
+      "unit": "deg"
+     },
+     {
+      "sensor_id": "GPS-ALT",
+      "quantity": "altitud",
+      "value": 959.0,
+      "unit": "m"
+     }
+    ]
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "latitud imposible",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "GPS-LAT",
+      "quantity": "latitud",
+      "value": 97.0,
+      "unit": "deg"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "máximo 90"
+  },
+  {
+   "nombre": "factor de potencia fuera de [-1, 1]",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "PZEM-FP",
+      "quantity": "factor_potencia",
+      "value": 1.3,
+      "unit": "1"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "máximo 1)"
   }
  ]
 }

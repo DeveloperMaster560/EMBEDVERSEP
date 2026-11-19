@@ -122,3 +122,14 @@ umbrales de alerta.
 | `potencia` | `W` | — | INA226, PZEM-004T |
 | `fuerza` | `N`, `kgf` | — | celda de carga + HX711 |
 | `masa` | `kg`, `g` | — | balanza con HX711 |
+| `altitud` | `m` | — | GPS, BMP280/BME280 (barométrica) |
+| `caudal` | `L/min`, `m3/h` | — | YF-S201, caudalímetros Modbus |
+| `energia` | `Wh`, `kWh` | — | PZEM-004T, medidores Modbus |
+| `factor_potencia` | `1` | -1 … 1 | PZEM-004T, medidores Modbus |
+| `frecuencia` | `Hz` | 0 …  | PZEM-004T (red eléctrica) |
+| `latitud` | `deg` | -90 … 90 | GPS NEO-6M/M8N (TinyGPSPlus) |
+| `longitud` | `deg` | -180 … 180 | GPS NEO-6M/M8N (TinyGPSPlus) |
+| `nivel_sonoro` | `dBA`, `dB` | — | DFRobot SEN0232 |
+| `oxigeno_disuelto` | `mg/L`, `%` | 0 …  | DFRobot SEN0237, sondas ópticas |
+| `potencial_redox` | `mV` | — | DFRobot SEN0165 (ORP) |
+| `turbidez` | `NTU`, `FNU` | 0 …  | DFRobot SEN0189, sondas ISO 7027 |

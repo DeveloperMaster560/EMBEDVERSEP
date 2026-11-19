@@ -235,6 +235,110 @@
    "min": null,
    "max": null,
    "ejemplos": "balanza con HX711"
+  },
+  "altitud": {
+   "unidades": [
+    "m"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "GPS, BMP280/BME280 (barométrica)"
+  },
+  "caudal": {
+   "unidades": [
+    "L/min",
+    "m3/h"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "YF-S201, caudalímetros Modbus"
+  },
+  "energia": {
+   "unidades": [
+    "Wh",
+    "kWh"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "PZEM-004T, medidores Modbus"
+  },
+  "factor_potencia": {
+   "unidades": [
+    "1"
+   ],
+   "vectorial": false,
+   "min": -1,
+   "max": 1,
+   "ejemplos": "PZEM-004T, medidores Modbus"
+  },
+  "frecuencia": {
+   "unidades": [
+    "Hz"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "PZEM-004T (red eléctrica)"
+  },
+  "latitud": {
+   "unidades": [
+    "deg"
+   ],
+   "vectorial": false,
+   "min": -90,
+   "max": 90,
+   "ejemplos": "GPS NEO-6M/M8N (TinyGPSPlus)"
+  },
+  "longitud": {
+   "unidades": [
+    "deg"
+   ],
+   "vectorial": false,
+   "min": -180,
+   "max": 180,
+   "ejemplos": "GPS NEO-6M/M8N (TinyGPSPlus)"
+  },
+  "nivel_sonoro": {
+   "unidades": [
+    "dBA",
+    "dB"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "DFRobot SEN0232"
+  },
+  "oxigeno_disuelto": {
+   "unidades": [
+    "mg/L",
+    "%"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "DFRobot SEN0237, sondas ópticas"
+  },
+  "potencial_redox": {
+   "unidades": [
+    "mV"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "DFRobot SEN0165 (ORP)"
+  },
+  "turbidez": {
+   "unidades": [
+    "NTU",
+    "FNU"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "DFRobot SEN0189, sondas ISO 7027"
   }
  }
 }
