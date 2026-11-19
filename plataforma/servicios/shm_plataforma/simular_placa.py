@@ -129,6 +129,11 @@ def placa_sim(placa_id: str) -> PlacaSim:
         "rp2040": ["ARDUINO_ARCH_RP2040", "SIM_PRINTF"], "stm32": ["ARDUINO_ARCH_STM32", "SIM_PRINTF"],
         "samd": ["ARDUINO_ARCH_SAMD"], "sam": ["ARDUINO_ARCH_SAM"], "renesas_uno": ["ARDUINO_ARCH_RENESAS_UNO"],
     }.get(arq, ["ARDUINO_ARCH_MBED"] if arq.startswith("mbed") else [])
+    if p["paquete"].startswith("teensy:"):
+        # El núcleo de PJRC se llama «avr» por historia, pero las Teensy 3/4 son ARM. Se imita su
+        # API (Serial.printf, ADC de 10 bits por omisión) sin las macros de sus registros
+        # (__IMXRT1062__…): una biblioteca que los toca dice «no se puede simular».
+        macros = ["TEENSYDUINO=160", "ARDUINO_" + p["fqbn"].split(":")[2].upper(), "SIM_PRINTF"]
     macros.insert(0, "ARDUINO=10819")   # como arduino-cli: en la línea de órdenes, no solo en Arduino.h
     if placa_id == "arduino-uno":
         macros.append("ARDUINO_AVR_UNO")

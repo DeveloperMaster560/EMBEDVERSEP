@@ -1,5 +1,5 @@
 {
- "_nota": "Placas que el compilador de EMBEDVERSE conoce. Los identificadores (fqbn) se comprobaron el 2026-11-18 contra los boards.txt de cada núcleo, y las URL contra los índices oficiales. descarga_mb = descarga en Windows con sus herramientas (aprox.). La instala cada usuario: scripts/placas.ps1 o scripts/placas.sh.",
+ "_nota": "Placas que el compilador de EMBEDVERSE conoce. Los identificadores (fqbn) se comprobaron el 2026-11-18 contra los boards.txt de cada núcleo, y las URL contra los índices oficiales. descarga_mb = descarga en Windows con sus herramientas (aprox.). La instala cada usuario: scripts/placas.ps1 o scripts/placas.sh. Teensy (2026-11-19): fqbn del boards.txt del núcleo teensy 1.62.0 (paquete verificado con su SHA-256); su licencia obliga a ofrecer las placas PJRC parecidas si se ofrece una, por eso van todas las actuales.",
  "placas": [
   {
    "id": "arduino-uno",
@@ -10,7 +10,7 @@
    "indice": null,
    "descarga_mb": 61,
    "lento": false,
-   "notas": "La única que además se simula (ATmega328P)."
+   "notas": null
   },
   {
    "id": "arduino-nano",
@@ -438,6 +438,83 @@
    "paquete": "Seeeduino:samd",
    "indice": "https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json",
    "descarga_mb": 252,
+   "lento": false,
+   "notas": null
+  },
+  {
+   "id": "teensy-41",
+   "nombre": "Teensy 4.1",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensy41",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": "i.MX RT1062 a 600 MHz, Ethernet y microSD."
+  },
+  {
+   "id": "teensy-40",
+   "nombre": "Teensy 4.0",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensy40",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": "i.MX RT1062 a 600 MHz."
+  },
+  {
+   "id": "teensy-micromod",
+   "nombre": "Teensy MicroMod",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensyMM",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": null
+  },
+  {
+   "id": "teensy-36",
+   "nombre": "Teensy 3.6",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensy36",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": "Descontinuada por PJRC; sigue en el núcleo."
+  },
+  {
+   "id": "teensy-35",
+   "nombre": "Teensy 3.5",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensy35",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": "Descontinuada por PJRC; sigue en el núcleo."
+  },
+  {
+   "id": "teensy-32",
+   "nombre": "Teensy 3.2 / 3.1",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensy31",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
+   "lento": false,
+   "notas": null
+  },
+  {
+   "id": "teensy-lc",
+   "nombre": "Teensy LC",
+   "familia": "Teensy",
+   "fqbn": "teensy:avr:teensyLC",
+   "paquete": "teensy:avr",
+   "indice": "https://www.pjrc.com/teensy/package_teensy_index.json",
+   "descarga_mb": 79,
    "lento": false,
    "notas": null
   }

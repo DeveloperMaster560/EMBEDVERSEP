@@ -57,6 +57,7 @@ para el mismo sensor. Así que:
    (`ARDUINO_ARCH_ESP32`…), resolución del ADC (12 bits en ESP32, 10 en AVR),
    búfer I2C (32 bytes en AVR, 128 en ESP32), si tiene Wi-Fi, si existe
    `Serial.printf`, y la API propia de su núcleo (PWM `ledc` del ESP32…).
+   Teensy se simula con su API (TEENSYDUINO) pero sin sus registros.
 4. **String, Print, Stream, Client e IPAddress son los del núcleo de
    Arduino** (se toman del núcleo AVR instalado).
 
@@ -93,6 +94,7 @@ t_s,rtd,latitud,longitud,…
 |---|---|---|---|
 | `MAX31865` (PT100/PT1000) | SPI de la placa o por software | `rtd` (°C) | `r0=100`, `rref=430`; vacía = RTD abierto (fallo, fondo de escala) |
 | `SX1276`, `SX1278`, `RFM95` (LoRa) | SPI + DIO0 con interrupción | `rssi`, `snr` del receptor | ver «Nodos LoRa» |
+| `HX711` (celda de carga) | 2 hilos: `dout=`, `sck=` | `hx711` (cuentas) o `columna=carga_kg escala=2280 cero=84000` | 10 muestras/s; vacía = desconectada (DOUT alto) |
 | `GPS` (NMEA: NEO-6M/M8N…) | serie | `latitud`, `longitud`, `altitud`, `velocidad_kmh`, `satelites`, `hdop` | RMC + GGA a 1 Hz; vacía = sin posición |
 | `PZEM004T` (energía AC) | serie, Modbus | `tension`, `corriente`, `potencia`, `energia` (kWh), `frecuencia`, `factor_potencia` | sin `tension` no responde (se alimenta de la red) |
 | `MODBUS` (cualquier esclavo RTU) | serie | las que digan `rN=columna*escala` | funciones 03/04/06; excepciones 02 y 04 |
@@ -172,6 +174,11 @@ placa; que falle aquí casi siempre es un error real.**
   medidor, y tras una lectura fallida `current()`/`energy()` devuelven los
   valores viejos durante 200 ms (solo `voltage()` da NaN). Leer siempre
   `voltage()` primero y descartar todo si es NaN.
+- HX711 (bogde): con la celda desconectada, `read()`/`get_units()` esperan
+  para siempre; usar `wait_ready_timeout()`.
+- Un GPS a 1 Hz manda ~140 bytes por segundo: con un `loop()` que tarda más
+  de ~0,4 s, el búfer de 64 bytes (AVR, STM32, Teensy) se llena, las frases
+  llegan cortadas y TinyGPS nunca da posición. Leer el GPS más a menudo.
 
 ## Añadir un modelo de chip
 

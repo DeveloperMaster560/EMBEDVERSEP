@@ -186,6 +186,19 @@ class TestSimularPlaca(unittest.TestCase):
         # 0x02 = dirección ilegal (registro 7 no declarado); 0x04 = falla del equipo (columna vacía)
         self.assertEqual([l.strip() for l in r.serie], ["125 -325", "error 2", "error 4", "error 2"])
 
+    def test_hx711_en_teensy_y_celda_desconectada(self):
+        d = self.sketch("#include <HX711.h>\nHX711 c;\nvoid setup(){ Serial.begin(115200); c.begin(2, 3); "
+                        "c.set_scale(2280.f); c.tare(); }\n"
+                        "void loop(){ Serial.printf(\"%.2f\\n\", c.get_units(3)); delay(1000); }\n")
+        esc = self.escenario("#@ conectar HX711 dout=2 sck=3 columna=carga_kg escala=2280 cero=84000\n"
+                             "t_s,carga_kg\n0,0\n2,0\n2.5,12.5\n6,12.5\n6.5,\n")
+        r = ejecutar(compilar(d, self.tmp / "b", placa="teensy-41"), esc, 12, 0)
+        kg = [float(x) for x in r.serie]
+        self.assertAlmostEqual(kg[0], 0, delta=0.01)       # la tara se hizo en vacío
+        self.assertAlmostEqual(kg[-1], 12.5, delta=0.01)
+        self.assertLess(len(kg), 6)                        # desconectada: get_units() se queda esperando
+        self.assertTrue(any("wait_ready_timeout" in n for n in r.notas))
+
     def test_la_placa_importa(self):
         wifi = self.sketch("#include <WiFi.h>\nvoid setup(){ WiFi.begin(\"a\",\"b\"); }\nvoid loop(){}\n")
         with self.assertRaises(ErrorSimulacion) as e:

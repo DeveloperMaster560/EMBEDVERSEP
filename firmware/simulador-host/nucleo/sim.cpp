@@ -267,8 +267,24 @@ void attachInterrupt(uint8_t pin, void (*f)(void), int modo) {
 void detachInterrupt(uint8_t pin) { g_isr.erase(pin); }
 void tone(uint8_t, unsigned int, unsigned long) {}
 void noTone(uint8_t) {}
-void shiftOut(uint8_t, uint8_t, uint8_t, uint8_t) {}
-uint8_t shiftIn(uint8_t, uint8_t, uint8_t) { return 0; }
+/* Como el núcleo de Arduino: un pulso de reloj por bit (los dispositivos conectados los ven). */
+void shiftOut(uint8_t datos, uint8_t reloj, uint8_t orden, uint8_t v) {
+  for (uint8_t i = 0; i < 8; i++) {
+    digitalWrite(datos, orden == LSBFIRST ? (v >> i) & 1 : (v >> (7 - i)) & 1);
+    digitalWrite(reloj, HIGH);
+    digitalWrite(reloj, LOW);
+  }
+}
+uint8_t shiftIn(uint8_t datos, uint8_t reloj, uint8_t orden) {
+  uint8_t v = 0;
+  for (uint8_t i = 0; i < 8; ++i) {
+    digitalWrite(reloj, HIGH);
+    if (orden == LSBFIRST) v |= digitalRead(datos) << i;
+    else v |= digitalRead(datos) << (7 - i);
+    digitalWrite(reloj, LOW);
+  }
+  return v;
+}
 void randomSeed(unsigned long s) { srand((unsigned)s); }
 unsigned long pulseIn(uint8_t, uint8_t, unsigned long timeout_us) {
   double cm;
@@ -400,6 +416,9 @@ void conectar_dispositivos(const char *env) {
       g_puertos[puerto] = e;
       donde = (puerto[0] == 'r' ? "SoftwareSerial con RX en el pin " + puerto.substr(2) : puerto) + " a " +
               std::to_string(e->baudios()) + " baudios";
+    }
+    if (donde.empty()) {
+      for (auto &kv : p.m) donde += (donde.empty() ? "" : ", ") + kv.first + "=" + kv.second;
     }
     nota((modelo + " conectado (" + donde + ")").c_str());
   }
