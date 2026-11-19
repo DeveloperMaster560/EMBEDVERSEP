@@ -260,6 +260,14 @@ export function ModelStudio<S>({
     setSpec(config.interpret(prompt));
   }, [config, prompt]);
 
+  // Con el enunciado ya interpretado, lo que impide generar se dice antes del clic.
+  const bloqueo = useMemo(() => {
+    if (!spec) return null;
+    const problemas = config.validate(spec);
+    if (problemas.length) return problemas.join(' ');
+    return config.ready(spec) ? null : 'Responde las preguntas pendientes (en «Falta por definir»): el sistema no inventa esos datos.';
+  }, [config, spec]);
+
   const generate = useCallback(async () => {
     const current = spec ?? config.interpret(prompt);
     setSpec(current);
@@ -399,11 +407,13 @@ export function ModelStudio<S>({
               type="button"
               className="bs-button bs-primary"
               onClick={() => void generate()}
-              disabled={status === 'generating'}
+              disabled={status === 'generating' || bloqueo !== null}
+              title={bloqueo ?? undefined}
             >
               {status === 'generating' ? 'Generando…' : 'Generar modelo'}
             </button>
           </div>
+          {bloqueo && !error && <p className="bs-hint bs-bloqueo">{bloqueo}</p>}
         </section>
 
         {error && (

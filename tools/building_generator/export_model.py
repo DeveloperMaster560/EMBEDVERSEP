@@ -276,12 +276,32 @@ def gltf_bytes(scene) -> bytes:
     """
     import trimesh
 
-    rotated = scene.copy()
     # -90 grados sobre X: (x, y, z) -> (x, z, -y). El vertical del modelo,
     # (0,0,1), pasa a ser (0,1,0), que es el vertical de glTF.
-    rotated.apply_transform(
-        trimesh.transformations.rotation_matrix(-math.pi / 2.0, (1.0, 0.0, 0.0)))
+    giro = trimesh.transformations.rotation_matrix(-math.pi / 2.0, (1.0, 0.0, 0.0))
+    rotated = scene.copy()
+    if _nodos_sin_transformacion(rotated):
+        # Caso de _build_scene: cada malla cuelga de la raiz sin transformacion,
+        # asi que girar la escena es girar cada malla. Scene.apply_transform
+        # hace lo mismo pero recalcula el grafo entero por nodo (cuadratico:
+        # 42 de 70 s en un edificio de 10 pisos); esto es lineal.
+        for geom in rotated.geometry.values():
+            geom.apply_transform(giro)
+    else:
+        rotated.apply_transform(giro)
     return rotated.export(file_type="glb")
+
+
+def _nodos_sin_transformacion(scene) -> bool:
+    """True si ningun nodo de la escena tiene una transformacion distinta de la identidad."""
+    import numpy as np
+
+    ident = np.eye(4)
+    for datos in scene.graph.transforms.edge_data.values():
+        m = datos.get("matrix")
+        if m is not None and not np.allclose(m, ident):
+            return False
+    return True
 
 
 def write_glb(model, path: str) -> Dict[str, Any]:
