@@ -11,19 +11,26 @@
 #include <fstream>
 
 #include "Arduino.h"
-#include "BH1750.h"
 #include "Wire.h"
-#include "WiFi.h"
 #include "esp_sntp.h"
 #include "esp_timer.h"
+#include "sim_i2c.h"
 
-SimSerial Serial;
+HardwareSerial Serial(0);
+HardwareSerial Serial1(1);
+HardwareSerial Serial2(2);
+TwoWire Wire(0);
+#include "SPI.h"
+SPIClass SPI(0);
+volatile uint32_t sim_registro_puerto = 0;
+TwoWire Wire1(1);
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 SimEsp ESP;
+#endif
+#ifdef SIM_WIFI
+#include "WiFi.h"
 SimWiFi WiFi;
-TwoWire Wire;
-
-void setup();
-void loop();
+#endif
 
 namespace {
 uint64_t g_us = 0;
@@ -34,6 +41,7 @@ std::vector<Fila> g_filas;
 std::set<std::string> g_avisadas;
 sntp_sync_time_cb_t g_ntp_cb = nullptr;
 int64_t g_ntp_en_us = -1;
+uint64_t g_fin_us = 0;
 
 void comprobar_ntp() {
   if (g_ntp_en_us >= 0 && (int64_t)g_us >= g_ntp_en_us) {
@@ -75,7 +83,12 @@ void cargar_escenario(const char *ruta) {
 
 namespace sim {
 uint64_t us() { return g_us; }
-void avanzar_us(uint64_t d) { g_us += d; comprobar_ntp(); }
+void avanzar_us(uint64_t d) {
+  g_us += d;
+  comprobar_ntp();
+  /* El fin llega aunque el sketch esté parado en setup() (p. ej. while (true) delay(1000);). */
+  if (g_fin_us && g_us >= g_fin_us) { printf("\n@@FIN %llu\n", (unsigned long long)g_us); fflush(stdout); exit(0); }
+}
 int64_t utc_ms() { return g_inicio_ms + (int64_t)(g_us / 1000); }
 
 bool valor(const std::string &col, double &v) {
@@ -113,7 +126,50 @@ void nota(const char *texto) {
 }
 }  // namespace sim
 
-bool BH1750::hay_columna() { return sim::hay_columna("luz"); }
+/* ---------------------------------------------------------------- I2C */
+namespace {
+sim::ModeloI2C *g_modelos = nullptr;
+sim::ChipI2C *g_bus[128] = {nullptr};
+}  // namespace
+
+namespace sim {
+void registrar_modelo(ModeloI2C *m) { m->siguiente = g_modelos; g_modelos = m; }
+ChipI2C *chip_en(uint8_t d) { return d < 128 ? g_bus[d] : nullptr; }
+void conectar_chips() {
+  for (ModeloI2C *m = g_modelos; m; m = m->siguiente) {
+    if (!hay_columna(m->columna)) continue;
+    if (g_bus[m->direccion]) {
+      std::string n = std::string("I2C: ") + m->nombre + " y " + g_bus[m->direccion]->nombre() + " en la misma dirección";
+      nota(n.c_str());
+      continue;
+    }
+    g_bus[m->direccion] = m->crear();
+    char t[96];
+    snprintf(t, sizeof t, "I2C: %s conectado en 0x%02X (columna «%s»)", m->nombre, m->direccion, m->columna);
+    nota(t);
+  }
+}
+}  // namespace sim
+
+/* ------------------------------------------------- avr-libc que falta en el PC */
+static char *a_texto(unsigned long long v, bool negativo, char *s, int base) {
+  char t[66];
+  int i = 0;
+  if (base < 2 || base > 36) { s[0] = 0; return s; }
+  do { int d = (int)(v % base); t[i++] = (char)(d < 10 ? '0' + d : 'a' + d - 10); v /= base; } while (v);
+  int j = 0;
+  if (negativo) s[j++] = '-';
+  while (i) s[j++] = t[--i];
+  s[j] = 0;
+  return s;
+}
+extern "C" {
+char *itoa(int v, char *s, int b) { return b == 10 && v < 0 ? a_texto((unsigned long long)(-(long long)v), true, s, b) : a_texto((unsigned)v, false, s, b); }
+char *ltoa(long v, char *s, int b) { return b == 10 && v < 0 ? a_texto((unsigned long long)(-(long long)v), true, s, b) : a_texto((unsigned long)v, false, s, b); }
+char *utoa(unsigned v, char *s, int b) { return a_texto(v, false, s, b); }
+char *ultoa(unsigned long v, char *s, int b) { return a_texto(v, false, s, b); }
+char *dtostrf(double v, signed char ancho, unsigned char dec, char *s) { sprintf(s, "%*.*f", ancho, dec, v); return s; }
+}
 
 int sim_gettimeofday(struct timeval *tv, void *) {
   int64_t ms = sim::utc_ms();
@@ -123,18 +179,33 @@ int sim_gettimeofday(struct timeval *tv, void *) {
   return 0;
 }
 
-unsigned long millis() { return (unsigned long)(g_us / 1000); }
-unsigned long micros() { return (unsigned long)g_us; }
+/* Consultar la hora, ceder o leer un pin cuesta tiempo en la placa: 1 µs aquí.
+   Así terminan los bucles que esperan a un pin o a un tiempo límite (RadioLib,
+   esperas activas), que en el PC darían vueltas para siempre. */
+unsigned long millis() { sim::avanzar_us(1); return (unsigned long)(g_us / 1000); }
+unsigned long micros() { sim::avanzar_us(1); return (unsigned long)g_us; }
 void delay(unsigned long ms) { sim::avanzar_us((uint64_t)ms * 1000); }
 void delayMicroseconds(unsigned int us) { sim::avanzar_us(us); }
-void yield() {}
+void yield() { sim::avanzar_us(1); }
 void pinMode(uint8_t, uint8_t) {}
 void digitalWrite(uint8_t, uint8_t) {}
 int digitalRead(uint8_t pin) {
+  sim::avanzar_us(1);
+  /* Se llama millones de veces en las esperas activas: nada de texto por llamada. */
+  static std::string col[256];
+  static signed char hay[256] = {0};   /* 0 sin mirar · 1 hay columna · -1 no hay */
+  if (!hay[pin]) {
+    col[pin] = "D" + std::to_string(pin);
+    hay[pin] = sim::hay_columna(col[pin]) ? 1 : -1;
+    if (hay[pin] < 0) {
+      std::string n = "digitalRead(" + std::to_string(pin) + "): el escenario no tiene columna " + col[pin] + "; lee LOW";
+      sim::nota(n.c_str());
+    }
+  }
   double v;
-  return sim::valor("D" + std::to_string(pin), v) && v != 0 ? HIGH : LOW;
+  return hay[pin] > 0 && sim::valor(col[pin], v) && v != 0 ? HIGH : LOW;
 }
-static int g_bits_adc = 12;
+static int g_bits_adc = SIM_BITS_ADC;
 int analogRead(uint8_t pin) {
   double v;
   std::string col = "A" + std::to_string(pin);
@@ -148,6 +219,16 @@ int analogRead(uint8_t pin) {
 }
 void analogReadResolution(uint8_t bits) { g_bits_adc = bits; }
 void analogSetPinAttenuation(uint8_t, int) {}
+void analogSetAttenuation(int) {}
+void analogWrite(uint8_t, int) {}
+unsigned long pulseInLong(uint8_t p, uint8_t e, unsigned long t) { return pulseIn(p, e, t); }
+void attachInterrupt(uint8_t, void (*)(void), int) { sim::nota("attachInterrupt: el simulador no genera interrupciones"); }
+void detachInterrupt(uint8_t) {}
+void tone(uint8_t, unsigned int, unsigned long) {}
+void noTone(uint8_t) {}
+void shiftOut(uint8_t, uint8_t, uint8_t, uint8_t) {}
+uint8_t shiftIn(uint8_t, uint8_t, uint8_t) { return 0; }
+void randomSeed(unsigned long s) { srand((unsigned)s); }
 unsigned long pulseIn(uint8_t, uint8_t, unsigned long timeout_us) {
   double cm;
   if (!sim::valor("distancia_cm", cm) || cm <= 0) { sim::avanzar_us(timeout_us); return 0; }
@@ -172,8 +253,10 @@ int main() {
   const char *ini = getenv("SIM_INICIO_MS");
   if (!esc || !dur || !ini) { fprintf(stderr, "Faltan SIM_ESCENARIO, SIM_DURACION_S o SIM_INICIO_MS\n"); return 2; }
   cargar_escenario(esc);
+  sim::conectar_chips();
   g_inicio_ms = atoll(ini);
   uint64_t fin = (uint64_t)(atof(dur) * 1e6);
+  g_fin_us = fin;
   srand(1);
   setup();
   while (g_us < fin) {

@@ -137,6 +137,10 @@ DEL_NUCLEO = {"SPI", "Wire", "EEPROM", "SoftwareSerial", "HID", "WiFi", "Keyboar
 LEER_ARCHIVOS = True
 
 
+FIJAS: dict[str, dict] = {}       # nombre → {"version", "motivo"} (server/bibliotecas.json)
+TODAS: dict[tuple[str, str], dict] = {}   # (nombre, versión) → entrada del índice
+
+
 def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problemas: list[str], via: str | None = None):
     if via is not None and nombre in DEL_NUCLEO:
         return
@@ -145,6 +149,11 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
             salida[nombre]["requerida_por"].append(via)
         return
     lib = u.get(nombre)
+    if nombre in FIJAS:
+        lib = TODAS.get((nombre, FIJAS[nombre]["version"]))
+        if lib is None:
+            problemas.append(f"«{nombre}» {FIJAS[nombre]['version']} (versión fija) no está en el índice")
+            return
     if lib is None:
         problemas.append(f"«{nombre}» no está en el índice de Arduino" + (f" (dependencia de {via})" if via else ""))
         return
@@ -169,6 +178,7 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
         "checksum": lib["checksum"],
         "bytes": lib.get("size"),
         "licencia": None,   # el índice no la trae: se revisa aparte (ver _nota)
+        **({"version_fija": FIJAS[nombre]["motivo"], "ultima_en_indice": u[nombre]["version"]} if nombre in FIJAS else {}),
     }
     for dep in lib.get("dependencies") or []:
         resolver(dep["name"], u, grupo, salida, problemas, nombre)
@@ -184,7 +194,10 @@ def principal() -> int:
         return 1
     indice = json.loads(ruta.read_text(encoding="utf-8"))
     u = ultimas(indice)
-    grupos = json.loads(CURADA.read_text(encoding="utf-8"))["grupos"]
+    curada = json.loads(CURADA.read_text(encoding="utf-8"))
+    grupos = curada["grupos"]
+    FIJAS.update({k: v for k, v in curada.get("versiones_fijas", {}).items() if not k.startswith("_")})
+    TODAS.update({(l["name"], l["version"]): l for l in indice["libraries"]})
 
     salida: dict[str, dict] = {}
     problemas: list[str] = []
@@ -244,6 +257,9 @@ def principal() -> int:
     sin_cab = [x["nombre"] for x in salida.values() if not x["cabeceras"]]
     if sin_cab:
         print(f"· {len(sin_cab)} sin cabeceras declaradas en el índice (se deducen al instalar): {', '.join(sin_cab[:8])}…")
+    for n, f in FIJAS.items():
+        if n in salida and salida[n].get("ultima_en_indice") != salida[n]["version"]:
+            print(f"· {n} fijada en {salida[n]['version']} (última: {salida[n]['ultima_en_indice']}): {f['motivo'][:90]}…")
     for p in problemas:
         print(f"  ✗ {p}")
     print(f"· índice completo: {len(mapa)} cabeceras → {CABECERAS.relative_to(RAIZ)}")

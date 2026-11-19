@@ -1,6 +1,6 @@
 {
  "_nota": "Biblioteca oficial de EMBEDVERSE. Generado por scripts/biblioteca_oficial.py desde server/bibliotecas.json; NO editar a mano. Versiones fijas: el servidor compila siempre con estas. «licencia» null = aún sin revisar: antes de entregar binarios compilados al público hay que revisar las GPL/LGPL.",
- "generado": "2026-11-19T16:28:40Z",
+ "generado": "2026-11-19T16:52:55Z",
  "indice": {
   "archivo": "library_index.json",
   "bytes": 60847199
@@ -2333,7 +2333,7 @@
   },
   {
    "nombre": "RadioLib",
-   "version": "8.0.0",
+   "version": "7.8.1",
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
@@ -2358,10 +2358,12 @@
    ],
    "autor": "Jan Gromes <gromes.jan@gmail.com>",
    "repositorio": "https://github.com/jgromes/RadioLib.git",
-   "url": "https://downloads.arduino.cc/libraries/github.com/jgromes/RadioLib-8.0.0.zip",
-   "checksum": "SHA-256:cecc3f6d9366670d01292c852d1cdea7d83417cf1bace5a8b22b4c87b2bdcd9a",
-   "bytes": 5606935,
-   "licencia": null
+   "url": "https://downloads.arduino.cc/libraries/github.com/jgromes/RadioLib-7.8.1.zip",
+   "checksum": "SHA-256:8c2315391264fecec670958df36e815866d571a650c8546879f586bf91a93203",
+   "bytes": 5532693,
+   "licencia": null,
+   "version_fija": "RadioLib 8.0.0 cambió begin() a una estructura de configuración (ConfigLoRa_t): radio.begin(915.0), la forma de casi todos los ejemplos y tutoriales, deja de compilar. Lo detectó el simulador el 2026-11-19 con un nodo STM32 + SX1276.",
+   "ultima_en_indice": "8.0.0"
   },
   {
    "nombre": "RTClib",

@@ -1,5 +1,12 @@
 {
  "_nota": "Bibliotecas por grupo. Cada nombre se comprobó el 2026-11-18 contra el índice oficial (downloads.arduino.cc/libraries/library_index.json.gz): es el nombre exacto que acepta «arduino-cli lib install». Las dependencias se instalan solas.",
+ "versiones_fijas": {
+  "_nota": "Por omisión se fija la última versión del índice. Aquí, las que NO deben subir solas, con el motivo. Revisar al regenerar.",
+  "RadioLib": {
+   "version": "7.8.1",
+   "motivo": "RadioLib 8.0.0 cambió begin() a una estructura de configuración (ConfigLoRa_t): radio.begin(915.0), la forma de casi todos los ejemplos y tutoriales, deja de compilar. Lo detectó el simulador el 2026-11-19 con un nodo STM32 + SX1276."
+  }
+ },
  "grupos": {
   "base": [
    "Adafruit Unified Sensor",

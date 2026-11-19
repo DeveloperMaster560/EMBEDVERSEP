@@ -1,14 +1,16 @@
 # Simulador de placas en el PC
 
-Ejecuta un sketch de ESP32/Arduino **sin modificarlo** en el PC: el código se
-compila con el compilador del PC contra cabeceras que imitan la placa
-(`nucleo/`), y los sensores leen sus valores de un **escenario** (CSV). Lo que
-el sketch publica por MQTT se revisa con el contrato de la plataforma y, si se
-pide, llega al broker de verdad como si fuera la estación.
+Ejecuta un sketch de Arduino/ESP32 **sin modificarlo** en el PC, con sus
+bibliotecas **reales**, y con los sensores leyendo sus valores de un
+**escenario** (CSV). Lo que el sketch publica por MQTT se revisa con el
+contrato de la plataforma y, si se pide, llega al broker de verdad como si
+fuera la estación.
 
 Sirve para que un ingeniero vea su programa funcionando, con sus datos en
-Grafana, **antes** de tener la placa, y para encontrar errores de formato
-(tópicos propios, `-999`, sin hora…) sin cablear nada.
+Grafana, **antes** de tener la placa, y para encontrar errores sin cablear
+nada: formato (tópicos propios, `-999`, sin hora), dirección I2C equivocada,
+orden de inicialización, una biblioteca que en esa placa no compila, un
+búfer que no alcanza.
 
 ## Uso
 
@@ -16,9 +18,11 @@ Desde `plataforma/servicios`:
 
 ```
 python3 -m shm_plataforma.simular_placa ../../firmware/esp32-ambiente \
+    --placa esp32-devkit \
     --escenario ../../firmware/simulador-host/escenarios/cacao-prueba.csv --duracion 600
 ```
 
+- `--placa`: un id de `server/placas.json` (por omisión `esp32-devkit`).
 - `--duracion` son segundos **simulados**: 10 minutos tardan unos segundos.
 - `--enviar` publica en el broker (plataforma encendida) con la clave de la
   estación en `plataforma/.env`; la estación tiene que estar en un proyecto.
@@ -26,45 +30,103 @@ python3 -m shm_plataforma.simular_placa ../../firmware/esp32-ambiente \
 - `--json` da el resumen en JSON.
 - Sale con 0 si todo cumple el contrato, 3 si algún mensaje no, 1 si no compila.
 
+La primera simulación con una biblioteca grande (RadioLib) tarda unos
+segundos en compilarla; después queda en caché (`.tools/simulador/`).
+
+## Cómo funciona: por bus, no por biblioteca
+
+Escribir una imitación de cada biblioteca no escala: son miles y hay varias
+para el mismo sensor. Así que:
+
+1. **La biblioteca es la real.** Cada `#include` se resuelve contra la
+   biblioteca oficial (`server/bibliotecas.lock.json`), con la misma versión
+   fija con la que compila el servidor, desde su `.zip` verificado. Igual que
+   `arduino-cli`, se sigue el preprocesador con las macros de la placa: solo
+   cuenta lo que se compila para ESA placa.
+2. **Lo simulado es el hardware.** `Wire` entrega cada byte al **modelo del
+   chip** que responde en esa dirección (`modelos/`): registros, tiempos de
+   conversión, CRC y saturación, según la hoja de datos. Un modelo sirve para
+   todas las bibliotecas de ese chip.
+3. **La placa importa** (`--placa`): macros de su familia
+   (`ARDUINO_ARCH_ESP32`…), resolución del ADC (12 bits en ESP32, 10 en AVR),
+   búfer I2C (32 bytes en AVR, 128 en ESP32), si tiene Wi-Fi, si existe
+   `Serial.printf`, y la API propia de su núcleo (PWM `ledc` del ESP32…).
+4. **String, Print, Stream, Client e IPAddress son los del núcleo de
+   Arduino** (se toman del núcleo AVR instalado).
+
+Un chip sin modelo, o con su columna vacía en ese instante, **no responde**
+(NACK): el programa ve lo mismo que con el sensor desconectado, y el
+simulador lo avisa. Nunca se inventan lecturas.
+
+### Modelos de chip (I2C)
+
+| Chip | Dirección | Columnas del escenario |
+|---|---|---|
+| BH1750 (luz) | 0x23 | `luz` (lux) |
+| MPU-6050 (acelerómetro/giróscopo) | 0x68 | `acel_x`, `acel_y`, `acel_z` (m/s², con la gravedad), `giro_x`… (°/s), `temperatura` |
+| SCD40/SCD41 (CO₂) | 0x62 | `co2` (ppm), `temperatura`, `humedad` |
+
+El chip está conectado si el escenario tiene su columna principal (la
+primera de la lista).
+
+### Imitados a nivel de biblioteca
+
+Su protocolo depende de tiempos de microsegundos, así que se imitan:
+
+| Biblioteca | Columnas |
+|---|---|
+| DHT11/DHT22 (`DHT.h`) | `temperatura`, `humedad` |
+| DallasTemperature / DS18B20 | `ds18b20`, `ds18b20_1`… (vacía = −127, desconectado) |
+| OneWire | sin dispositivos |
+| Wi-Fi (`WiFi.h`, API del ESP32) | conecta 1 s después de `begin` |
+| PubSubClient (MQTT) | lo publicado va al lanzador; límite real del búfer (256 B) |
+| NTP (`configTime`) | sincroniza a los 2 s |
+
+### Pines
+
+| Columna | La lee |
+|---|---|
+| `A<pin>` | `analogRead(pin)`, en cuentas del ADC de esa placa |
+| `D<pin>` | `digitalRead(pin)` (0/1) |
+| `distancia_cm` | `pulseIn()` (HC-SR04) |
+
+En STM32 los pines por nombre son números: `PA6` = 6, `PB0` = 16, `PC13` = 45.
+
 ## Escenario
 
-CSV con `t_s` (segundos desde el arranque) y una columna por señal. Entre filas
-se interpola; **una celda vacía = el sensor falla** en ese tramo (así se prueba
-qué hace el programa cuando un sensor no responde). Las líneas `#` son
-comentarios.
-
-| Columna | La lee | Unidad |
-|---|---|---|
-| `temperatura`, `humedad` | DHT11 / DHT22 | °C, %HR |
-| `luz` | BH1750 (si la columna no existe, `begin()` falla: sensor no conectado) | lux |
-| `distancia_cm` | `pulseIn()` (HC-SR04) | cm |
-| `A<pin>` | `analogRead(pin)` | cuentas del ADC |
-| `D<pin>` | `digitalRead(pin)` | 0 / 1 |
-
-Los escenarios de `escenarios/` son **inventados para probar**, no datos medidos.
-
-## Qué imita
-
-Reloj (`millis`, `delay`, `micros`), `Serial`, `String`, pines, ADC,
-`pulseIn`, Wi‑Fi (conecta 1 s después de `begin`), NTP (`configTime` + aviso
-de sincronización a los 2 s), `PubSubClient` (con el límite real del búfer:
-256 bytes si no se llama a `setBufferSize`), `Wire`, DHT y BH1750.
-Bibliotecas de software puro (ArduinoJson) se usan **reales**, instaladas con
-`scripts/placas.*`.
-
-Una biblioteca de hardware que no esté imitada hace fallar la compilación con
-su nombre: nunca se inventa su comportamiento. Para añadir una, se escribe su
-cabecera en `nucleo/` leyendo de una columna del escenario.
+CSV con `t_s` (segundos desde el arranque) y una columna por señal. Entre
+filas se interpola; **una celda vacía = el sensor falla** en ese tramo. Las
+líneas `#` son comentarios. Los escenarios de `escenarios/` son **inventados
+para probar**, no datos medidos.
 
 ## Qué NO prueba
 
-Tiempos reales del procesador, RAM y pila del ESP32, interrupciones, ruido
-eléctrico, el radio Wi‑Fi, tensiones (un HC-SR04 a 5 V sin divisor quema el
-pin y aquí no pasa nada). **Que funcione aquí no prueba que funcione en la
+Tiempos reales del procesador (consultar la hora o leer un pin cuesta 1 µs
+fijo), RAM y pila, interrupciones, ruido eléctrico, la radio (Wi-Fi, LoRa:
+sin modelo, un SX1276 «no responde»), tensiones (un HC-SR04 a 5 V sin divisor
+quema el pin y aquí no pasa nada). En AVR un `int` es de 16 bits y aquí de
+32: los desbordes de `int` no se reproducen. No se generan los prototipos de
+funciones como hace el IDE. **Que funcione aquí no prueba que funcione en la
 placa; que falle aquí casi siempre es un error real.**
+
+## Lo que ya encontró
+
+- RadioLib 8.0.0 cambió `begin()`: `radio.begin(915.0)`, la forma de casi
+  todos los ejemplos, deja de compilar. La biblioteca oficial quedó fijada en
+  7.8.1 (`server/bibliotecas.json`, `versiones_fijas`).
+
+## Añadir un modelo de chip
+
+Un archivo en `modelos/` con una clase que hereda de `sim::ChipI2C`
+(`presente`, `escribir`, `leer`) y la línea
+`SIM_CHIP_I2C(Clase, "NOMBRE", dirección, "columna")`. Se escribe desde la
+hoja de datos, no desde una biblioteca (así sirve para todas), y se prueba con
+la biblioteca oficial real (ver `pruebas/test_simular_placa.py`).
 
 ## Requisitos
 
-Un compilador de C++ del PC. En macOS y Linux viene con las herramientas de
-desarrollo (`c++`). En Windows hace falta instalar uno (por ejemplo MinGW-w64);
-**en Windows aún no está probado.**
+Un compilador de C/C++ del PC (en macOS y Linux viene con las herramientas de
+desarrollo), el núcleo `arduino:avr` instalado (`sh scripts/placas.sh nucleo
+arduino-uno`, de él salen String/Print/Stream) y los `.zip` de la biblioteca
+oficial (`python3 scripts/biblioteca_oficial.py` los descarga con su
+checksum). **En Windows aún no está probado.**
