@@ -162,8 +162,9 @@ describe('barrido de enunciados y vivienda (19/11/2026)', () => {
 
   it('una casa sin disciplinas nombradas pide solo las que la vivienda cubre', () => {
     const spec = interpretBuildingPrompt('Casa de 1 piso de 10 x 8 m, altura libre 2.50 m');
-    expect(spec.disciplines).toEqual(['architecture', 'structure', 'electrical']);
+    expect(spec.disciplines).toEqual(['architecture', 'structure', 'electrical', 'hydrosanitary']);
     expect(spec.questions.join(' ')).toMatch(/recintos tiene la vivienda/);
+    expect(spec.assumptions.join(' ')).toMatch(/eléctrica e hidrosanitaria/);
   });
 
   it('«sala de juntas» no es la sala de una casa', () => {

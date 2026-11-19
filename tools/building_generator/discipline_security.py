@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Tuple
 import mepkit as K
 import params as P
 import routing as R
-from discipline_structure import riser_at
+from discipline_structure import riser_at, stair_geometry
 
 def panel_room():
     """Recinto del panel de seguridad, localizado por uso."""
@@ -53,6 +53,36 @@ def motion_positions():
     my = round((P.RING_Y0 + P.RING_Y1) / 2.0, 2)
     return [(round(P.RING_X0 + P.HYP_CORRIDOR_WIDTH * 0.5, 2), my),
             (round(P.RING_X1 - P.HYP_CORRIDOR_WIDTH * 0.5, 2), my)]
+
+
+def exit_sign_positions():
+    """Senales de salida: junto a la cara oeste del nucleo y en la circulacion
+    al sur y al norte de el, derivadas del nucleo (en la planta de 24 x 18 m
+    coinciden con las cotas fijas anteriores: (8.70, 9.00), (12.00, 4.60) y
+    (12.00, 13.40)). Se apartan de las columnas si caen sobre una."""
+    cx = round((P.CORE_X0 + P.CORE_X1) / 2.0, 3)
+    cy = round((P.CORE_Y0 + P.CORE_Y1) / 2.0, 3)
+    pts = [(round(P.CORE_X0 - 0.30, 3), cy),
+           (cx, round(P.CORE_Y0 - 1.40, 3)),
+           (cx, round(P.CORE_Y1 + 1.40, 3))]
+    return [R.clear_of_columns(x, y, 0.175, 0.03) for x, y in pts]
+
+
+def extinguisher_positions():
+    """Extintores junto a las esquinas suroeste y noreste del nucleo.
+
+    Derivados del nucleo; en la planta de 24 x 18 m coinciden con las cotas
+    fijas anteriores (8.30, 6.00) y (16.00, 12.00). Se apartan de las columnas.
+    """
+    pts = [(round(P.CORE_X0 - 0.70, 3), round(P.CORE_Y0, 3)),
+           (round(P.CORE_X1 + 1.00, 3), round(P.CORE_Y1, 3))]
+    return [R.clear_of_columns(x, y, 0.10, 0.10) for x, y in pts]
+
+
+def cabinet_position():
+    """Gabinete de incendio al oeste del nucleo ((8.30, 11.00) en 24 x 18 m)."""
+    return R.clear_of_columns(round(P.CORE_X0 - 0.70, 3), round(P.CORE_Y1 - 1.00, 3),
+                              0.125, 0.40)
 
 
 def access_controlled():
@@ -113,11 +143,23 @@ def build_detection(model) -> Dict[str, List[Dict[str, Any]]]:
                     [P.RING_X0 + 1.0, P.RING_Y0 + 1.0, P.RING_X1 - 1.0, P.RING_Y1 - 1.0],
                     spacing=8.0, inset=0.0, start_offset=2.0)]
                 n = len(pts)
+            elif sp.use == "escalera":
+                # Los tramos suben por encima del cielo raso: un detector sobre
+                # su huella quedaria dentro del galibo de la escalera. Se
+                # colocan en las franjas laterales libres del nucleo, como las
+                # luminarias, alternando oeste y este y repartidos en Y.
+                g = stair_geometry()
+                strips = [round((sp.rect[0] + g["xa0"]) / 2.0, 3),
+                          round((sp.rect[2] + g["xb1"]) / 2.0, 3)]
+                y0r, y1r = sp.rect[1], sp.rect[3]
+                pts = [(strips[k % 2], round(y0r + (y1r - y0r) * (k + 1) / (n + 1), 3))
+                       for k in range(n)]
             else:
                 # Desfase respecto a la reticula de luminarias, que ocupa los
                 # mismos puntos de cielo raso.
                 pts = [(round(x + 0.55, 3), round(y + 0.45, 3))
                        for x, y in R.grid_in_rect(sp.rect, n, margin=1.10)]
+            pts = [R.clear_of_columns(px, py, 0.06, 0.06, within=sp.rect) for px, py in pts]
             for k, (px, py) in enumerate(pts, start=1):
                 cid = "SEG-HUM-%s-%s-%02d" % (lid, sp.code, k)
                 K.add_device(
@@ -144,7 +186,8 @@ def build_detection(model) -> Dict[str, List[Dict[str, Any]]]:
                 devices.append({"component_id": cid, "xyz": (px, py, round(cz - 0.03, 3)),
                                 "kind": "smoke"})
 
-        for k, (px, py) in enumerate(motion_positions(), start=1):
+        for k, (px, py) in enumerate(
+                [R.clear_of_columns(x, y, 0.05, 0.04) for x, y in motion_positions()], start=1):
             cid = "SEG-MOV-%s-%02d" % (lid, k)
             K.add_device(
                 model, component_id=cid, discipline="security", type="motion_sensor",
@@ -242,10 +285,14 @@ def build_access_control(model) -> List[Dict[str, Any]]:
     # Acceso principal
     points = [("ACC", "Acceso principal", "N1", (4.00, 0.40, 1.10), "ARQ-ESP-101")]
     # Puerta de escalera por nivel
+    # Frente a la puerta del muro oeste del nucleo, a 0.30 m del muro: en la
+    # planta de 24 x 18 m es la cota fija anterior (8.70, 9.00).
+    rx, ry = R.clear_of_columns(round(P.CORE_X0 - 0.30, 3),
+                                round((P.CORE_Y0 + P.CORE_Y1) / 2.0, 3), 0.045, 0.025)
     for level in P.LEVELS:
         lid = level["level_id"]
         points.append((("ESC-%s" % lid), "Puerta de escalera %s" % lid, lid,
-                       (8.70, 9.00, round(level["elevation"] + 1.10, 3)),
+                       (rx, ry, round(level["elevation"] + 1.10, 3)),
                        "ARQ-ESP-%sESC" % lid))
     # Recintos tecnicos del N1
     for code, name in access_controlled().items():
@@ -290,6 +337,7 @@ def build_emergency(model) -> List[Dict[str, Any]]:
         pts = R.perimeter_points(
             [P.RING_X0 + 0.8, P.RING_Y0 + 0.8, P.RING_X1 - 0.8, P.RING_Y1 - 0.8],
             spacing=6.0, inset=0.0, start_offset=1.5)
+        pts = [R.clear_of_columns(x, y, 0.15, 0.05) + (f,) for x, y, f in pts]
         for k, (px, py, _face) in enumerate(pts, start=1):
             cid = "SEG-EME-%s-%02d" % (lid, k)
             K.add_device(
@@ -315,7 +363,7 @@ def build_emergency(model) -> List[Dict[str, Any]]:
                         "kind": "emergency", "level": lid})
 
         # senalizacion de salida sobre las puertas de escalera y en la circulacion
-        for k, (px, py) in enumerate([(8.70, 9.00), (12.00, 4.60), (12.00, 13.40)], start=1):
+        for k, (px, py) in enumerate(exit_sign_positions(), start=1):
             cid = "SEG-SEN-%s-%02d" % (lid, k)
             K.add_device(
                 model, component_id=cid, discipline="security", type="exit_sign",
@@ -337,7 +385,7 @@ def build_emergency(model) -> List[Dict[str, Any]]:
                         "kind": "sign", "level": lid})
 
         # extintores y gabinete de incendio
-        for k, (px, py) in enumerate([(8.30, 6.00), (16.00, 12.00)], start=1):
+        for k, (px, py) in enumerate(extinguisher_positions(), start=1):
             cid = "SEG-EXT-%s-%02d" % (lid, k)
             K.add_device(
                 model, component_id=cid, discipline="security", type="fire_extinguisher",
@@ -367,7 +415,7 @@ def build_emergency(model) -> List[Dict[str, Any]]:
             model, component_id=cid, discipline="security", type="fire_hose_cabinet",
             name="Gabinete de incendio %s" % lid, level_id=lid,
             space_id="ARQ-ESP-%sCIRC" % lid,
-            xyz=(8.30, 11.00, round(e + 1.10, 3)), box=(0.25, 0.80, 0.80),
+            xyz=cabinet_position() + (round(e + 1.10, 3),), box=(0.25, 0.80, 0.80),
             material="equipo_generico", ifc_class="IfcFireSuppressionTerminal",
             layer="SEG-INCENDIO",
             parameters={"cabinet_type": "gabinete con manguera (hipotesis de seleccion)",
@@ -382,7 +430,7 @@ def build_emergency(model) -> List[Dict[str, Any]]:
             derived_from=["HYP_CORRIDOR_WIDTH"],
             validation_notes=["Caudal y presion de la red de incendio sin calcular."],
         )
-        out.append({"component_id": cid, "xyz": (8.30, 11.00, round(e + 1.10, 3)),
+        out.append({"component_id": cid, "xyz": cabinet_position() + (round(e + 1.10, 3),),
                     "kind": "cabinet", "level": lid})
     return out
 

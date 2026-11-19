@@ -6,7 +6,8 @@ oficinas (nucleo central, anillo de circulacion y cuatro bandas), que exige
 «La longitud debe estar entre 15 y 120».
 
 Se comprueba que la casa de ese enunciado genera un GLB valido con la
-instalacion electrica (tablero y circuitos), que se rechaza con un mensaje
+instalacion electrica (tablero y circuitos) y la hidrosanitaria (desde el
+19/11/2026), que se rechaza con un mensaje
 claro lo que la tipologia no puede construir, y que no se inventan recintos.
 """
 
@@ -98,7 +99,7 @@ class TestLimitesDeLaVivienda(unittest.TestCase):
         spec.pop("disciplines")
         r = G.build_scene(spec)
         self.assertEqual(set(r["counts"]["by_discipline"]),
-                         {"architecture", "structure", "electrical"})
+                         {"architecture", "structure", "electrical", "hydrosanitary"})
         self.assertTrue(any("no se modelan" in a for a in r["adjustments"]))
 
     def test_recintos_que_no_caben_se_rechazan_no_se_omiten(self):
@@ -141,6 +142,122 @@ class TestPuertaDelCaseton(unittest.TestCase):
         self.assertGreaterEqual(y0, P.CORE_Y0 - 1e-6)
         self.assertLessEqual(y1, P.CORE_Y1 + 1e-6)
         self.assertTrue(math.isclose((y0 + y1) / 2, (P.CORE_Y0 + P.CORE_Y1) / 2, abs_tol=1e-3))
+
+
+class TestHidrosanitariaDeLaCasa(unittest.TestCase):
+    """Red hidrosanitaria de vivienda (19/11/2026).
+
+    Hasta entonces la vivienda solo cubria estructura, arquitectura y
+    electrica: la hidrosanitaria estaba escrita para oficinas (tanques,
+    bombeo, banos colectivos). Se comprueba que la casa lleva acometida y
+    medidor, agua fria a cada aparato, desagues a una bajante ventilada, caja
+    de inspeccion y salida, y pluvial de cubierta; que ningun dato hidraulico
+    se inventa; y que no aparecen colisiones con la estructura.
+    """
+
+    SPEC = dict(CASA, disciplines=["electrical", "hydrosanitary"])
+
+    @classmethod
+    def setUpClass(cls):
+        cls.r = G.build_scene(dict(cls.SPEC))
+        cls.scene = trimesh.load(io.BytesIO(base64.b64decode(cls.r["glb_base64"])),
+                                 file_type="glb")
+        cls.model = G.build_model(dict(cls.SPEC))["model"]
+        cls.hid = {cid: c for cid, c in cls.model.components.items()
+                   if c.discipline == "hydrosanitary"}
+
+    def _tipos(self):
+        out = {}
+        for c in self.hid.values():
+            out.setdefault(c.type, []).append(c)
+        return out
+
+    def test_aparatos_por_recinto_humedo(self):
+        por_recinto = {}
+        for c in self._tipos()["sanitary_fixture"]:
+            por_recinto.setdefault(c.space_id, []).append(c.parameters["fixture_type"])
+        usos = {"ARQ-ESP-%s" % s["code"]: s["use"] for s in self.r["spaces"]}
+        banos = [sid for sid, u in usos.items() if u == "bano"]
+        cocinas = [sid for sid, u in usos.items() if u == "cocina"]
+        self.assertEqual(len(banos), 2)
+        for sid in banos:
+            self.assertEqual(sorted(por_recinto[sid]), ["ducha", "inodoro", "lavamanos"])
+        for sid in cocinas:
+            self.assertEqual(por_recinto[sid], ["lavaplatos"])
+        # Ningun aparato fuera de banos, cocina o zona de ropas.
+        self.assertTrue(all(usos[sid] in ("bano", "cocina", "lavanderia")
+                            for sid in por_recinto))
+
+    def test_red_completa_de_la_acometida_a_la_salida(self):
+        tipos = self._tipos()
+        for t in ("water_service", "water_meter", "water_main", "water_branch",
+                  "drain_branch", "drain_stack", "building_drain", "inspection_chamber",
+                  "sewer_outlet", "roof_drain", "rain_leader", "storm_outlet"):
+            self.assertIn(t, tipos, t)
+        cnx = {(c.origin, c.destination) for c in self.model.connections.values()}
+        for a, b in (("HID-ACO-001", "HID-MED-001"), ("HID-MED-001", "HID-RED-AF"),
+                     ("HID-BAJ-SAN", "HID-COL-SAN"), ("HID-COL-SAN", "HID-CAJ-SAN"),
+                     ("HID-CAJ-SAN", "HID-SAL-SAN"), ("HID-SUM-01", "HID-BAJ-PLU-01")):
+            self.assertIn((a, b), cnx)
+        # Cada aparato recibe agua de un ramal y descarga a un ramal que llega
+        # a la bajante.
+        for f in tipos["sanitary_fixture"]:
+            fid = f.component_id
+            agua = [o for o, d in cnx if d == fid and o.startswith("HID-RAM-AGUA")]
+            des = [d for o, d in cnx if o == fid and d.startswith("HID-RAM-DES")]
+            self.assertEqual(len(agua), 1, fid)
+            self.assertEqual(len(des), 1, fid)
+            self.assertIn((des[0], "HID-BAJ-SAN"), cnx)
+
+    def test_no_se_inventan_datos_hidraulicos(self):
+        for cid, c in self.hid.items():
+            for k in ("nominal_diameter_m", "design_slope", "design_flow_lps",
+                      "supply_diameter_m", "drain_diameter_m", "flow_rate_lps",
+                      "design_rainfall_intensity_mm_h", "peak_flow_lps"):
+                if k in c.parameters:
+                    self.assertIsNone(c.parameters[k], "%s.%s" % (cid, k))
+            if "nominal_diameter_m" in c.parameters:
+                self.assertIn("nominal_diameter_m", c.requires_calculation, cid)
+        for c in self._tipos()["drain_branch"]:
+            self.assertIn("design_slope", c.requires_calculation)
+
+    def test_sin_colisiones_con_la_estructura(self):
+        sev = self.r["validation"]["clashes_by_severity"]
+        self.assertEqual(sev.get("COLISION ESTRUCTURAL", 0), 0)
+        self.assertEqual(sev.get("REVISAR", 0), 0)
+        self.assertEqual(self.r["validation"]["consistency_errors"], 0)
+
+    def test_medidores_separados_y_fuera_de_columnas(self):
+        # Se reconstruye: otra prueba de la clase pudo dejar params con otra planta.
+        model = G.build_model(dict(self.SPEC))["model"]
+        import params as P
+        agua = model.components["HID-MED-001"].position
+        luz = model.components["ELE-MED-001"].position
+        self.assertGreaterEqual(abs(agua[1] - luz[1]), 0.60)
+        for gy in P.GRID_Y:
+            self.assertGreater(abs(agua[1] - gy), P.HYP_PEDESTAL_SIZE[1] / 2.0)
+
+    def test_nodos_en_la_escena(self):
+        nodos = set(self.scene.graph.nodes_geometry)
+        self.assertIn("hydrosanitary__N1__HID-MED-001", nodos)
+        self.assertTrue(any(n.startswith("hydrosanitary__N2__HID-APA-") for n in nodos))
+
+    def test_lavadero_si_hay_zona_de_ropas(self):
+        spec = dict(CASA, levels=1, length_x_m=14, width_y_m=10,
+                    residential_program={"dormitorio": 2, "cocina": 1, "sala": 1,
+                                         "bano": 1, "lavanderia": 1},
+                    disciplines=["hydrosanitary"])
+        model = G.build_model(spec)["model"]
+        tipos = sorted(c.parameters["fixture_type"] for c in model.components.values()
+                       if c.type == "sanitary_fixture")
+        self.assertEqual(tipos, ["ducha", "inodoro", "lavadero", "lavamanos", "lavaplatos"])
+        import validate as VAL
+        resumen, _ = VAL.clash_report(model)
+        self.assertEqual(resumen["by_severity"].get("COLISION ESTRUCTURAL", 0), 0)
+
+    def test_mensaje_de_disciplinas_de_vivienda(self):
+        msg = _rechazo(dict(CASA, disciplines=["telecommunications"]))
+        self.assertIn("hidrosanitaria", msg)
 
 
 if __name__ == "__main__":

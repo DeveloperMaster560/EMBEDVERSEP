@@ -54,7 +54,7 @@ REQUIRED_BY = {
 
 MAX_COMPONENTS = 20000
 
-RESIDENTIAL_DISCIPLINES = ("structure", "architecture", "electrical")
+RESIDENTIAL_DISCIPLINES = ("structure", "architecture", "electrical", "hydrosanitary")
 
 
 def _fresh_modules():
@@ -97,8 +97,12 @@ def expand_disciplines(requested: List[str]) -> List[str]:
     return [k for k in order if k in chosen]
 
 
-def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
-    t0 = time.time()
+def build_model(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Aplica la especificacion y construye el modelo, sin exportar nada.
+
+    Devuelve el modelo y lo que `build_scene` necesita para el informe. Las
+    pruebas de colisiones lo usan para no pagar la exportacion GLB.
+    """
     P = _fresh_modules()
     report = P.apply_spec(spec)
 
@@ -109,19 +113,20 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
                           % (requested, ", ".join(known)))
     residential_note = []
     if P.is_residential():
-        # La vivienda solo cubre, por ahora, estructura, arquitectura y
-        # electrica. Las demas disciplinas estan escritas para la tipologia de
-        # oficinas (cuarto de telecomunicaciones, cuarto tecnico de HVAC...).
+        # La vivienda cubre estructura, arquitectura, electrica e
+        # hidrosanitaria. Las demas disciplinas estan escritas para la
+        # tipologia de oficinas (cuarto de telecomunicaciones, cuarto tecnico
+        # de HVAC...).
         unsupported = [d for d in requested if d not in RESIDENTIAL_DISCIPLINES]
         if spec.get("disciplines") and unsupported:
             raise P.SpecError(
-                "En vivienda el generador cubre estructura, arquitectura y electrica; "
-                "no modela todavia: %s." % ", ".join(unsupported))
+                "En vivienda el generador cubre estructura, arquitectura, electrica e "
+                "hidrosanitaria; no modela todavia: %s." % ", ".join(unsupported))
         if unsupported:
             requested = [d for d in requested if d in RESIDENTIAL_DISCIPLINES]
             residential_note.append(
-                "Vivienda: se generan estructura, arquitectura y electrica. %s no se "
-                "modelan todavia en esta tipologia." % ", ".join(unsupported))
+                "Vivienda: se generan estructura, arquitectura, electrica e hidrosanitaria. "
+                "%s no se modelan todavia en esta tipologia." % ", ".join(unsupported))
     disciplines = expand_disciplines(list(requested))
     added = sorted(set(disciplines) - set(requested))
 
@@ -140,6 +145,16 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
         mods[key].build(model)
     if "electrical" in mods:
         mods["electrical"].build_equipment_circuits(model)
+    return {"P": P, "model": model, "report": report,
+            "residential_note": residential_note, "added": added,
+            "disciplines": disciplines}
+
+
+def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
+    t0 = time.time()
+    built = build_model(spec)
+    P, model, report = built["P"], built["model"], built["report"]
+    residential_note, added = built["residential_note"], built["added"]
 
     # Propiedades que se deducen de la geometria ya construida (seccion y peso
     # propio). No sustituyen al diseno: lo pendiente sigue declarado.

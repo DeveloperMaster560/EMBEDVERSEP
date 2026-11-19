@@ -28,7 +28,7 @@ export type ResidentialRoomUse =
 
 /** Disciplinas que el generador cubre en vivienda (generate_scene.py). */
 export const RESIDENTIAL_DISCIPLINES: readonly DisciplineKey[] = [
-  'architecture', 'structure', 'electrical',
+  'architecture', 'structure', 'electrical', 'hydrosanitary',
 ];
 
 /**
@@ -198,7 +198,7 @@ export function validateSpecification(spec: BuildingSpecification): string[] {
     const unsupported = spec.disciplines.filter((d) => !RESIDENTIAL_DISCIPLINES.includes(d));
     if (unsupported.length > 0 && spec.disciplines.length < 7) {
       problems.push(
-        `En vivienda el generador cubre estructura, arquitectura y eléctrica; no modela todavía: ${unsupported.join(', ')}.`,
+        `En vivienda el generador cubre estructura, arquitectura, eléctrica e hidrosanitaria; no modela todavía: ${unsupported.join(', ')}.`,
       );
     }
   }

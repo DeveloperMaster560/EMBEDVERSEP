@@ -22,7 +22,10 @@ class TestGiroGlb(unittest.TestCase):
         self.assertTrue(XM._nodos_sin_transformacion(s))
         nuevo = trimesh.load(io.BytesIO(XM.gltf_bytes(s)), file_type="glb")
         ref = s.copy(); ref.apply_transform(trimesh.transformations.rotation_matrix(-math.pi / 2, (1, 0, 0)))
-        viejo = trimesh.load(io.BytesIO(ref.export(file_type="glb")), file_type="glb")
+        # Referencia ya girada a mano: se exporta con el exportador de trimesh
+        # directamente (la guarda de test_gltf_orientation vigila las llamadas
+        # a la exportacion glb de una escena que olvidan el giro; aqui no es el caso).
+        viejo = trimesh.load(io.BytesIO(trimesh.exchange.gltf.export_glb(ref)), file_type="glb")
         self.assertTrue(np.allclose(nuevo.bounds, viejo.bounds))
         self.assertEqual(sorted(nuevo.graph.nodes_geometry), sorted(viejo.graph.nodes_geometry))
         # Z arriba del modelo -> Y arriba de glTF: la caja de 3 m de alto mide 3 m en Y.

@@ -44,6 +44,82 @@ def column_obstacles(clearance: float = 0.06) -> List[Tuple[float, float, float,
             for gx in P.GRID_X for gy in P.GRID_Y]
 
 
+def clear_of_columns(x: float, y: float, half_x: float, half_y: float,
+                     clearance: float = 0.05,
+                     within: Sequence[float] = None,
+                     axis: str = None) -> Tuple[float, float]:
+    """Desplaza un dispositivo en planta para que su caja no invada una columna.
+
+    Los repartos geometricos (reticula de luminarias, perimetro de la
+    circulacion) no conocen la reticula estructural, y cuando la luz entre
+    ejes no es multiplo del reparto un punto cae sobre una columna. Se mueve
+    el punto lo minimo para salir de la columna, prefiriendo los
+    desplazamientos que lo mantienen dentro de `within` (el recinto). Es un
+    ajuste de ubicacion, no un criterio de diseno. Con `axis` ("x" o "y") el
+    desplazamiento se limita a ese eje: una toma en un muro se corre a lo
+    largo del muro, no hacia el centro del recinto.
+    """
+    for _ in range(4):
+        moved = False
+        for rx0, ry0, rx1, ry1 in column_obstacles(clearance=0.0):
+            ex0, ey0 = rx0 - half_x - clearance, ry0 - half_y - clearance
+            ex1, ey1 = rx1 + half_x + clearance, ry1 + half_y + clearance
+            if not (ex0 < x < ex1 and ey0 < y < ey1):
+                continue
+            options = [(ex0, y), (ex1, y), (x, ey0), (x, ey1)]
+            if axis == "x":
+                options = options[:2]
+            elif axis == "y":
+                options = options[2:]
+            if within is not None:
+                wx0, wy0, wx1, wy1 = within
+                inside = [o for o in options
+                          if wx0 + half_x <= o[0] <= wx1 - half_x
+                          and wy0 + half_y <= o[1] <= wy1 - half_y]
+                options = inside or options
+            x, y = min(options, key=lambda o: abs(o[0] - x) + abs(o[1] - y))
+            moved = True
+        if not moved:
+            break
+    return (round(x, 4), round(y, 4))
+
+
+def stair_obstacles(clearance: float = 0.06) -> List[Tuple[float, float, float, float]]:
+    """Huella en planta de los tramos de escalera (con el ojo entre ellos).
+
+    Un tramo sube desde el piso hasta el nivel superior: por encima de su
+    huella no queda vacio tecnico, sino el galibo de paso de quien sube. Los
+    recorridos horizontales la rodean (por el descanso o por las franjas
+    laterales del nucleo) igual que rodean una columna. El descanso no se
+    incluye: por encima de el no pasa ningun tramo del mismo nivel.
+    """
+    from discipline_structure import stair_geometry  # import diferido: evita ciclo
+
+    g = stair_geometry()
+    return [(g["xa0"] - clearance, g["y0"] - clearance,
+             g["xb1"] + clearance, g["y_top_flight"] + clearance)]
+
+
+def route_obstacles() -> List[Tuple[float, float, float, float]]:
+    """Obstaculos que todo recorrido horizontal rodea: columnas y tramos de escalera.
+
+    Si una columna cae en el ojo de la escalera o pegada a un tramo, su huella
+    se funde con la de la escalera: rodearlas por separado dejaria el rodeo de
+    la una dentro de la otra.
+    """
+    stairs = stair_obstacles()
+    cols = []
+    for c in column_obstacles():
+        merged = False
+        for i, (sx0, sy0, sx1, sy1) in enumerate(stairs):
+            if c[0] < sx1 and c[2] > sx0 and c[1] < sy1 and c[3] > sy0:
+                stairs[i] = (min(sx0, c[0]), min(sy0, c[1]), max(sx1, c[2]), max(sy1, c[3]))
+                merged = True
+        if not merged:
+            cols.append(c)
+    return cols + stairs
+
+
 def _crosses(a: Point3, b: Point3, rect: Tuple[float, float, float, float]) -> bool:
     rx0, ry0, rx1, ry1 = rect
     if abs(a[1] - b[1]) < TOL and abs(a[0] - b[0]) > TOL:          # tramo en X
@@ -143,7 +219,7 @@ def manhattan(start: Point3, end: Point3, via_z: float, order: str = "xy",
     pts.append((ex, ey, ez))
     pts = _dedupe(pts)
     if avoid:
-        pts = avoid_obstacles(pts, column_obstacles())
+        pts = avoid_obstacles(pts, route_obstacles())
     return pts
 
 
@@ -155,7 +231,7 @@ def trunk_and_drops(
 
     Devuelve una lista de polilineas. La primera es el troncal en el vacio
     tecnico; las siguientes son las derivaciones a cada dispositivo. Si
-    `avoid` esta activo, el troncal rodea las columnas.
+    `avoid` esta activo, el troncal rodea las columnas y los tramos de escalera.
     """
     if not devices:
         return []
@@ -163,11 +239,21 @@ def trunk_and_drops(
     trunk: List[Point3] = [(ox, oy, oz), (ox, oy, via_z)]
     drops: List[List[Point3]] = []
     cur = (ox, oy, via_z)
+    obstacles = route_obstacles() if avoid else []
+
+    def inside(pt):
+        return any(r[0] < pt[0] < r[2] and r[1] < pt[1] < r[3] for r in obstacles)
+
     for dx, dy, dz in devices:
-        if order == "xy":
-            mid = (dx, cur[1], via_z)
-        else:
-            mid = (cur[0], dy, via_z)
+        first = (dx, cur[1], via_z)
+        second = (cur[0], dy, via_z)
+        mid = first if order == "xy" else second
+        # Un quiebre dentro de una columna o de la escalera no se puede
+        # rodear: se prueba el quiebre del otro lado.
+        if inside(mid):
+            alt = second if order == "xy" else first
+            if not inside(alt):
+                mid = alt
         trunk.append(mid)
         trunk.append((dx, dy, via_z))
         cur = (dx, dy, via_z)
@@ -175,7 +261,7 @@ def trunk_and_drops(
             drops.append(_dedupe([(dx, dy, via_z), (dx, dy, dz)]))
     trunk = _dedupe(trunk)
     if avoid:
-        trunk = avoid_obstacles(trunk, column_obstacles())
+        trunk = avoid_obstacles(trunk, route_obstacles())
     return [trunk] + drops
 
 
@@ -200,6 +286,24 @@ def sloped_run(start: Point3, end_xy: Tuple[float, float], slope: float) -> List
     run = math.hypot(ex - sx, ey - sy)
     ez = round(sz - run * slope, 4)
     return [(round(sx, 4), round(sy, 4), round(sz, 4)), (round(ex, 4), round(ey, 4), ez)]
+
+
+def sloped_polyline(start: Point3, plan: Sequence[Tuple[float, float]],
+                    slope: float) -> List[Point3]:
+    """Polilinea con pendiente constante que sigue los vertices en planta `plan`.
+
+    La cota de cada vertice se deduce de la longitud horizontal acumulada desde
+    `start` y de la pendiente adoptada, como en `sloped_run`.
+    """
+    sx, sy, sz = start
+    out: List[Point3] = [(round(sx, 4), round(sy, 4), round(sz, 4))]
+    acc = 0.0
+    px, py = sx, sy
+    for x, y in plan:
+        acc += math.hypot(x - px, y - py)
+        out.append((round(x, 4), round(y, 4), round(sz - acc * slope, 4)))
+        px, py = x, y
+    return _dedupe(out)
 
 
 def grid_in_rect(

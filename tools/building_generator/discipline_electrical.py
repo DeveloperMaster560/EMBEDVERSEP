@@ -64,9 +64,35 @@ def tg_position():
     return (round(x0 + 0.30, 3), round((y0 + y1) / 2.0, 3))
 
 
+# Semiancho del medidor en Y (caja de 0.50 m) y holgura frente a la columna.
+_METER_HALF_Y = 0.25
+_METER_CLEARANCE = 0.05
+
+
 def meter_position():
-    """Medidor empotrado en la fachada, a la altura del cuarto electrico."""
-    return (round(P.HYP_WALL_EXTERIOR / 2.0, 4), tg_position()[1])
+    """Medidor empotrado en la fachada, a la altura del cuarto electrico.
+
+    La fachada oeste coincide con el eje de columnas x = 0, asi que el medidor
+    no puede quedar a la altura de un eje Y: invadiria la columna y la
+    acometida enterrada atravesaria el pedestal. Si el centro del cuarto cae
+    sobre un eje, el medidor se desplaza lo justo para salir de la columna (y
+    del pedestal), sin salir del cuarto. Es una hipotesis de ubicacion.
+    """
+    x = round(P.HYP_WALL_EXTERIOR / 2.0, 4)
+    y = tg_position()[1]
+    half_col = max(P.HYP_COLUMN_SIZE[1], P.HYP_PEDESTAL_SIZE[1]) / 2.0
+    need = half_col + _METER_HALF_Y + _METER_CLEARANCE
+    entry = electrical_room()
+    lo, hi = -float("inf"), float("inf")
+    if entry is not None:
+        _, ry0, _, ry1 = P.space_rect_of(entry)
+        lo, hi = ry0 + _METER_HALF_Y, ry1 - _METER_HALF_Y
+    for gy in P.GRID_Y:
+        if abs(y - gy) < need:
+            cands = [gy - need, gy + need]
+            cands = [c for c in cands if lo <= c <= hi] or cands
+            y = min(cands, key=lambda c: abs(c - y))
+    return (x, round(y, 3))
 
 
 def ts_position():
@@ -293,7 +319,8 @@ def build_subpanels(model) -> None:
     # Alimentador TG -> montante
     tgx, tgy = tg_position()
     tg_path = R.manhattan((tgx, tgy, 1.90), (rx, ry, 0.30),
-                           round(P.HYP_PLENUM_ROUTING_Z - 0.08, 3))  # 2.60 en oficina
+                           round(P.HYP_PLENUM_ROUTING_Z - 0.08, 3),  # 2.60 en oficina
+                           avoid=True)
     sid = "SOL-ELE-ALI-MON"
     solid = _route_solid(sid, [tg_path], P.HYP_CONDUIT_DIAMETERS["alimentador"],
                          "cobre", "N1", "ELE-ALIMENTADORES")
@@ -466,6 +493,9 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
             else:
                 pts = R.grid_in_rect(sp.rect, n, margin=0.80)
 
+            # El reparto no conoce la reticula estructural: ningun panel
+            # puede quedar dentro de una columna.
+            pts = [R.clear_of_columns(px, py, 0.30, 0.30, within=sp.rect) for px, py in pts]
             for k, (px, py) in enumerate(pts, start=1):
                 cid = "ELE-LUM-%s-%s-%02d" % (lid, sp.code, k)
                 sid = "SOL-%s" % cid
@@ -547,7 +577,8 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
 
 def _switch_position(sp) -> Tuple[float, float]:
     x0, y0, x1, y1 = sp.rect
-    return (round(x0 + 0.35, 4), round(y0 + 0.20, 4))
+    return R.clear_of_columns(round(x0 + 0.35, 4), round(y0 + 0.20, 4), 0.04, 0.04,
+                              within=sp.rect, axis="x")
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +628,11 @@ def build_outlets(model) -> Dict[str, List[Dict[str, Any]]]:
                     if not any(abs(px - gx) < clear and abs(py - gy) < clear
                                for gx in P.GRID_X for gy in P.GRID_Y)] or candidates
 
+            # La toma se corre a lo largo de su muro si cae dentro de una columna.
+            candidates = [
+                R.clear_of_columns(px, py, 0.06, 0.04,
+                                   axis="x" if f in ("S", "N") else "y") + (f,)
+                for px, py, f in candidates]
             for k, (px, py, face) in enumerate(candidates, start=1):
                 cid = "ELE-TOM-%s-%s-%02d" % (lid, sp.code, k)
                 sid = "SOL-%s" % cid
@@ -945,9 +981,19 @@ def build_equipment_circuits(model) -> None:
         sid = "SOL-%s" % cid
 
         ex, ey, ez = equip.position
+        # El circuito llega por la cara superior de la caja del equipo (la
+        # posicion es su centro): bajar hasta el centro atravesaria lo que el
+        # equipo aloja, como los equipos activos de un rack.
+        ez = round(ez + float((equip.dimensions or {}).get("height") or 0.0) / 2.0, 4)
         pxp, pyp, pzp = panel.position
-        via = max(ez, pzp) + 0.60
-        path = R.manhattan((pxp, pyp, pzp), (ex, ey, ez), round(via, 3))
+        # El tramo horizontal va 0.60 m sobre el mas alto de los extremos, pero
+        # nunca por debajo del dintel de las puertas del nivel del tablero (mas
+        # 0.15 m): a la altura de una puerta la atravesaria.
+        panel_level = max((lv for lv in P.LEVELS if lv["elevation"] <= pzp + 1e-6),
+                          key=lambda lv: lv["elevation"], default=P.LEVELS[0])
+        via = max(max(ez, pzp) + 0.60,
+                  panel_level["elevation"] + P.HYP_DOOR_HEIGHT + 0.15)
+        path = R.manhattan((pxp, pyp, pzp), (ex, ey, ez), round(via, 3), avoid=True)
         solid = _route_solid(sid, [path], P.HYP_CONDUIT_DIAMETERS["alimentador"],
                              "cobre", equip.level_id, "ELE-FUERZA")
         length = R.total_length([path])

@@ -987,7 +987,10 @@ def _apply_residential_heights(adjustments: list) -> None:
     top = REQ_CLEAR_HEIGHT
     HYP_ROUTING_Z = {
         "hvac": round(top - 0.20, 3),
-        "hydrosanitary": round(top - 0.12, 3),
+        # Bajo el plano de luminarias (top - 0.10, 0.07 de canto) y no dentro
+        # de el: a top - 0.12 el agua y los desagues las atravesaban. 0.23 deja
+        # la cara superior de un desague de 4" bajo el fondo de la luminaria.
+        "hydrosanitary": round(top - 0.23, 3),
         "electrical": round(top - 0.04, 3),
         "telecommunications": round(top - 0.07, 3),
         "security": round(top - 0.09, 3),

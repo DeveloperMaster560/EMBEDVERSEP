@@ -274,7 +274,7 @@ export function interpretBuildingPrompt(prompt: string): BuildingSpecification {
   if (residential && wantsAll) {
     disciplines = [...RESIDENTIAL_DISCIPLINES];
     assumptions.push(
-      'Vivienda: el generador cubre estructura, arquitectura y eléctrica. Telecomunicaciones, hidrosanitario, climatización y seguridad no se modelan todavía en esta tipología.',
+      'Vivienda: el generador cubre estructura, arquitectura, eléctrica e hidrosanitaria. Telecomunicaciones, climatización y seguridad no se modelan todavía en esta tipología.',
     );
   } else if (wantsAll && mentioned.length === 0) {
     assumptions.push(

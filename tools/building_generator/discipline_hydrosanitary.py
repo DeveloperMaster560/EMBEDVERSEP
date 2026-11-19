@@ -20,7 +20,7 @@ import params as P
 import routing as R
 import solids as S
 from catalog import Component
-from discipline_structure import riser_at, shaft_tech
+from discipline_structure import riser_at, shaft_sanitary, shaft_tech
 
 HYDRAULIC_PENDING = ["design_flow_lps", "fixture_units", "pressure_required_kPa",
                      "verified_diameter_m", "head_loss_kPa"]
@@ -501,12 +501,19 @@ def build_drainage(model, fixtures: Dict[str, List[Dict[str, Any]]]) -> None:
         for code, items in sorted(by_room.items()):
             polylines: List[List[Tuple[float, float, float]]] = []
             arrival: List[float] = []
+            radius = P.HYP_PIPE_DIAMETERS["ramal_sanitario"] / 2.0
             for f in items:
                 fx, fy, fz = f["xyz"]
-                # bajada del aparato al plano de desague
-                polylines.append([(fx, fy, round(fz - 0.10, 3)), (fx, fy, drain_z)])
+                # bajada del aparato al plano de desague. Si el aparato esta
+                # sobre una viga (muros sobre ejes), la bajada se corre a un
+                # lado de la viga con un tramo corto sobre el piso.
+                px, py = _off_frame(fx, fy, radius)
+                head = [(fx, fy, round(fz - 0.10, 3))]
+                if (px, py) != (round(fx, 3), round(fy, 3)):
+                    head.append((px, py, round(fz - 0.10, 3)))
+                polylines.append(head + [(px, py, drain_z)])
                 # tramo con pendiente hacia la bajante: la cota de llegada se deduce
-                run = R.sloped_run((fx, fy, drain_z), (sx, sy), P.HYP_DRAIN_SLOPE)
+                run = R.sloped_run((px, py, drain_z), (sx, sy), P.HYP_DRAIN_SLOPE)
                 polylines.append(run)
                 arrival.append(run[-1][2])
 
@@ -573,6 +580,57 @@ def _drains_near(leader: Tuple[float, float], reach: float = 2.60) -> List[Tuple
     return out
 
 
+def _off_frame(x: float, y: float, radius: float,
+               toward: Tuple[float, float] = None) -> Tuple[float, float]:
+    """Saca de la franja de las vigas el punto por donde una tuberia vertical
+    atraviesa la losa.
+
+    El pase de losa es previsto; el paso por una viga no. Si el punto cae
+    sobre un eje de la reticula se desplaza lo justo: hacia `toward` (la
+    bajante) si se indica, o hacia el lado en que ya estaba.
+    """
+    need = P.HYP_BEAM_WIDTH / 2.0 + radius + 0.05
+
+    def shift(v, g, t):
+        if abs(v - g) >= need:
+            return v
+        ref = t if t is not None else v
+        if abs(ref - g) < 1e-9:
+            ref = g + 1.0
+        return g + need if ref >= g else g - need
+
+    for gx in P.GRID_X:
+        x = shift(x, gx, toward[0] if toward else None)
+    for gy in P.GRID_Y:
+        y = shift(y, gy, toward[1] if toward else None)
+    return (round(x, 3), round(y, 3))
+
+
+def _rain_run_plan(start: Tuple[float, float], end: Tuple[float, float],
+                   radius: float) -> List[Tuple[float, float]]:
+    """Vertices en planta del ramal pluvial del sumidero a la bajante.
+
+    Se prefiere el tramo recto (es el mas corto y mantiene la tuberia dentro
+    de la franja hidrosanitaria con la pendiente adoptada). Si el tramo recto
+    pasa por una columna, se prueba un recorrido en L por cada lado; si ambos
+    tambien la cruzan se deja el recto y la colision se reporta.
+    """
+    from shapely.geometry import LineString, box
+
+    cols = [box(*r) for r in R.column_obstacles(clearance=radius + 0.03)]
+
+    def clear(pts):
+        line = LineString([start] + list(pts))
+        return not any(line.intersects(c) for c in cols)
+
+    (sx, sy), (ex, ey) = start, end
+    options = [[(ex, ey)], [(ex, sy), (ex, ey)], [(sx, ey), (ex, ey)]]
+    for opt in options:
+        if clear(opt):
+            return opt
+    return options[0]
+
+
 def build_rainwater(model) -> None:
     """Red pluvial de cubierta.
 
@@ -597,6 +655,10 @@ def build_rainwater(model) -> None:
     ]
     total_drains = sum(len(d) for _, _, d in leaders)
     k = 0
+
+    radius = P.HYP_PIPE_DIAMETERS["bajante_pluvial"] / 2.0
+    leaders = [(code, pos, [_off_frame(dx, dy, radius, toward=pos) for dx, dy in drains])
+               for code, pos, drains in leaders]
 
     for lid_code, (rx, ry), drains in leaders:
         leader = R.riser(rx, ry, -0.60, collector_z)
@@ -645,8 +707,9 @@ def build_rainwater(model) -> None:
                                   "un reparto hidraulico verificado."],
             )
             drop = [(dx, dy, round(rz - 0.12, 3)), (dx, dy, collector_z)]
-            run = R.sloped_run((dx, dy, collector_z), (rx, ry), slope)
-            path = [drop[0], drop[1], run[1]]
+            run = R.sloped_polyline((dx, dy, collector_z),
+                                    _rain_run_plan((dx, dy), (rx, ry), radius), slope)
+            path = [drop[0]] + run
             pid = "HID-RAM-PLU-%02d" % k
             _, plen = K.add_route(
                 model, component_id=pid, discipline="hydrosanitary", type="rain_branch",
@@ -676,7 +739,687 @@ def build_rainwater(model) -> None:
                    requires_calculation=["verified_diameter_m", "design_flow_lps"])
 
 
+# ---------------------------------------------------------------------------
+# Vivienda (casa unifamiliar)
+# ---------------------------------------------------------------------------
+# La red de oficinas (tanque enterrado, bombeo, tanque elevado, banos
+# colectivos con orinales) no corresponde a una casa. En vivienda se modela:
+#
+#   acometida enterrada -> medidor en la fachada oeste -> red de agua fria a la
+#   vista bajo el fondo de viga -> montante en el ducto sanitario -> ramal por
+#   recinto humedo -> aparatos (ducha, inodoro, lavamanos, lavaplatos, lavadero)
+#
+#   aparatos -> ramales de desague -> bajante sanitaria con ventilacion
+#   primaria sobre cubierta -> colector enterrado -> caja de inspeccion ->
+#   salida hacia la red o el sistema de disposicion (sin definir)
+#
+#   sumidero de cubierta -> gargola por el pretil -> bajante pluvial exterior
+#   -> caja de inspeccion pluvial -> salida
+#
+# Ningun dato hidraulico se fija: diametros, pendientes, caudales, unidades
+# de consumo y de descarga, presion disponible e intensidad de lluvia quedan
+# en None y declarados en `requires_calculation`. Para poder DIBUJAR la red
+# se usan un diametro de representacion (los de HYP_PIPE_DIAMETERS) y una
+# pendiente de trazado (HYP_DRAIN_SLOPE); ambos se registran como
+# hipotesis geometricas de representacion, no como valores de diseno.
+
+RES_FIXTURES_BY_USE = {
+    "bano": ("ducha", "inodoro", "lavamanos"),
+    "cocina": ("lavaplatos",),
+    "lavanderia": ("lavadero",),
+}
+
+# Envolvente geometrica de referencia de cada aparato: largo a lo largo del
+# muro, fondo perpendicular al muro, alto y cota del centro sobre el piso.
+# Son tamanos de representacion, no fichas de producto.
+RES_FIXTURE_SPEC = {
+    "ducha": {"along": 0.90, "perp": 0.90, "h": 0.05, "z": 0.025, "supply_z": 1.10,
+              "drain": "ramal_sanitario", "supply": "ramal_agua",
+              "ifc": "IfcSanitaryTerminal", "name": "Ducha", "tag": "DUC"},
+    "inodoro": {"along": 0.38, "perp": 0.62, "h": 0.78, "z": 0.39, "supply_z": None,
+                "drain": "ramal_inodoro", "supply": "ramal_agua",
+                "ifc": "IfcSanitaryTerminal", "name": "Inodoro", "tag": "INO"},
+    "lavamanos": {"along": 0.52, "perp": 0.42, "h": 0.20, "z": 0.85, "supply_z": None,
+                  "drain": "ramal_sanitario", "supply": "ramal_agua",
+                  "ifc": "IfcSanitaryTerminal", "name": "Lavamanos", "tag": "LAM"},
+    "lavaplatos": {"along": 0.80, "perp": 0.50, "h": 0.20, "z": 0.85, "supply_z": None,
+                   "drain": "ramal_sanitario", "supply": "ramal_agua",
+                   "ifc": "IfcSanitaryTerminal", "name": "Lavaplatos", "tag": "LAP"},
+    "lavadero": {"along": 0.60, "perp": 0.50, "h": 0.30, "z": 0.80, "supply_z": None,
+                 "drain": "ramal_sanitario", "supply": "ramal_agua",
+                 "ifc": "IfcSanitaryTerminal", "name": "Lavadero", "tag": "LAD"},
+}
+RES_FIXTURE_GAP = 0.20          # separacion geometrica entre aparatos sobre el muro
+
+RES_SUPPLY_PENDING = ["nominal_diameter_m", "design_flow_lps", "fixture_units",
+                      "available_pressure_kPa", "head_loss_kPa"]
+RES_DRAIN_PENDING = ["nominal_diameter_m", "design_slope", "discharge_units",
+                     "peak_flow_lps"]
+RES_RAIN_PENDING = ["nominal_diameter_m", "design_rainfall_intensity_mm_h",
+                    "peak_flow_lps", "verified_capacity_lps"]
+
+_REPRESENTATION_NOTE = ("El diametro del solido es de representacion grafica (%.0f mm), "
+                        "no un diametro de diseno: nominal_diameter_m queda pendiente.")
+
+
+def _res_rep(key: str) -> float:
+    """Diametro de representacion del solido (no de diseno)."""
+    return P.HYP_PIPE_DIAMETERS[key]
+
+
+def _res_wet_rooms(lid: str) -> List[Tuple[str, str, List[float], str]]:
+    """(codigo, uso, rectangulo, banda) de los recintos con aparatos."""
+    out = []
+    for code, _name, use, band, start, end in P.SPACE_PROGRAM.get(lid, ()):
+        if use in RES_FIXTURES_BY_USE:
+            out.append((code, use, list(P.space_rect(band, start, end)), band))
+    return out
+
+
+def _buried_obstacles(radius: float) -> List[Tuple[float, float, float, float]]:
+    """Pedestales (bajo la losa de piso) inflados por el radio del tubo."""
+    pw, pl = P.HYP_PEDESTAL_SIZE
+    c = radius + 0.05
+    return [(gx - pw / 2 - c, gy - pl / 2 - c, gx + pw / 2 + c, gy + pl / 2 + c)
+            for gx in P.GRID_X for gy in P.GRID_Y]
+
+
+def _sloped_route(start: Tuple[float, float, float], end_xy: Tuple[float, float],
+                  slope: float, obstacles, order: str = "xy") -> List[Tuple[float, float, float]]:
+    """Recorrido ortogonal en planta que rodea obstaculos, con pendiente constante."""
+    sx, sy, sz = start
+    ex, ey = end_xy
+    mid = (ex, sy) if order == "xy" else (sx, ey)
+    flat = R.avoid_obstacles([(sx, sy, sz), (mid[0], mid[1], sz), (ex, ey, sz)], obstacles)
+    return R.sloped_polyline((sx, sy, sz), [(p[0], p[1]) for p in flat[1:]], slope)
+
+
+def _clear_y_on_west_facade(avoid_y: List[float], radius: float, half: float,
+                            lo: float, hi: float) -> float:
+    """Cota Y sobre la fachada oeste libre de columnas, pedestales y otros equipos."""
+    pw = max(P.HYP_PEDESTAL_SIZE[1], P.HYP_COLUMN_SIZE[1])
+    need = pw / 2.0 + max(radius, half) + 0.05
+    y = lo
+    while y <= hi + 1e-9:
+        if all(abs(y - gy) >= need for gy in P.GRID_Y) and \
+                all(abs(y - a) >= 0.60 for a in avoid_y):
+            return round(y, 3)
+        y += 0.05
+    return round((lo + hi) / 2.0, 3)
+
+
+def _place_fixtures(lid: str, e: float, code: str, use: str, rect: List[float],
+                    band: str, toward_x: float) -> List[Dict[str, Any]]:
+    """Posiciones de los aparatos de un recinto, en fila contra un muro lateral.
+
+    Los recintos de vivienda abren al pasillo por su lado largo; los muros
+    laterales (este u oeste del recinto) no tienen puertas ni ventanas. Los
+    aparatos se alinean contra el muro lateral mas proximo a la bajante,
+    empezando por el extremo de fachada y saltando el ducto sanitario. Si no
+    caben, siguen en el muro opuesto. Es un reparto geometrico, no un diseno
+    de bano o de cocina.
+    """
+    x0, y0, x1, y1 = rect
+    wall_off = P.HYP_WALL_INTERIOR / 2.0
+    sides = [x0, x1] if abs(toward_x - x0) <= abs(toward_x - x1) else [x1, x0]
+    facade_end = y0 if band == "SOUTH" else y1
+    door_end = y1 if band == "SOUTH" else y0
+    direction = 1.0 if band == "SOUTH" else -1.0
+    out = []
+    start = facade_end + direction * (wall_off + 0.05)
+    cursors = [start, start]
+    side_i = 0
+    sx0, sy0, sx1, sy1 = shaft_sanitary()
+    counts: Dict[str, int] = {}
+
+    def slot(side, cur, sp):
+        """Centro del aparato en el lado `side` a partir de `cur`, saltando el ducto."""
+        wall_x = sides[side]
+        inward = 1.0 if wall_x == x0 else -1.0
+        cx = wall_x + inward * (wall_off + 0.02 + sp["perp"] / 2.0)
+        for _ in range(3):
+            cy = cur + direction * sp["along"] / 2.0
+            hx, hy = sp["perp"] / 2.0 + 0.05, sp["along"] / 2.0 + 0.05
+            if cx - hx < sx1 and cx + hx > sx0 and cy - hy < sy1 and cy + hy > sy0:
+                # El ducto sanitario ocupa ese tramo del muro: se salta.
+                cur = (sy1 if direction > 0 else sy0) + direction * 0.05
+                continue
+            break
+        return wall_x, inward, cx, cy, cur
+
+    for ftype in RES_FIXTURES_BY_USE[use]:
+        sp = RES_FIXTURE_SPEC[ftype]
+        wall_x, inward, cx, cy, cur = slot(side_i, cursors[side_i], sp)
+        if side_i == 0 and (cur + direction * sp["along"] - door_end) * direction > -0.15:
+            side_i = 1
+            wall_x, inward, cx, cy, cur = slot(side_i, cursors[side_i], sp)
+        cursors[side_i] = cur + direction * (sp["along"] + RES_FIXTURE_GAP)
+        cx, cy = R.clear_of_columns(cx, cy, sp["perp"] / 2.0, sp["along"] / 2.0,
+                                    within=rect, axis="y")
+        counts[ftype] = counts.get(ftype, 0) + 1
+        fz = round(e + sp["z"], 3)
+        if sp["supply_z"] is not None:
+            # La griferia de la ducha esta en el muro, a la altura de uso.
+            sxw = round(wall_x + inward * (wall_off + 0.05), 3)
+            supply = (sxw, round(cy, 3), round(e + sp["supply_z"], 3))
+        else:
+            supply = (round(cx, 3), round(cy, 3), round(fz + 0.10, 3))
+        out.append({
+            "type": ftype, "spec": sp, "room": code, "index": counts[ftype],
+            "xyz": (round(cx, 3), round(cy, 3), fz),
+            "box": (sp["perp"], sp["along"], sp["h"]),
+            "supply_xyz": supply,
+        })
+    return out
+
+
+def build_residential_source(model) -> Tuple[float, float, float]:
+    """Acometida y medidor de agua de la vivienda. Devuelve el punto de salida."""
+    import discipline_electrical as EL  # solo para no superponer los medidores
+
+    ele_y = EL.meter_position()[1] if "ELE-MED-001" in model.components else None
+    lo, hi = P.INNER_Y0 + 0.40, P.INNER_Y1 - 0.40
+    radius = _res_rep("acometida_agua") / 2.0
+    my = _clear_y_on_west_facade([ele_y] if ele_y is not None else [], radius, 0.15, lo, hi)
+    mx = round(P.HYP_WALL_EXTERIOR / 2.0, 4)
+    mz = 0.60
+
+    path = [(-3.00, my, -0.60), (mx, my, -0.60), (mx, my, round(mz - 0.125, 3))]
+    _, alen = K.add_route(
+        model, component_id="HID-ACO-001", discipline="hydrosanitary",
+        type="water_service", name="Acometida de agua potable",
+        polylines=[path], diameter=_res_rep("acometida_agua"), material="pvc",
+        ifc_class="IfcPipeSegment", layer="HID-AGUA", level_id="N1",
+        parameters={"nominal_diameter_m": None,
+                    "representation_diameter_m": _res_rep("acometida_agua"),
+                    "available_pressure_kPa": None, "design_flow_lps": None,
+                    "fixture_units": None, "head_loss_kPa": None,
+                    "utility_connection_point": None},
+        requires_calculation=RES_SUPPLY_PENDING + ["utility_connection_point"],
+        tags=["hidraulico", "acometida", "vivienda"], provenance="hypothesis",
+        op_description=("Acometida de agua enterrada a -0.60 m desde el lindero oeste hasta "
+                        "el medidor en la fachada, en una franja libre de pedestales y del "
+                        "medidor electrico."),
+        derived_from=["HYP_WALL_EXTERIOR", "HYP_PEDESTAL_SIZE", "GRID_Y"],
+        flow_direction="red_hacia_vivienda",
+        validation_notes=["Punto de entrega y presion disponible sin definir.",
+                          _REPRESENTATION_NOTE % (_res_rep("acometida_agua") * 1000)],
+    )
+    K.add_device(
+        model, component_id="HID-MED-001", discipline="hydrosanitary",
+        type="water_meter", name="Medidor de agua", level_id="N1",
+        xyz=(mx, my, mz), box=(0.20, 0.30, 0.25), material="equipo_generico",
+        ifc_class="IfcFlowMeter", layer="HID-EQUIPOS",
+        parameters={"nominal_diameter_m": None, "meter_type": None,
+                    "rated_flow_lps": None, "head_loss_kPa": None},
+        requires_calculation=["nominal_diameter_m", "meter_type", "rated_flow_lps",
+                              "head_loss_kPa"],
+        tags=["hidraulico", "medicion", "vivienda"],
+        op_description=("Medidor de agua empotrado en la fachada oeste a %.2f m, apartado "
+                        "de columnas y del medidor electrico." % mz),
+        derived_from=["HYP_WALL_EXTERIOR", "GRID_Y"],
+    )
+    K.link(model, connection_id="CNX-HID-ACO-MED", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-ACO-001", destination="HID-MED-001",
+           medium="tuberia_pvc_presion", technology="union al medidor",
+           parameters={"nominal_diameter_m": None}, geometry_reference="SOL-HID-ACO-001",
+           length_m=alen, flow_direction="red_hacia_medidor",
+           requires_calculation=["nominal_diameter_m"], provenance="hypothesis")
+    return (mx, my, mz)
+
+
+def build_residential_supply(model, meter_xyz) -> Dict[str, List[Dict[str, Any]]]:
+    """Red de agua fria: medidor -> montante -> ramales -> aparatos."""
+    mx, my, mz = meter_xyz
+    wx, wy = riser_at("water_supply")
+    sx, _sy = riser_at("drain_stack")
+    first = P.LEVELS[0]
+    via1 = R.plenum_z(first, "hydrosanitary")
+    rep_main = _res_rep("distribucion_agua")
+
+    # Red principal: atraviesa el muro de fachada a la cota del medidor, sube
+    # a la vista bajo el fondo de viga y va al ducto sanitario rodeando
+    # columnas y escalera.
+    inside_x = round(P.INNER_X0 + 0.25, 3)
+    main = [(mx, my, mz), (inside_x, my, mz), (inside_x, my, via1)]
+    main += R.manhattan((inside_x, my, via1), (wx, wy, via1), via1, avoid=True)[1:]
+    polys = [R._dedupe(main)]
+    top = P.LEVELS[-1]
+    if len(P.LEVELS) > 1:
+        polys.append(R.riser(wx, wy, via1, R.plenum_z(top, "hydrosanitary")))
+    _, mlen = K.add_route(
+        model, component_id="HID-RED-AF", discipline="hydrosanitary",
+        type="water_main", name="Red de agua fria y montante",
+        polylines=polys, diameter=rep_main, material="cpvc",
+        ifc_class="IfcPipeSegment", layer="HID-AGUA", level_id="N1",
+        parameters={"nominal_diameter_m": None, "representation_diameter_m": rep_main,
+                    "shaft": "ducto sanitario", "supply_mode": "presion de red (hipotesis)",
+                    "design_flow_lps": None, "fixture_units": None,
+                    "available_pressure_kPa": None, "head_loss_kPa": None,
+                    "hot_water": "no modelada"},
+        requires_calculation=RES_SUPPLY_PENDING,
+        tags=["hidraulico", "agua fria", "vivienda"],
+        op_description=("Red de agua fria desde el medidor: pase por el muro de fachada, "
+                        "subida a %.2f m (a la vista bajo el fondo de viga) y recorrido "
+                        "ortogonal hasta el ducto sanitario; montante hasta el %s."
+                        % (via1, top["level_id"])),
+        derived_from=["HYP_ROUTING_Z", "SHAFT_SANITARY_SIZE"],
+        flow_direction="medidor_hacia_aparatos",
+        validation_notes=["Suministro directo de la red: sin tanque ni bombeo. Depende de "
+                          "la presion disponible, que no se conoce.",
+                          "El agua caliente no se modela.",
+                          _REPRESENTATION_NOTE % (rep_main * 1000)],
+    )
+    K.link(model, connection_id="CNX-HID-MED-RED", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-MED-001", destination="HID-RED-AF",
+           medium="tuberia_cpvc", technology="salida del medidor",
+           parameters={"nominal_diameter_m": None}, geometry_reference="SOL-HID-RED-AF",
+           length_m=mlen, flow_direction="medidor_hacia_red",
+           requires_calculation=["nominal_diameter_m"])
+
+    by_level: Dict[str, List[Dict[str, Any]]] = {}
+    for level in P.LEVELS:
+        lid, e = level["level_id"], level["elevation"]
+        via = R.plenum_z(level, "hydrosanitary")
+        created: List[Dict[str, Any]] = []
+        for code, use, rect, band in _res_wet_rooms(lid):
+            fixtures = _place_fixtures(lid, e, code, use, rect, band, sx)
+            for f in fixtures:
+                sp = f["spec"]
+                cid = "HID-APA-%s-%s-%s%d" % (lid, code, sp["tag"], f["index"])
+                f["component_id"] = cid
+                K.add_device(
+                    model, component_id=cid, discipline="hydrosanitary",
+                    type="sanitary_fixture", name="%s %s-%d" % (sp["name"], code, f["index"]),
+                    level_id=lid, space_id="ARQ-ESP-%s" % code,
+                    xyz=f["xyz"], box=f["box"], material="pvc",
+                    ifc_class=sp["ifc"], layer="HID-APARATOS",
+                    parameters={"fixture_type": f["type"],
+                                "supply_diameter_m": None, "drain_diameter_m": None,
+                                "fixture_units_supply": None, "discharge_units": None,
+                                "flow_rate_lps": None, "trap_seal_mm": None,
+                                "supply_point": list(f["supply_xyz"])},
+                    requires_calculation=["supply_diameter_m", "drain_diameter_m",
+                                          "fixture_units_supply", "discharge_units",
+                                          "flow_rate_lps", "trap_seal_mm"],
+                    tags=["hidraulico", "aparato", f["type"], "vivienda"],
+                    op_description=("%s en el recinto %s (%s), contra el muro lateral, a "
+                                    "cota %.2f. Envolvente geometrica de referencia; no es "
+                                    "una ficha de producto."
+                                    % (sp["name"], code, use, f["xyz"][2])),
+                    derived_from=["RES_FIXTURES_BY_USE", "RES_FIXTURE_SPEC", "SPACE_PROGRAM"],
+                )
+                model.relate(cid, "serves_space", "ARQ-ESP-%s" % code)
+                created.append(f)
+            if not fixtures:
+                continue
+            branch = R.trunk_and_drops((wx, wy, via), [f["supply_xyz"] for f in fixtures], via)
+            bid = "HID-RAM-AGUA-%s-%s" % (lid, code)
+            rep = _res_rep("ramal_agua")
+            _, blen = K.add_route(
+                model, component_id=bid, discipline="hydrosanitary",
+                type="water_branch", name="Ramal de agua fria %s" % code,
+                polylines=branch, diameter=rep, material="cpvc",
+                ifc_class="IfcPipeSegment", layer="HID-AGUA",
+                level_id=lid, space_id="ARQ-ESP-%s" % code,
+                parameters={"nominal_diameter_m": None, "representation_diameter_m": rep,
+                            "served_fixtures": [f["component_id"] for f in fixtures],
+                            "fixture_count": len(fixtures),
+                            "design_flow_lps": None, "fixture_units": None,
+                            "available_pressure_kPa": None, "head_loss_kPa": None},
+                requires_calculation=RES_SUPPLY_PENDING,
+                tags=["hidraulico", "ramal", "agua fria", "vivienda"],
+                op_description=("Ramal de agua fria del recinto %s en %s: troncal a %.2f m "
+                                "desde el montante y bajada a %d aparatos."
+                                % (code, lid, via, len(fixtures))),
+                derived_from=["HYP_ROUTING_Z", "RES_FIXTURE_SPEC"],
+                flow_direction="montante_hacia_aparatos",
+                validation_notes=[_REPRESENTATION_NOTE % (rep * 1000)],
+            )
+            K.link(model, connection_id="CNX-HID-RED-%s" % bid, discipline="hydrosanitary",
+                   type="pipe_connection", origin="HID-RED-AF", destination=bid,
+                   medium="tuberia_cpvc", technology="derivacion de recinto",
+                   parameters={"nominal_diameter_m": None},
+                   geometry_reference="SOL-%s" % bid, length_m=blen,
+                   flow_direction="montante_hacia_ramal",
+                   requires_calculation=["nominal_diameter_m"])
+            for f in fixtures:
+                K.link(model, connection_id="CNX-AGUA-%s" % f["component_id"],
+                       discipline="hydrosanitary", type="pipe_connection",
+                       origin=bid, destination=f["component_id"],
+                       medium="tuberia_cpvc", technology="alimentacion de aparato",
+                       parameters={"nominal_diameter_m": None},
+                       flow_direction="ramal_hacia_aparato",
+                       requires_calculation=["nominal_diameter_m", "design_flow_lps"])
+        by_level[lid] = created
+    return by_level
+
+
+def build_residential_drainage(model, fixtures: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Desagues -> bajante con ventilacion -> colector -> caja de inspeccion -> salida."""
+    sx, sy = riser_at("drain_stack")
+    slope = P.HYP_DRAIN_SLOPE      # pendiente de TRAZADO; la de diseno queda pendiente
+    above = R.route_obstacles()
+    buried = _buried_obstacles(_res_rep("ramal_inodoro") / 2.0)
+    arrivals: List[float] = []
+    branches = []
+
+    for level in P.LEVELS:
+        lid, e, idx = level["level_id"], level["elevation"], level["index"]
+        if idx == 1:
+            drain_z, obstacles = -0.30, buried
+        else:
+            # Bajo la losa del nivel, en la franja hidrosanitaria del nivel
+            # inferior y por debajo del fondo de viga.
+            drain_z = R.plenum_z(P.LEVELS[idx - 2], "hydrosanitary")
+            obstacles = above
+        by_room: Dict[str, List[Dict[str, Any]]] = {}
+        for f in fixtures.get(lid, []):
+            by_room.setdefault(f["room"], []).append(f)
+        for code, items in sorted(by_room.items()):
+            polylines = []
+            arr = []
+            for f in items:
+                fx, fy, fz = f["xyz"]
+                radius = _res_rep(f["spec"]["drain"]) / 2.0
+                px, py = _off_frame(fx, fy, radius)
+                top_z = round(fz - f["spec"]["h"] / 2.0, 3)
+                head = [(fx, fy, top_z)]
+                if (px, py) != (round(fx, 3), round(fy, 3)):
+                    head.append((px, py, top_z))
+                polylines.append(head + [(px, py, drain_z)])
+                run = _sloped_route((px, py, drain_z), (sx, sy), slope, obstacles)
+                polylines.append(run)
+                arr.append(run[-1][2])
+            arrivals.extend(arr)
+            did = "HID-RAM-DES-%s-%s" % (lid, code)
+            rep = _res_rep("ramal_inodoro" if any(f["type"] == "inodoro" for f in items)
+                           else "ramal_sanitario")
+            _, dlen = K.add_route(
+                model, component_id=did, discipline="hydrosanitary",
+                type="drain_branch", name="Ramal de desague %s" % code,
+                polylines=polylines, diameter=rep, material="pvc_sanitario",
+                ifc_class="IfcPipeSegment", layer="HID-DESAGUE",
+                level_id=lid, space_id="ARQ-ESP-%s" % code,
+                parameters={"nominal_diameter_m": None, "representation_diameter_m": rep,
+                            "design_slope": None, "drawing_slope": slope,
+                            "served_fixtures": [f["component_id"] for f in items],
+                            "fixture_count": len(items),
+                            "drain_plane_elevation_m": drain_z,
+                            "lowest_arrival_elevation_m": round(min(arr), 4),
+                            "discharge_units": None, "peak_flow_lps": None},
+                requires_calculation=RES_DRAIN_PENDING,
+                tags=["sanitario", "ramal", "vivienda"],
+                op_description=("Ramal de desague del recinto %s en %s: bajada de %d aparatos "
+                                "al plano de desague (cota %.2f) y tramos ortogonales hacia la "
+                                "bajante con una pendiente de trazado de %.1f%%, que no es "
+                                "pendiente de diseno."
+                                % (code, lid, len(items), drain_z, slope * 100)),
+                derived_from=["HYP_DRAIN_SLOPE", "HYP_ROUTING_Z", "RES_FIXTURE_SPEC"],
+                flow_direction="aparatos_hacia_bajante",
+                validation_notes=["La pendiente y el diametro de diseno estan pendientes.",
+                                  _REPRESENTATION_NOTE % (rep * 1000)],
+            )
+            branches.append((did, dlen, items))
+
+    if not branches:
+        return
+
+    # Bajante: desde por debajo de la llegada mas baja hasta 0.60 m sobre la
+    # cubierta (ventilacion primaria por prolongacion de la bajante).
+    bottom = round(min(arrivals) - 0.10, 3)
+    vent_top = round(P.ROOF_LEVEL["elevation"] + 0.60, 3)
+    rep_stack = _res_rep("bajante_sanitaria")
+    _, stlen = K.add_route(
+        model, component_id="HID-BAJ-SAN", discipline="hydrosanitary",
+        type="drain_stack", name="Bajante sanitaria con ventilacion",
+        polylines=[R.riser(sx, sy, bottom, vent_top)], diameter=rep_stack,
+        material="pvc_sanitario", ifc_class="IfcPipeSegment", layer="HID-DESAGUE",
+        parameters={"nominal_diameter_m": None, "representation_diameter_m": rep_stack,
+                    "shaft": "ducto sanitario",
+                    "vent": "prolongacion de la bajante 0.60 m sobre la cubierta (hipotesis)",
+                    "discharge_units": None, "peak_flow_lps": None,
+                    "vent_diameter_m": None},
+        requires_calculation=["nominal_diameter_m", "discharge_units", "peak_flow_lps",
+                              "vent_diameter_m"],
+        tags=["sanitario", "bajante", "ventilacion", "vivienda"],
+        op_description=("Bajante sanitaria en el ducto sanitario, de cota %.2f (bajo la "
+                        "llegada mas baja) a %.2f, prolongada sobre la cubierta como "
+                        "ventilacion primaria." % (bottom, vent_top)),
+        derived_from=["SHAFT_SANITARY_SIZE", "ROOF_LEVEL"],
+        flow_direction="descendente_por_gravedad",
+        validation_notes=[_REPRESENTATION_NOTE % (rep_stack * 1000)],
+    )
+    for did, dlen, items in branches:
+        for f in items:
+            K.link(model, connection_id="CNX-DES-%s" % f["component_id"],
+                   discipline="hydrosanitary", type="pipe_connection",
+                   origin=f["component_id"], destination=did,
+                   medium="tuberia_pvc_sanitario", technology="descarga de aparato",
+                   parameters={"nominal_diameter_m": None},
+                   flow_direction="aparato_hacia_ramal",
+                   requires_calculation=["nominal_diameter_m", "discharge_units"])
+        K.link(model, connection_id="CNX-%s-BAJ" % did, discipline="hydrosanitary",
+               type="pipe_connection", origin=did, destination="HID-BAJ-SAN",
+               medium="tuberia_pvc_sanitario", technology="conexion a bajante",
+               parameters={"design_slope": None}, geometry_reference="SOL-%s" % did,
+               length_m=dlen, flow_direction="ramal_hacia_bajante",
+               requires_calculation=["nominal_diameter_m", "design_slope"])
+
+    # Colector enterrado hasta la caja de inspeccion, fuera de la huella por
+    # la fachada (sur o norte) mas proxima a la bajante.
+    south = sy <= P.REQ_WIDTH_Y / 2.0
+    box_y = -1.00 if south else round(P.REQ_WIDTH_Y + 1.00, 3)
+    box_x = sx
+    pw = P.HYP_PEDESTAL_SIZE[0]
+    for gx in P.GRID_X:
+        if abs(box_x - gx) < pw / 2.0 + 0.45:
+            box_x = round(gx + pw / 2.0 + 0.45 if sx >= gx else gx - pw / 2.0 - 0.45, 3)
+    col = _sloped_route((sx, sy, bottom), (box_x, box_y), slope, buried, order="yx")
+    _, clen = K.add_route(
+        model, component_id="HID-COL-SAN", discipline="hydrosanitary",
+        type="building_drain", name="Colector sanitario enterrado",
+        polylines=[col], diameter=rep_stack, material="pvc_sanitario",
+        ifc_class="IfcPipeSegment", layer="HID-DESAGUE", level_id="N1",
+        parameters={"nominal_diameter_m": None, "representation_diameter_m": rep_stack,
+                    "design_slope": None, "drawing_slope": slope,
+                    "discharge_units": None, "peak_flow_lps": None},
+        requires_calculation=RES_DRAIN_PENDING,
+        tags=["sanitario", "colector", "vivienda"],
+        op_description=("Colector enterrado desde el pie de la bajante hasta la caja de "
+                        "inspeccion, fuera de la huella; pendiente de trazado %.1f%%."
+                        % (slope * 100)),
+        derived_from=["HYP_DRAIN_SLOPE", "HYP_PEDESTAL_SIZE"],
+        flow_direction="bajante_hacia_caja",
+        validation_notes=[_REPRESENTATION_NOTE % (rep_stack * 1000)],
+    )
+    inv = col[-1][2]
+    _inspection_box(model, "HID-CAJ-SAN", "Caja de inspeccion sanitaria",
+                    (box_x, box_y), inv, "HID-DESAGUE")
+    out_y = round(box_y - 2.0 if south else box_y + 2.0, 3)
+    sal = R.sloped_polyline((box_x, box_y, round(inv, 3)), [(box_x, out_y)], slope)
+    _, salen = K.add_route(
+        model, component_id="HID-SAL-SAN", discipline="hydrosanitary",
+        type="sewer_outlet", name="Salida sanitaria",
+        polylines=[sal], diameter=rep_stack, material="pvc_sanitario",
+        ifc_class="IfcPipeSegment", layer="HID-DESAGUE", level_id="N1",
+        parameters={"nominal_diameter_m": None, "design_slope": None,
+                    "discharge_to": None, "public_sewer_invert_m": None},
+        requires_calculation=["nominal_diameter_m", "design_slope", "discharge_to",
+                              "public_sewer_invert_m"],
+        tags=["sanitario", "salida", "vivienda"],
+        op_description=("Salida desde la caja de inspeccion hacia la red publica o el "
+                        "sistema de disposicion, que no esta definido."),
+        derived_from=["HYP_DRAIN_SLOPE"], flow_direction="caja_hacia_red",
+        validation_notes=["Destino del vertimiento y cota de la red sin definir."],
+    )
+    K.link(model, connection_id="CNX-HID-BAJ-COL", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-BAJ-SAN", destination="HID-COL-SAN",
+           medium="tuberia_pvc_sanitario", technology="pie de bajante",
+           parameters={"design_slope": None}, geometry_reference="SOL-HID-COL-SAN",
+           length_m=clen, flow_direction="bajante_hacia_colector",
+           requires_calculation=["nominal_diameter_m"])
+    K.link(model, connection_id="CNX-HID-COL-CAJ", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-COL-SAN", destination="HID-CAJ-SAN",
+           medium="tuberia_pvc_sanitario", technology="llegada a caja",
+           parameters={}, flow_direction="colector_hacia_caja",
+           requires_calculation=["nominal_diameter_m"])
+    K.link(model, connection_id="CNX-HID-CAJ-SAL", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-CAJ-SAN", destination="HID-SAL-SAN",
+           medium="tuberia_pvc_sanitario", technology="salida de caja",
+           parameters={}, geometry_reference="SOL-HID-SAL-SAN", length_m=salen,
+           flow_direction="caja_hacia_red", requires_calculation=["nominal_diameter_m"])
+
+
+def _inspection_box(model, cid: str, name: str, xy: Tuple[float, float],
+                    invert: float, layer: str) -> None:
+    """Caja de inspeccion: prisma desde la cota de fondo hasta el terreno."""
+    x, y = xy
+    z0 = round(invert - 0.10, 3)
+    h = round(0.0 - z0, 3)
+    K.add_device(
+        model, component_id=cid, discipline="hydrosanitary", type="inspection_chamber",
+        name=name, level_id="N1", xyz=(x, y, round(z0 + h / 2.0, 3)),
+        box=(0.60, 0.60, h), material="concreto_estructural", ifc_class="IfcDistributionChamberElement",
+        layer=layer,
+        parameters={"inner_size_m": None, "depth_m": round(h, 3), "cover_type": None,
+                    "invert_elevation_m": round(invert, 3)},
+        requires_calculation=["inner_size_m", "cover_type"],
+        tags=["sanitario" if "SAN" in cid else "pluvial", "caja", "vivienda"],
+        op_description=("%s fuera de la huella, de la cota %.2f al terreno. Planta de "
+                        "0.60 x 0.60 m como envolvente geometrica." % (name, z0)),
+        derived_from=["HYP_DRAIN_SLOPE"],
+    )
+
+
+def build_residential_rainwater(model) -> None:
+    """Pluvial de cubierta plana: sumidero, gargola, bajante exterior, caja y salida."""
+    rz = P.ROOF_LEVEL["elevation"]
+    L, W = P.REQ_LENGTH_X, P.REQ_WIDTH_Y
+    t = P.HYP_PARAPET_THICKNESS
+    rep = _res_rep("bajante_pluvial")
+    radius = rep / 2.0
+    slope = P.HYP_DRAIN_SLOPE
+    # Sobre la fachada este (la del acceso esta en el pasillo): en la banda sur,
+    # lejos de las columnas, del pasillo y de los ejes de viga.
+    pw = max(P.HYP_PEDESTAL_SIZE[1], P.HYP_COLUMN_SIZE[1], P.HYP_BEAM_WIDTH)
+    need = pw / 2.0 + radius + 0.10
+    y = None
+    for cand in [round(P.INNER_Y0 + k * 0.05, 3) for k in range(8, 400)]:
+        if cand > P.RING_Y0 - 0.40:
+            break
+        if all(abs(cand - gy) >= need for gy in P.GRID_Y):
+            y = cand
+            break
+    if y is None:
+        y = round((P.INNER_Y0 + P.RING_Y0) / 2.0, 3)
+    dx = round(L - t - 0.35, 3)
+    # Las vigas y columnas de fachada estan centradas en el eje x = L y
+    # sobresalen del muro: la bajante va por fuera de ellas.
+    xo = round(L + max(P.HYP_BEAM_WIDTH, P.HYP_COLUMN_SIZE[0]) / 2.0 + radius + 0.03, 3)
+    K.add_device(
+        model, component_id="HID-SUM-01", discipline="hydrosanitary", type="roof_drain",
+        name="Sumidero de cubierta", level_id="NC",
+        xyz=(dx, y, round(rz + 0.03, 3)), box=(0.30, 0.30, 0.06),
+        material="equipo_generico", ifc_class="IfcWasteTerminal", layer="HID-PLUVIAL",
+        parameters={"contributing_area_m2": round(L * W, 2), "nominal_diameter_m": None,
+                    "design_flow_lps": None, "verified_capacity_lps": None,
+                    "design_rainfall_intensity_mm_h": None,
+                    "position_criterion": "junto al pretil este, fuera de los ejes de viga"},
+        requires_calculation=["nominal_diameter_m", "design_flow_lps",
+                              "verified_capacity_lps", "design_rainfall_intensity_mm_h"],
+        tags=["pluvial", "sumidero", "vivienda"],
+        op_description=("Sumidero de cubierta junto al pretil este. Un solo sumidero es una "
+                        "hipotesis de trazado: el numero y la capacidad dependen de la "
+                        "intensidad de lluvia, que no se conoce."),
+        derived_from=["HYP_PARAPET_THICKNESS", "GRID_Y"],
+        validation_notes=["Area tributaria geometrica = cubierta completa; sin calculo."],
+    )
+    zg = round(rz + 0.08, 3)
+    gargola = [(dx, y, zg), (xo, y, zg)]
+    bottom = -0.40
+    leader = [(xo, y, zg), (xo, y, bottom)]
+    _, llen = K.add_route(
+        model, component_id="HID-BAJ-PLU-01", discipline="hydrosanitary",
+        type="rain_leader", name="Gargola y bajante pluvial exterior",
+        polylines=[gargola, leader], diameter=rep, material="pvc_sanitario",
+        ifc_class="IfcPipeSegment", layer="HID-PLUVIAL",
+        parameters={"nominal_diameter_m": None, "representation_diameter_m": rep,
+                    "design_rainfall_intensity_mm_h": None,
+                    "contributing_area_m2": round(L * W, 2),
+                    "peak_flow_lps": None, "verified_capacity_lps": None},
+        requires_calculation=RES_RAIN_PENDING,
+        tags=["pluvial", "bajante", "vivienda"],
+        op_description=("Gargola por el pretil este a %.2f m y bajante exterior adosada a "
+                        "la fachada, por fuera de vigas y columnas de borde, hasta -0.40 m."
+                        % zg),
+        derived_from=["HYP_PARAPET_THICKNESS", "ROOF_LEVEL"],
+        flow_direction="descendente_por_gravedad",
+        validation_notes=[_REPRESENTATION_NOTE % (rep * 1000)],
+    )
+    box_x = round(xo + 1.00, 3)
+    run = R.sloped_polyline((xo, y, bottom), [(box_x, y)], slope)
+    _, rlen = K.add_route(
+        model, component_id="HID-COL-PLU", discipline="hydrosanitary",
+        type="rain_drain", name="Tramo enterrado pluvial",
+        polylines=[run], diameter=rep, material="pvc_sanitario",
+        ifc_class="IfcPipeSegment", layer="HID-PLUVIAL", level_id="N1",
+        parameters={"nominal_diameter_m": None, "design_slope": None,
+                    "drawing_slope": slope, "peak_flow_lps": None},
+        requires_calculation=["nominal_diameter_m", "design_slope", "peak_flow_lps"],
+        tags=["pluvial", "colector", "vivienda"],
+        op_description="Tramo enterrado del pie de la bajante pluvial a su caja de inspeccion.",
+        derived_from=["HYP_DRAIN_SLOPE"], flow_direction="bajante_hacia_caja",
+    )
+    inv = run[-1][2]
+    _inspection_box(model, "HID-CAJ-PLU", "Caja de inspeccion pluvial", (box_x, y), inv,
+                    "HID-PLUVIAL")
+    sal = R.sloped_polyline((box_x, y, inv), [(round(box_x + 2.0, 3), y)], slope)
+    _, salen = K.add_route(
+        model, component_id="HID-SAL-PLU", discipline="hydrosanitary",
+        type="storm_outlet", name="Salida pluvial",
+        polylines=[sal], diameter=rep, material="pvc_sanitario",
+        ifc_class="IfcPipeSegment", layer="HID-PLUVIAL", level_id="N1",
+        parameters={"nominal_diameter_m": None, "design_slope": None, "discharge_to": None},
+        requires_calculation=["nominal_diameter_m", "design_slope", "discharge_to"],
+        tags=["pluvial", "salida", "vivienda"],
+        op_description=("Salida pluvial desde la caja hacia la calle o el sistema de "
+                        "drenaje, que no esta definido."),
+        derived_from=["HYP_DRAIN_SLOPE"], flow_direction="caja_hacia_red",
+    )
+    K.link(model, connection_id="CNX-HID-SUM-01-BAJPLU", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-SUM-01", destination="HID-BAJ-PLU-01",
+           medium="tuberia_pvc_sanitario", technology="recoleccion pluvial",
+           parameters={}, geometry_reference="SOL-HID-BAJ-PLU-01", length_m=llen,
+           flow_direction="sumidero_hacia_bajante",
+           requires_calculation=["nominal_diameter_m", "design_flow_lps"])
+    K.link(model, connection_id="CNX-HID-BAJPLU-COL", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-BAJ-PLU-01", destination="HID-COL-PLU",
+           medium="tuberia_pvc_sanitario", technology="pie de bajante",
+           parameters={}, geometry_reference="SOL-HID-COL-PLU", length_m=rlen,
+           flow_direction="bajante_hacia_caja", requires_calculation=["nominal_diameter_m"])
+    K.link(model, connection_id="CNX-HID-COLPLU-CAJ", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-COL-PLU", destination="HID-CAJ-PLU",
+           medium="tuberia_pvc_sanitario", technology="llegada a caja", parameters={},
+           flow_direction="colector_hacia_caja", requires_calculation=["nominal_diameter_m"])
+    K.link(model, connection_id="CNX-HID-CAJPLU-SAL", discipline="hydrosanitary",
+           type="pipe_connection", origin="HID-CAJ-PLU", destination="HID-SAL-PLU",
+           medium="tuberia_pvc_sanitario", technology="salida de caja", parameters={},
+           geometry_reference="SOL-HID-SAL-PLU", length_m=salen,
+           flow_direction="caja_hacia_red", requires_calculation=["nominal_diameter_m"])
+
+
+def build_residential(model) -> None:
+    meter = build_residential_source(model)
+    fixtures = build_residential_supply(model, meter)
+    build_residential_drainage(model, fixtures)
+    build_residential_rainwater(model)
+
+
 def build(model) -> None:
+    if P.is_residential():
+        build_residential(model)
+        return
     build_source(model)
     fixtures = build_water_distribution(model)
     build_drainage(model, fixtures)

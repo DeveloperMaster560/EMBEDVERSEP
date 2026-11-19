@@ -72,8 +72,9 @@ def build_indoor_units(model) -> Dict[str, List[Dict[str, Any]]]:
             n = 2 if sp.area_m2 > 25.0 else 1
             x0, y0, x1, y1 = sp.rect
             for k in range(1, n + 1):
-                px = round(x0 + (x1 - x0) * k / (n + 1), 3)
-                py = round(y0 + 0.30, 3)
+                px, py = R.clear_of_columns(round(x0 + (x1 - x0) * k / (n + 1), 3),
+                                            round(y0 + 0.30, 3), 0.45, 0.11,
+                                            within=sp.rect, axis="x")
                 pz = round(e + 2.40, 3)
                 cid = "CLI-UNI-%s-%s-%02d" % (lid, sp.code, k)
                 K.add_device(

@@ -42,10 +42,11 @@ def cabinet_position():
 def wifi_positions():
     """Reparto geometrico de puntos de acceso sobre la planta."""
     L, W = P.REQ_LENGTH_X, P.REQ_WIDTH_Y
-    return [(round(L * 0.25, 2), round(W * 0.50, 2)),
-            (round(L * 0.50, 2), round(W * 0.14, 2)),
-            (round(L * 0.50, 2), round(W * 0.86, 2)),
-            (round(L * 0.75, 2), round(W * 0.50, 2))]
+    pts = [(round(L * 0.25, 2), round(W * 0.50, 2)),
+           (round(L * 0.50, 2), round(W * 0.14, 2)),
+           (round(L * 0.50, 2), round(W * 0.86, 2)),
+           (round(L * 0.75, 2), round(W * 0.50, 2))]
+    return [R.clear_of_columns(x, y, 0.11, 0.11) for x, y in pts]
 
 # Recintos que reciben tomas de red y cuantas.
 DATA_OUTLETS_BY_USE = {
@@ -171,7 +172,8 @@ def build_backbone(model) -> None:
     cx, cy = cabinet_position()
 
     # tramo horizontal rack -> ducto tecnico en N1
-    base = R.manhattan((rx, ry, 1.95), (sx, sy, 0.50), R.plenum_z(P.LEVELS[0], "telecommunications"))
+    base = R.manhattan((rx, ry, 1.95), (sx, sy, 0.50), R.plenum_z(P.LEVELS[0], "telecommunications"),
+                       avoid=True)
     comp, blen = K.add_route(
         model, component_id="TEL-FIB-BASE", discipline="telecommunications",
         type="fiber_backbone", name="Troncal de fibra rack a ducto tecnico",
@@ -298,6 +300,9 @@ def build_data_outlets(model) -> Dict[str, List[Dict[str, Any]]]:
                 continue
             step = max(1, len(candidates) // n)
             chosen = candidates[::step][:n]
+            chosen = [R.clear_of_columns(px, py, 0.06, 0.04,
+                                         axis="x" if f in ("S", "N") else "y") + (f,)
+                      for px, py, f in chosen]
             for k, (px, py, face) in enumerate(chosen, start=1):
                 cid = "TEL-TOM-%s-%s-%02d" % (lid, sp.code, k)
                 z = round(e + 0.40, 3)

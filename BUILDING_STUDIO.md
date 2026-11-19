@@ -251,8 +251,20 @@ la presentación de materiales y la validación del endpoint.
   (con 2,80 m entre niveles, unos 5,14 × 7,90 m). La escalera de 0,90 m, el
   pasillo de 1,20 m y los muros de 0,15 m son **hipótesis geométricas sin
   verificar contra norma**, y la respuesta lo dice.
-- **Disciplinas en vivienda:** estructura, arquitectura y eléctrica. Las demás
-  dependen de recintos de oficina y se rechazan si se piden.
+- **Disciplinas en vivienda:** estructura, arquitectura, eléctrica e
+  hidrosanitaria. Telecomunicaciones, climatización y seguridad dependen de
+  recintos de oficina y se rechazan si se piden.
+- **Hidrosanitaria de la casa:** acometida y medidor de agua (fachada oeste),
+  red de agua fría a cada aparato (lavamanos, inodoro, ducha, lavaplatos,
+  lavadero si hay zona de ropas), bajante sanitaria con ventilación sobre
+  cubierta, colector enterrado, cajas de inspección y salidas; pluvial con
+  sumidero, gárgola y bajante exterior. Diámetros, pendientes, caudales y
+  presiones quedan `null` y declarados para cálculo; el grosor de los tubos en
+  el 3D es de representación. Sin agua caliente por ahora.
+- **Oficinas sin colisiones estructurales** (19/11/2026): las instalaciones
+  rodean columnas y escalera (`routing.route_obstacles`); quedan solo los
+  cruces entre instalaciones, que la coordinación debe reportar.
+  `test_structural_clashes.py` lo fija.
 - **Eléctrica de la casa en el modelo:** tablero general `ELE-TAB-TG`,
   tableros por piso `ELE-TAB-TS-N*`, circuitos `ELE-CIR-*` (2 de iluminación y
   2 de tomas por piso), acometida `ELE-ACO-001`, medidor `ELE-MED-001`, puesta a
