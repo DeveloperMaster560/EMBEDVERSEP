@@ -1,6 +1,6 @@
 {
  "_nota": "Biblioteca oficial de EMBEDVERSE. Generado por scripts/biblioteca_oficial.py desde server/bibliotecas.json; NO editar a mano. Versiones fijas: el servidor compila siempre con estas. «licencia» null = aún sin revisar: antes de entregar binarios compilados al público hay que revisar las GPL/LGPL.",
- "generado": "2026-11-19T15:09:14Z",
+ "generado": "2026-11-19T16:28:40Z",
  "indice": {
   "archivo": "library_index.json",
   "bytes": 60847199
@@ -11,10 +11,15 @@
    "version": "1.64.0",
    "grupo": "actuadores",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "AccelStepper.h"
+   "cabeceras": [
+    "AccelStepper.h",
+    "MultiStepper.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "MultiStepper.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -30,11 +35,12 @@
    "version": "2.6.2",
    "grupo": "adc_precision",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ADS1X15.h",
-    "AdafruitADS1X15.h"
+   "cabeceras": [
+    "Adafruit_ADS1X15.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -52,11 +58,12 @@
    "requerida_por": [
     "Adafruit ADXL375"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ADXL343.h",
-    "AdafruitADXL343.h"
+   "cabeceras": [
+    "Adafruit_ADXL343.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -72,11 +79,12 @@
    "version": "1.3.4",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ADXL345.h",
-    "AdafruitADXL345.h"
+   "cabeceras": [
+    "Adafruit_ADXL345_U.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -92,11 +100,12 @@
    "version": "1.1.2",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ADXL375.h",
-    "AdafruitADXL375.h"
+   "cabeceras": [
+    "Adafruit_ADXL375.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -112,11 +121,12 @@
    "version": "2.0.6",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_AHTX0.h",
-    "AdafruitAHTX0.h"
+   "cabeceras": [
+    "Adafruit_AHTX0.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -132,13 +142,12 @@
    "version": "2.3.0",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_BME280_Library.h",
-    "AdafruitBME280Library.h",
-    "Adafruit_BME280.h",
-    "AdafruitBME280.h"
+   "cabeceras": [
+    "Adafruit_BME280.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -154,13 +163,17 @@
    "version": "2.0.6",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_BME680_Library.h",
-    "AdafruitBME680Library.h",
+   "cabeceras": [
     "Adafruit_BME680.h",
-    "AdafruitBME680.h"
+    "bme68x.h",
+    "bme68x_defs.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "bme68x.h",
+    "bme68x_defs.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -176,13 +189,12 @@
    "version": "3.0.0",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_BMP280_Library.h",
-    "AdafruitBMP280Library.h",
-    "Adafruit_BMP280.h",
-    "AdafruitBMP280.h"
+   "cabeceras": [
+    "Adafruit_BMP280.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -198,11 +210,12 @@
    "version": "1.6.4",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_BNO055.h",
-    "AdafruitBNO055.h"
+   "cabeceras": [
+    "Adafruit_BNO055.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -218,11 +231,25 @@
    "version": "1.2.7",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Adafruit_BNO08x.h",
-    "AdafruitBNO08x.h"
+    "sh2.h",
+    "sh2_SensorValue.h",
+    "sh2_err.h",
+    "sh2_hal.h",
+    "sh2_util.h",
+    "shtp.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "sh2.h",
+    "sh2_SensorValue.h",
+    "sh2_err.h",
+    "sh2_hal.h",
+    "sh2_util.h",
+    "shtp.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -279,11 +306,18 @@
     "Adafruit INA260 Library",
     "RTClib"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_BusIO.h",
-    "AdafruitBusIO.h"
+   "cabeceras": [
+    "Adafruit_BusIO_Register.h",
+    "Adafruit_GenericDevice.h",
+    "Adafruit_I2CDevice.h",
+    "Adafruit_I2CRegister.h",
+    "Adafruit_SPIDevice.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_I2CRegister.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -299,13 +333,12 @@
    "version": "1.1.3",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_CCS811_Library.h",
-    "AdafruitCCS811Library.h",
-    "Adafruit_CCS811.h",
-    "AdafruitCCS811.h"
+   "cabeceras": [
+    "Adafruit_CCS811.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -331,13 +364,21 @@
     "Adafruit CCS811 Library",
     "Adafruit INA219"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_GFX_Library.h",
-    "AdafruitGFXLibrary.h",
+   "cabeceras": [
     "Adafruit_GFX.h",
-    "AdafruitGFX.h"
+    "Adafruit_GrayOLED.h",
+    "Adafruit_SPITFT.h",
+    "Adafruit_SPITFT_Macros.h",
+    "gfxfont.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_GrayOLED.h",
+    "Adafruit_SPITFT.h",
+    "Adafruit_SPITFT_Macros.h",
+    "gfxfont.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -353,13 +394,21 @@
    "version": "1.9.0",
    "grupo": "tiempo_posicion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_GPS_Library.h",
-    "AdafruitGPSLibrary.h",
+   "cabeceras": [
+    "Adafruit_GNSS.h",
     "Adafruit_GPS.h",
-    "AdafruitGPS.h"
+    "Adafruit_NMEA.h",
+    "Adafruit_PMTK.h",
+    "NMEA_data.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_GNSS.h",
+    "Adafruit_NMEA.h",
+    "Adafruit_PMTK.h",
+    "NMEA_data.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -375,13 +424,12 @@
    "version": "1.1.2",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_HTU21DF_Library.h",
-    "AdafruitHTU21DFLibrary.h",
-    "Adafruit_HTU21DF.h",
-    "AdafruitHTU21DF.h"
+   "cabeceras": [
+    "Adafruit_HTU21DF.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -397,11 +445,14 @@
    "version": "2.0.7",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ICM20X.h",
-    "AdafruitICM20X.h"
+   "cabeceras": [
+    "Adafruit_ICM20649.h",
+    "Adafruit_ICM20948.h",
+    "Adafruit_ICM20X.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -419,11 +470,12 @@
    "requerida_por": [
     "Adafruit VEML6070 Library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ILI9341.h",
-    "AdafruitILI9341.h"
+   "cabeceras": [
+    "Adafruit_ILI9341.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -439,11 +491,12 @@
    "version": "1.2.3",
    "grupo": "energia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_INA219.h",
-    "AdafruitINA219.h"
+   "cabeceras": [
+    "Adafruit_INA219.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -459,13 +512,12 @@
    "version": "1.5.4",
    "grupo": "energia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_INA260_Library.h",
-    "AdafruitINA260Library.h",
-    "Adafruit_INA260.h",
-    "AdafruitINA260.h"
+   "cabeceras": [
+    "Adafruit_INA260.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -481,11 +533,12 @@
    "version": "1.3.0",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_LIS3DH.h",
-    "AdafruitLIS3DH.h"
+   "cabeceras": [
+    "Adafruit_LIS3DH.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -501,11 +554,12 @@
    "version": "1.2.5",
    "grupo": "inclinacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_LIS3MDL.h",
-    "AdafruitLIS3MDL.h"
+   "cabeceras": [
+    "Adafruit_LIS3MDL.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -521,11 +575,22 @@
    "version": "4.7.4",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
+    "Adafruit_ISM330DHCX.h",
     "Adafruit_LSM6DS.h",
-    "AdafruitLSM6DS.h"
+    "Adafruit_LSM6DS3.h",
+    "Adafruit_LSM6DS33.h",
+    "Adafruit_LSM6DS3TRC.h",
+    "Adafruit_LSM6DSL.h",
+    "Adafruit_LSM6DSO32.h",
+    "Adafruit_LSM6DSOX.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_LSM6DS3.h",
+    "Adafruit_LSM6DSL.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -541,13 +606,12 @@
    "version": "1.4.2",
    "grupo": "temperatura_industrial",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MAX31855_library.h",
-    "AdafruitMAX31855library.h",
-    "Adafruit_MAX31855.h",
-    "AdafruitMAX31855.h"
+   "cabeceras": [
+    "Adafruit_MAX31855.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -563,13 +627,12 @@
    "version": "1.6.2",
    "grupo": "temperatura_industrial",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MAX31865_library.h",
-    "AdafruitMAX31865library.h",
-    "Adafruit_MAX31865.h",
-    "AdafruitMAX31865.h"
+   "cabeceras": [
+    "Adafruit_MAX31865.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -585,11 +648,12 @@
    "version": "1.3.3",
    "grupo": "adc_precision",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MCP3008.h",
-    "AdafruitMCP3008.h"
+   "cabeceras": [
+    "Adafruit_MCP3008.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -605,13 +669,12 @@
    "version": "2.0.2",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MCP9808_Library.h",
-    "AdafruitMCP9808Library.h",
-    "Adafruit_MCP9808.h",
-    "AdafruitMCP9808.h"
+   "cabeceras": [
+    "Adafruit_MCP9808.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -627,13 +690,12 @@
    "version": "2.1.7",
    "grupo": "temperatura_industrial",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MLX90614_Library.h",
-    "AdafruitMLX90614Library.h",
-    "Adafruit_MLX90614.h",
-    "AdafruitMLX90614.h"
+   "cabeceras": [
+    "Adafruit_MLX90614.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -649,13 +711,12 @@
    "version": "1.2.3",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MMA8451_Library.h",
-    "AdafruitMMA8451Library.h",
-    "Adafruit_MMA8451.h",
-    "AdafruitMMA8451.h"
+   "cabeceras": [
+    "Adafruit_MMA8451.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -671,11 +732,12 @@
    "version": "2.2.9",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_MPU6050.h",
-    "AdafruitMPU6050.h"
+   "cabeceras": [
+    "Adafruit_MPU6050.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -691,13 +753,12 @@
    "version": "1.0.8",
    "grupo": "fuerza_deformacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_NAU7802_Library.h",
-    "AdafruitNAU7802Library.h",
-    "Adafruit_NAU7802.h",
-    "AdafruitNAU7802.h"
+   "cabeceras": [
+    "Adafruit_NAU7802.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -717,7 +778,12 @@
     "Adafruit INA260 Library"
    ],
    "cabeceras": [
-    "Adafruit_NeoPixel.h"
+    "Adafruit_NeoPixel.h",
+    "rp2040_pio.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "rp2040_pio.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -735,11 +801,19 @@
    "version": "2.0.0",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_PM25_AQI_Sensor.h",
-    "AdafruitPM25AQISensor.h"
+   "cabeceras": [
+    "Adafruit_AQIUtils.h",
+    "Adafruit_PM25AQI.h",
+    "Adafruit_PM25AQI_I2C.h",
+    "Adafruit_PM25AQI_UART.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_AQIUtils.h",
+    "Adafruit_PM25AQI_I2C.h",
+    "Adafruit_PM25AQI_UART.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -755,11 +829,12 @@
    "version": "1.0.11",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_SCD30.h",
-    "AdafruitSCD30.h"
+   "cabeceras": [
+    "Adafruit_SCD30.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -777,13 +852,24 @@
    "requerida_por": [
     "Adafruit ST7735 and ST7789 Library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_seesaw_Library.h",
-    "AdafruitseesawLibrary.h",
+   "cabeceras": [
+    "Adafruit_Crickit.h",
+    "Adafruit_NeoKey_1x4.h",
+    "Adafruit_NeoTrellis.h",
+    "Adafruit_TFTShield18.h",
+    "Adafruit_miniTFTWing.h",
     "Adafruit_seesaw.h",
-    "Adafruitseesaw.h"
+    "seesaw_motor.h",
+    "seesaw_neopixel.h",
+    "seesaw_servo.h",
+    "seesaw_spectrum.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_TFTShield18.h",
+    "Adafruit_miniTFTWing.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -799,11 +885,12 @@
    "version": "2.0.3",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_SGP30_Sensor.h",
-    "AdafruitSGP30Sensor.h"
+   "cabeceras": [
+    "Adafruit_SGP30.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -825,11 +912,15 @@
     "Adafruit TSC2007",
     "Adafruit PM25 AQI Sensor"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Adafruit_SH110X.h",
-    "AdafruitSH110X.h"
+    "splash.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "splash.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -845,13 +936,12 @@
    "version": "2.2.2",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_SHT31_Library.h",
-    "AdafruitSHT31Library.h",
-    "Adafruit_SHT31.h",
-    "AdafruitSHT31.h"
+   "cabeceras": [
+    "Adafruit_SHT31.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -867,13 +957,12 @@
    "version": "1.0.5",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_SHT4x_Library.h",
-    "AdafruitSHT4xLibrary.h",
-    "Adafruit_SHT4x.h",
-    "AdafruitSHT4x.h"
+   "cabeceras": [
+    "Adafruit_SHT4x.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -889,13 +978,12 @@
    "version": "1.5.3",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_Si7021_Library.h",
-    "AdafruitSi7021Library.h",
-    "Adafruit_Si7021.h",
-    "AdafruitSi7021.h"
+   "cabeceras": [
+    "Adafruit_Si7021.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -921,11 +1009,15 @@
     "Adafruit SCD30",
     "Adafruit INA219"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Adafruit_SSD1306.h",
-    "AdafruitSSD1306.h"
+    "splash.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "splash.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -943,13 +1035,17 @@
    "requerida_por": [
     "Adafruit seesaw Library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_ST7735_and_ST7789_Library.h",
-    "AdafruitST7735andST7789Library.h",
-    "Adafruit_ST7735_and_ST7789.h",
-    "AdafruitST7735andST7789.h"
+   "cabeceras": [
+    "Adafruit_ST7735.h",
+    "Adafruit_ST7789.h",
+    "Adafruit_ST7796S.h",
+    "Adafruit_ST77xx.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Adafruit_ST77xx.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -967,11 +1063,12 @@
    "requerida_por": [
     "Adafruit ILI9341"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_STMPE610.h",
-    "AdafruitSTMPE610.h"
+   "cabeceras": [
+    "Adafruit_STMPE610.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -987,11 +1084,13 @@
    "version": "1.0.5",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Adafruit_TMP117.h",
-    "AdafruitTMP117.h"
+    "Adafruit_TMP119.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1009,11 +1108,12 @@
    "requerida_por": [
     "Adafruit ILI9341"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_TouchScreen.h",
-    "AdafruitTouchScreen.h"
+   "cabeceras": [
+    "TouchScreen.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1031,11 +1131,12 @@
    "requerida_por": [
     "Adafruit ILI9341"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_TSC2007.h",
-    "AdafruitTSC2007.h"
+   "cabeceras": [
+    "Adafruit_TSC2007.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1051,11 +1152,12 @@
    "version": "1.1.3",
    "grupo": "luz",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_TSL2561.h",
-    "AdafruitTSL2561.h"
+   "cabeceras": [
+    "Adafruit_TSL2561_U.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1071,13 +1173,12 @@
    "version": "1.4.5",
    "grupo": "luz",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_TSL2591_Library.h",
-    "AdafruitTSL2591Library.h",
-    "Adafruit_TSL2591.h",
-    "AdafruitTSL2591.h"
+   "cabeceras": [
+    "Adafruit_TSL2591.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1119,6 +1220,8 @@
    "cabeceras": [
     "Adafruit_Sensor.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1135,13 +1238,12 @@
    "version": "1.0.8",
    "grupo": "luz",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_VEML6070_Library.h",
-    "AdafruitVEML6070Library.h",
-    "Adafruit_VEML6070.h",
-    "AdafruitVEML6070.h"
+   "cabeceras": [
+    "Adafruit_VEML6070.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1157,13 +1259,12 @@
    "version": "2.1.6",
    "grupo": "luz",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_VEML7700_Library.h",
-    "AdafruitVEML7700Library.h",
-    "Adafruit_VEML7700.h",
-    "AdafruitVEML7700.h"
+   "cabeceras": [
+    "Adafruit_VEML7700.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1179,11 +1280,21 @@
    "version": "3.1.2",
    "grupo": "distancia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Adafruit_VL53L1X.h",
-    "AdafruitVL53L1X.h"
+    "ComponentObject.h",
+    "RangeSensor.h",
+    "vl53l1x_class.h",
+    "vl53l1x_error_codes.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "ComponentObject.h",
+    "RangeSensor.h",
+    "vl53l1x_class.h",
+    "vl53l1x_error_codes.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1199,10 +1310,39 @@
    "version": "1.2.5",
    "grupo": "distancia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "Adafruit_VL53L0X.h"
+   "cabeceras": [
+    "Adafruit_VL53L0X.h",
+    "vl53l0x_api.h",
+    "vl53l0x_api_calibration.h",
+    "vl53l0x_api_core.h",
+    "vl53l0x_api_ranging.h",
+    "vl53l0x_api_strings.h",
+    "vl53l0x_def.h",
+    "vl53l0x_device.h",
+    "vl53l0x_i2c_platform.h",
+    "vl53l0x_interrupt_threshold_settings.h",
+    "vl53l0x_platform.h",
+    "vl53l0x_platform_log.h",
+    "vl53l0x_tuning.h",
+    "vl53l0x_types.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "vl53l0x_api.h",
+    "vl53l0x_api_calibration.h",
+    "vl53l0x_api_core.h",
+    "vl53l0x_api_ranging.h",
+    "vl53l0x_api_strings.h",
+    "vl53l0x_def.h",
+    "vl53l0x_device.h",
+    "vl53l0x_i2c_platform.h",
+    "vl53l0x_interrupt_threshold_settings.h",
+    "vl53l0x_platform.h",
+    "vl53l0x_platform_log.h",
+    "vl53l0x_tuning.h",
+    "vl53l0x_types.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1221,6 +1361,8 @@
    "cabeceras": [
     "ADS1220_WE.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1240,6 +1382,8 @@
    "cabeceras": [
     "ADS1256.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
@@ -1263,6 +1407,8 @@
    "cabeceras": [
     "ADS1X15.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1280,7 +1426,13 @@
    "grupo": "vibracion",
    "requerida_por": [],
    "cabeceras": [
-    "ADXL345_WE.h"
+    "ADXL343_WE.h",
+    "ADXL345_WE.h",
+    "xyzFloat.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "xyzFloat.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1299,7 +1451,12 @@
    "grupo": "vibracion",
    "requerida_por": [],
    "cabeceras": [
-    "Arduino_BMI270_BMM150.h"
+    "Arduino_BMI270_BMM150.h",
+    "BoschSensorClass.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "BoschSensorClass.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1323,8 +1480,11 @@
    "grupo": "vibracion",
    "requerida_por": [],
    "cabeceras": [
-    "Arduino_LSM6DS3.h"
+    "Arduino_LSM6DS3.h",
+    "LSM6DS3.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1342,7 +1502,18 @@
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
-    "ArduinoHttpClient.h"
+    "ArduinoHttpClient.h",
+    "HttpClient.h",
+    "URLEncoder.h",
+    "URLParser.h",
+    "WebSocketClient.h",
+    "b64.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "URLEncoder.h",
+    "WebSocketClient.h",
+    "b64.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1360,10 +1531,13 @@
    "version": "7.4.3",
    "grupo": "base",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "ArduinoJson.h"
+   "cabeceras": [
+    "ArduinoJson.h",
+    "ArduinoJson.hpp"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1380,7 +1554,22 @@
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
-    "ArduinoModbus.h"
+    "ArduinoModbus.h",
+    "ModbusClient.h",
+    "ModbusRTUClient.h",
+    "ModbusRTUServer.h",
+    "ModbusServer.h",
+    "ModbusTCPClient.h",
+    "ModbusTCPServer.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "ModbusClient.h",
+    "ModbusRTUClient.h",
+    "ModbusRTUServer.h",
+    "ModbusServer.h",
+    "ModbusTCPClient.h",
+    "ModbusTCPServer.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1403,8 +1592,11 @@
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
-    "ArduinoMqttClient.h"
+    "ArduinoMqttClient.h",
+    "MqttClient.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1424,8 +1616,11 @@
     "ArduinoModbus"
    ],
    "cabeceras": [
-    "ArduinoRS485.h"
+    "ArduinoRS485.h",
+    "RS485.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "samd",
@@ -1449,10 +1644,13 @@
    "requerida_por": [
     "Adafruit VEML6070 Library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "AUnit.h"
+   "cabeceras": [
+    "AUnit.h",
+    "AUnitVerbose.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1471,6 +1669,8 @@
    "cabeceras": [
     "BH1750.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
@@ -1494,6 +1694,8 @@
    "cabeceras": [
     "CQRobotTDS.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1510,10 +1712,12 @@
    "version": "4.0.6",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "DallasTemperature.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1529,10 +1733,12 @@
    "version": "1.0.0",
    "grupo": "suelo_agua",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "DFRobot_PH.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1548,12 +1754,13 @@
    "version": "1.4.7",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "DHT_sensor_library.h",
-    "DHTsensorlibrary.h",
-    "DHT.h"
+   "cabeceras": [
+    "DHT.h",
+    "DHT_U.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1572,6 +1779,8 @@
    "cabeceras": [
     "DHTesp.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "esp8266",
@@ -1591,10 +1800,12 @@
    "version": "1.1.0",
    "grupo": "energia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "EmonLib.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1617,6 +1828,8 @@
     "analogWrite.h",
     "tone.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "esp32"
@@ -1634,7 +1847,19 @@
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
-    "Ethernet.h"
+    "Dhcp.h",
+    "Dns.h",
+    "Ethernet.h",
+    "EthernetClient.h",
+    "EthernetServer.h",
+    "EthernetUdp.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "Dhcp.h",
+    "Dns.h",
+    "EthernetClient.h",
+    "EthernetServer.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1648,35 +1873,16 @@
    "licencia": null
   },
   {
-   "nombre": "HX711",
-   "version": "0.6.6",
+   "nombre": "HX711 Arduino Library",
+   "version": "0.7.5",
    "grupo": "fuerza_deformacion",
    "requerida_por": [],
    "cabeceras": [
     "HX711.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
-   "arquitecturas": [
-    "*"
-   ],
-   "autor": "Rob Tillaart <rob.tillaart@gmail.com>",
-   "repositorio": "https://github.com/RobTillaart/HX711.git",
-   "url": "https://downloads.arduino.cc/libraries/github.com/RobTillaart/HX711-0.6.6.zip",
-   "checksum": "SHA-256:e1196d41efb6cfe7e215fd46979bde20aec1e471b8b2399aa1c01a50eef33c41",
-   "bytes": 43695,
-   "licencia": null
-  },
-  {
-   "nombre": "HX711 Arduino Library",
-   "version": "0.7.5",
-   "grupo": "fuerza_deformacion",
-   "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "HX711_Arduino_Library.h",
-    "HX711ArduinoLibrary.h",
-    "HX711.h"
-   ],
    "arquitecturas": [],
    "autor": "Bogdan Necula <bogde@bogde.ro>, Andreas Motl <andreas.motl@elmyra.de>",
    "repositorio": "https://github.com/bogde/HX711.git",
@@ -1691,7 +1897,12 @@
    "grupo": "fuerza_deformacion",
    "requerida_por": [],
    "cabeceras": [
-    "HX711_ADC.h"
+    "HX711_ADC.h",
+    "config.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "config.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1712,6 +1923,8 @@
    "cabeceras": [
     "INA226.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1731,10 +1944,12 @@
     "MAX6675 library",
     "Adafruit MAX31855 library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "LiquidCrystal.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1750,11 +1965,12 @@
    "version": "1.1.2",
    "grupo": "pantallas",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "LiquidCrystal_I2C.h",
-    "LiquidCrystalI2C.h"
+   "cabeceras": [
+    "LiquidCrystal_I2C.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "avr"
    ],
@@ -1773,6 +1989,8 @@
    "cabeceras": [
     "LoRa.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1789,12 +2007,12 @@
    "version": "1.1.2",
    "grupo": "temperatura_industrial",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "MAX6675_library.h",
-    "MAX6675library.h",
-    "MAX6675.h"
+   "cabeceras": [
+    "max6675.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1810,13 +2028,20 @@
    "version": "6.1.0",
    "grupo": "comunicacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "MCCI_LoRaWAN_LMIC_library.h",
-    "MCCILoRaWANLMIClibrary.h",
-    "MCCI_LoRaWAN_LMIC.h",
-    "MCCILoRaWANLMIC.h"
+   "cabeceras": [
+    "arduino_lmic.h",
+    "arduino_lmic_hal_boards.h",
+    "arduino_lmic_hal_configuration.h",
+    "arduino_lmic_lorawan_compliance.h",
+    "arduino_lmic_user_configuration.h",
+    "lmic.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "arduino_lmic_hal_configuration.h",
+    "arduino_lmic_user_configuration.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1835,6 +2060,8 @@
    "cabeceras": [
     "ModbusMaster.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -1852,7 +2079,17 @@
    "grupo": "vibracion",
    "requerida_por": [],
    "cabeceras": [
-    "MPU6050.h"
+    "I2Cdev.h",
+    "MPU6050.h",
+    "MPU6050_6Axis_MotionApps20.h",
+    "MPU6050_6Axis_MotionApps612.h",
+    "MPU6050_9Axis_MotionApps41.h",
+    "helper_3dmath.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "MPU6050_9Axis_MotionApps41.h",
+    "helper_3dmath.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1870,10 +2107,12 @@
    "version": "0.4.8",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "MPU9250.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1889,10 +2128,12 @@
    "version": "3.0.0",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "MQUnifiedsensor.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
     "esp8266",
@@ -1913,6 +2154,8 @@
    "cabeceras": [
     "NewPing.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
@@ -1933,7 +2176,16 @@
    "grupo": "aire_gases",
    "requerida_por": [],
    "cabeceras": [
-    "SdsDustSensor.h"
+    "SdsDustSensor.h",
+    "SdsDustSensorCommands.h",
+    "SdsDustSensorResults.h",
+    "Serials.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "SdsDustSensorCommands.h",
+    "SdsDustSensorResults.h",
+    "Serials.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -1955,10 +2207,12 @@
    "version": "2.3.8",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "OneWire.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1974,11 +2228,12 @@
    "version": "1.4.2",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "PL_ADXL355.h",
-    "PLADXL355.h"
+   "cabeceras": [
+    "PL_ADXL355.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -1994,13 +2249,12 @@
    "version": "1.2.1",
    "grupo": "adc_precision",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "ProtoCentral_ADS1220_24bit_ADC_Library.h",
-    "ProtoCentralADS122024bitADCLibrary.h",
-    "ProtoCentral_ADS1220_24bit_ADC.h",
-    "ProtoCentralADS122024bitADC.h"
+   "cabeceras": [
+    "Protocentral_ADS1220.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2019,6 +2273,8 @@
    "cabeceras": [
     "ads1262.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -2035,10 +2291,12 @@
    "version": "2.8.0",
    "grupo": "base",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "PubSubClient.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2057,6 +2315,8 @@
    "cabeceras": [
     "PZEM004Tv30.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
@@ -2077,7 +2337,20 @@
    "grupo": "comunicacion",
    "requerida_por": [],
    "cabeceras": [
-    "RadioLib.h"
+    "BuildOpt.h",
+    "BuildOptUser.h",
+    "Hal.h",
+    "Module.h",
+    "RadioLib.h",
+    "TypeDef.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "BuildOpt.h",
+    "BuildOptUser.h",
+    "Hal.h",
+    "Module.h",
+    "TypeDef.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [
@@ -2095,10 +2368,12 @@
    "version": "2.1.4",
    "grupo": "tiempo_posicion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "RTClib.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2114,10 +2389,12 @@
    "version": "3.3.1",
    "grupo": "inclinacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "SCL3300.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2135,10 +2412,12 @@
    "requerida_por": [
     "Adafruit ST7735 and ST7789 Library"
    ],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "SD.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2154,10 +2433,22 @@
    "version": "2.3.0",
    "grupo": "almacenamiento",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SdFat.h"
+   "cabeceras": [
+    "BufferedPrint.h",
+    "FreeStack.h",
+    "MinimumSerial.h",
+    "RingBuf.h",
+    "SdFat.h",
+    "SdFatConfig.h",
+    "SdFatDebugConfig.h",
+    "sdios.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "SdFatConfig.h",
+    "SdFatDebugConfig.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2176,7 +2467,30 @@
     "Sensirion I2C SCD4x"
    ],
    "cabeceras": [
-    "SensirionCore.h"
+    "SensirionCore.h",
+    "SensirionCoreArduinoLibrary.h",
+    "SensirionCrc.h",
+    "SensirionErrors.h",
+    "SensirionI2CCommunication.h",
+    "SensirionI2CRxFrame.h",
+    "SensirionI2CTxFrame.h",
+    "SensirionRxFrame.h",
+    "SensirionShdlcCommunication.h",
+    "SensirionShdlcRxFrame.h",
+    "SensirionShdlcTxFrame.h"
+   ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "SensirionCoreArduinoLibrary.h",
+    "SensirionCrc.h",
+    "SensirionErrors.h",
+    "SensirionI2CCommunication.h",
+    "SensirionI2CRxFrame.h",
+    "SensirionI2CTxFrame.h",
+    "SensirionRxFrame.h",
+    "SensirionShdlcCommunication.h",
+    "SensirionShdlcRxFrame.h",
+    "SensirionShdlcTxFrame.h"
    ],
    "cabeceras_probables": [],
    "arquitecturas": [],
@@ -2195,6 +2509,8 @@
    "cabeceras": [
     "SensirionI2cScd4x.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -2211,10 +2527,12 @@
    "version": "1.3.0",
    "grupo": "actuadores",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "Servo.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "avr",
     "megaavr",
@@ -2243,13 +2561,12 @@
    "version": "1.3.2",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_9DoF_IMU_Breakout__ICM_20948__Arduino_Library.h",
-    "SparkFun9DoFIMUBreakoutICM20948ArduinoLibrary.h",
-    "SparkFun_9DoF_IMU_Breakout__ICM_20948.h",
-    "SparkFun9DoFIMUBreakoutICM20948.h"
+   "cabeceras": [
+    "ICM_20948.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2265,11 +2582,19 @@
    "version": "1.1.0",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_Indoor_Air_Quality_Sensor__ENS160.h",
-    "SparkFunIndoorAirQualitySensorENS160.h"
+   "cabeceras": [
+    "SparkFun_ENS160.h",
+    "sfe_bus.h",
+    "sfe_ens160.h",
+    "sfe_ens160_regs.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "sfe_bus.h",
+    "sfe_ens160.h",
+    "sfe_ens160_regs.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2285,11 +2610,12 @@
    "version": "1.4.0",
    "grupo": "vibracion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_MMA8452Q_Accelerometer.h",
-    "SparkFunMMA8452QAccelerometer.h"
+   "cabeceras": [
+    "SparkFun_MMA8452Q.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2305,13 +2631,12 @@
    "version": "1.0.6",
    "grupo": "fuerza_deformacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h",
-    "SparkFunQwiicScaleNAU7802ArduinoLibrary.h",
-    "SparkFun_Qwiic_Scale_NAU7802.h",
-    "SparkFunQwiicScaleNAU7802.h"
+   "cabeceras": [
+    "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2327,13 +2652,12 @@
    "version": "1.0.20",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_SCD30_Arduino_Library.h",
-    "SparkFunSCD30ArduinoLibrary.h",
-    "SparkFun_SCD30.h",
-    "SparkFunSCD30.h"
+   "cabeceras": [
+    "SparkFun_SCD30_Arduino_Library.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2349,13 +2673,17 @@
    "version": "1.0.4",
    "grupo": "aire_gases",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "SparkFun_SGP40_Arduino_Library.h",
-    "SparkFunSGP40ArduinoLibrary.h",
-    "SparkFun_SGP40.h",
-    "SparkFunSGP40.h"
+    "sensirion_arch_config.h",
+    "sensirion_voc_algorithm.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "sensirion_arch_config.h",
+    "sensirion_voc_algorithm.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2371,11 +2699,24 @@
    "version": "3.1.15",
    "grupo": "tiempo_posicion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_ublox_GNSS_v3.h",
-    "SparkFunubloxGNSSv3.h"
+   "cabeceras": [
+    "SparkFun_u-blox_GNSS_v3.h",
+    "sfe_bus.h",
+    "u-blox_Class_and_ID.h",
+    "u-blox_GNSS.h",
+    "u-blox_config_keys.h",
+    "u-blox_external_typedefs.h",
+    "u-blox_structs.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "sfe_bus.h",
+    "u-blox_Class_and_ID.h",
+    "u-blox_config_keys.h",
+    "u-blox_external_typedefs.h",
+    "u-blox_structs.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2391,11 +2732,12 @@
    "version": "1.2.12",
    "grupo": "distancia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "SparkFun_VL53L1X_4m_Laser_Distance_Sensor.h",
-    "SparkFunVL53L1X4mLaserDistanceSensor.h"
+   "cabeceras": [
+    "SparkFun_VL53L1X.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2411,13 +2753,15 @@
    "version": "1.1.2",
    "grupo": "ambiente",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "SparkFun_Weather_Meter_Kit_Arduino_Library.h",
-    "SparkFunWeatherMeterKitArduinoLibrary.h",
-    "SparkFun_Weather_Meter_Kit.h",
-    "SparkFunWeatherMeterKit.h"
+    "SparkFun_Weather_Meter_Kit_Constants.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "SparkFun_Weather_Meter_Kit_Constants.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2436,6 +2780,8 @@
    "cabeceras": [
     "TFLI2C.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -2455,6 +2801,8 @@
    "cabeceras": [
     "TFMPlus.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
    "cabeceras_probables": [],
    "arquitecturas": [
     "*"
@@ -2471,10 +2819,13 @@
    "version": "1.0.3",
    "grupo": "tiempo_posicion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
+    "TinyGPS++.h",
     "TinyGPSPlus.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2490,10 +2841,14 @@
    "version": "2.36.19",
    "grupo": "pantallas",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "U8g2.h"
+   "cabeceras": [
+    "MUIU8g2.h",
+    "U8g2lib.h",
+    "U8x8lib.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2509,10 +2864,12 @@
    "version": "1.3.1",
    "grupo": "distancia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "VL53L0X.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2528,10 +2885,12 @@
    "version": "1.3.1",
    "grupo": "distancia",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
+   "cabeceras": [
     "VL53L1X.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "*"
    ],
@@ -2547,10 +2906,21 @@
    "version": "2.0.17",
    "grupo": "comunicacion",
    "requerida_por": [],
-   "cabeceras": [],
-   "cabeceras_probables": [
-    "WiFiManager.h"
+   "cabeceras": [
+    "WiFiManager.h",
+    "strings_en.h",
+    "wm_consts_en.h",
+    "wm_strings_en.h",
+    "wm_strings_es.h"
    ],
+   "cabeceras_origen": "archivo",
+   "cabeceras_internas": [
+    "strings_en.h",
+    "wm_consts_en.h",
+    "wm_strings_en.h",
+    "wm_strings_es.h"
+   ],
+   "cabeceras_probables": [],
    "arquitecturas": [
     "esp8266",
     "esp32"
@@ -2564,5 +2934,15 @@
   }
  ],
  "cabeceras_repetidas": {},
+ "cabeceras_internas_repetidas": {
+  "splash.h": [
+   "Adafruit SH110X",
+   "Adafruit SSD1306"
+  ],
+  "sfe_bus.h": [
+   "SparkFun Indoor Air Quality Sensor - ENS160",
+   "SparkFun u-blox GNSS v3"
+  ]
+ },
  "problemas": []
 }

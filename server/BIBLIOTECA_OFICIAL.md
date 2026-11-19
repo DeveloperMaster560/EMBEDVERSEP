@@ -9,20 +9,36 @@ todos los clientes.
 
 | Archivo | Qué es |
 |---|---|
-| `bibliotecas.json` | La lista curada: 109 bibliotecas en 17 grupos. **Es lo único que se edita a mano.** |
-| `bibliotecas.lock.json` | Generado: versión exacta de cada una + sus 10 dependencias (119), cabeceras, repositorio, checksum. |
+| `bibliotecas.json` | La lista curada: 108 bibliotecas en 17 grupos. **Es lo único que se edita a mano.** |
+| `bibliotecas.lock.json` | Generado: versión exacta de cada una + sus 10 dependencias (118), cabeceras, repositorio, checksum. |
 | `cabeceras-indice.json` | Generado: para ~13 000 cabeceras del índice de Arduino, qué biblioteca la da. Sirve para decirle al cliente qué pidió. |
 | `bibliotecaOficial.ts` | El análisis previo a compilar y `GET /api/bibliotecas`. |
 
 ## Qué ve el cliente al compilar
 
-| Su código incluye… | Resultado |
-|---|---|
-| Algo del núcleo de la placa (`Wire.h`, `WiFi.h` en ESP32…) o de C/C++ | Compila |
-| Una biblioteca oficial instalada | Compila con la versión fija |
-| Una biblioteca que no es oficial (`FastLED.h`…) | **422** `BIBLIOTECA_NO_OFICIAL`, con el nombre de la biblioteca que la da. Queda anotada como solicitud |
-| Una oficial que este servidor aún no tiene | **503** `BIBLIOTECA_OFICIAL_NO_INSTALADA` (problema del administrador, no del cliente) |
-| Una oficial instalada en otra versión | **503** `BIBLIOTECA_VERSION_DISTINTA` |
+Antes de compilar se revisa **todo de una vez** (placa, núcleo y cada
+`#include`) y cada problema dice a quién le toca. El cliente ve primero lo que
+él puede cambiar y luego lo que depende del servidor ("ya se avisó al
+administrador; no tienes que hacer nada"). La respuesta trae además
+`diagnostico: [{codigo, para, mensaje}]`.
+
+| Caso | Código | Para |
+|---|---|---|
+| Código de otro entorno (PIC/XC8, STM32 HAL, Pico SDK, ESP-IDF, MSP430, 8051, `main()` sin `setup/loop`) | `NO_ES_ARDUINO` (422) | cliente |
+| Placa que no está en `placas.json` | `UNSUPPORTED_BOARD` (422) | cliente |
+| Biblioteca que no es oficial ni verificada | `BIBLIOTECA_NO_OFICIAL` (422) | cliente |
+| Falta el núcleo de la placa en el servidor | `CORE_NOT_INSTALLED` (503) | administrador |
+| Biblioteca oficial no instalada | `BIBLIOTECA_OFICIAL_NO_INSTALADA` (503) | administrador |
+| Biblioteca instalada en otra versión | `BIBLIOTECA_VERSION_DISTINTA` (503) | administrador |
+
+422 = el cliente tiene algo que cambiar; 503 = solo falta preparar el servidor.
+Si falta el núcleo, las bibliotecas se revisan igual con lo que suele traer esa
+familia de placas (revisión provisional).
+
+**Modo público** (`EMBEDVERSE_PUBLICO=1`): al cliente no le llegan las
+órdenes de instalación; solo quedan en el registro del administrador. En modo
+local (el de siempre) aparecen al final bajo «Para el administrador de este
+servidor».
 
 El `.ino` puede llamarse como sea (`cacao.ino`): el servidor lo trata como principal.
 
@@ -36,18 +52,35 @@ sh scripts/placas.sh oficial
 
 Windows: `powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 oficial`
 
-Instala las 119 con su versión exacta en `.tools/arduino-user/libraries`. Si
+Instala las 118 con su versión exacta en `.tools/arduino-user/libraries`. Si
 alguna falla, se vuelve a ejecutar: solo reintenta lo que falta. Los núcleos de
 placa se instalan aparte (`placas.sh nucleo <placa>`).
 
 `GET /api/bibliotecas` dice, para cada una, `instalada`, `no_instalada` o
 `version_distinta`.
 
-## Qué piden los clientes y no tenemos
+## Registros para el administrador
 
-`.tools/solicitudes-bibliotecas.jsonl`: una línea por petición rechazada
-(fecha, placa, cabecera, bibliotecas que la dan). **No guarda el código del
-cliente.** Sirve para decidir qué incorporar.
+En `.tools/` (nunca guardan el código del cliente):
+
+| Archivo | Qué anota |
+|---|---|
+| `solicitudes-bibliotecas.jsonl` | Cabeceras pedidas que no tenemos y qué biblioteca las da |
+| `solicitudes-placas.jsonl` | Placas desconocidas y entornos que no son Arduino |
+| `avisos-administrador.jsonl` | Núcleos y bibliotecas oficiales que hay que instalar |
+
+`python3 scripts/verificar_biblioteca.py --solicitudes` revisa las más pedidas.
+
+## Cabeceras: públicas e internas
+
+El generador descarga el `.zip` de cada biblioteca (con checksum, sin
+instalarla) y lee sus cabeceras reales: el índice solo las declara para 1 de
+cada 4 y el nombre no siempre las delata (TinyGPSPlus da `TinyGPS++.h`).
+Pública = la usan sus ejemplos, la declara el índice o se llama como la
+biblioteca; el resto son **internas** (`config.h` de HX711_ADC) y no sirven
+para identificar qué biblioteca pide un cliente. Dos oficiales no pueden dar
+la misma cabecera pública: el generador falla si pasa. Por eso de las dos
+`HX711.h` quedó solo la de bogde (*HX711 Arduino Library*).
 
 ## Incorporar o actualizar bibliotecas
 

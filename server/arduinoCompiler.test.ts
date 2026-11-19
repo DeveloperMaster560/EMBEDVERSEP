@@ -16,7 +16,7 @@ describe('Arduino compile request validation', () => {
 
   it('rejects boards that are not in the registry', () => {
     expect(() => validateCompileRequest({ boardId: 'pic16f877a', files: [{ path: 'main.ino', content: '' }] }))
-      .toThrowError(/Placa desconocida/);
+      .toThrowError(/«pic16f877a» aún no está en EMBEDVERSE/);
   });
 
   it('accepts any registry board; whether its core is installed is checked when compiling', () => {

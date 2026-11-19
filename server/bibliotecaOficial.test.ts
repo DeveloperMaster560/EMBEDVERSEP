@@ -29,7 +29,7 @@ describe('biblioteca oficial', () => {
     for (const b of OFICIAL) expect(b.version).toMatch(/^\d/);
     const vistas = new Map<string, string>();
     for (const b of OFICIAL) {
-      for (const h of b.cabeceras) {
+      for (const h of b.cabeceras.filter((x) => !b.cabeceras_internas?.includes(x))) {
         expect(vistas.get(h), `${h} en ${b.nombre} y ${vistas.get(h)}`).toBeUndefined();
         vistas.set(h, b.nombre);
       }

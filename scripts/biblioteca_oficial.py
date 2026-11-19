@@ -17,15 +17,23 @@ Además genera server/cabeceras-indice.json: cabecera → bibliotecas de TODO el
 índice de Arduino que la dan, para decirle al cliente qué biblioteca pide
 cuando no está en la oficial.
 
+Las cabeceras se leen del .zip de cada biblioteca (sin instalarla): el índice
+solo las declara para ~1 de cada 4, y el nombre no siempre las delata
+(TinyGPSPlus → TinyGPS++.h). Los .zip se comprueban con su checksum y quedan en
+.tools/arduino-downloads/libraries, donde arduino-cli los reutiliza al instalar.
+
 Uso (desde la carpeta del proyecto, con el índice ya descargado por placas.sh):
-    python3 scripts/biblioteca_oficial.py [ruta/library_index.json]
+    python3 scripts/biblioteca_oficial.py [ruta/library_index.json] [--sin-descargar]
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
+import urllib.request
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -33,6 +41,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 CURADA = RAIZ / "server" / "bibliotecas.json"
 SALIDA = RAIZ / "server" / "bibliotecas.lock.json"
 CABECERAS = RAIZ / "server" / "cabeceras-indice.json"
+DESCARGAS = RAIZ / ".tools" / "arduino-downloads" / "libraries"
 INDICES = [RAIZ / ".tools" / f"arduino-data-{p}" / "library_index.json" for p in ("darwin", "linux", "win32")] + \
           [RAIZ / ".tools" / "arduino-data" / "library_index.json"]
 
@@ -67,8 +76,65 @@ def probables(nombre: str) -> list[str]:
     return res
 
 
+def _normal(t: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", t.lower())
+
+
+def cabeceras_del_archivo(lib: dict) -> tuple[list[str], list[str]] | None:
+    """(cabeceras, internas) reales del .zip publicado (raíz y src/, como las ve
+    el compilador). None si no se pudo descargar o el checksum no coincide.
+
+    Pública = la incluyen los ejemplos, la declara el índice o se llama como la
+    biblioteca. Las demás son internas (config.h de HX711_ADC, splash.h de
+    Adafruit SSD1306): un cliente que escribe «config.h» se refiere al suyo, y
+    dos bibliotecas pueden tener una interna igual sin chocar."""
+    DESCARGAS.mkdir(parents=True, exist_ok=True)
+    destino = DESCARGAS / lib["archiveFileName"]
+    algoritmo, _, esperado = lib["checksum"].partition(":")
+    def correcto() -> bool:
+        h = hashlib.new(algoritmo.replace("-", "").lower())
+        with destino.open("rb") as f:
+            for trozo in iter(lambda: f.read(1 << 20), b""):
+                h.update(trozo)
+        return h.hexdigest() == esperado.lower()
+    try:
+        if not (destino.is_file() and correcto()):
+            req = urllib.request.Request(lib["url"], headers={"User-Agent": "embedverse-biblioteca-oficial"})
+            with urllib.request.urlopen(req, timeout=120) as r, destino.open("wb") as f:
+                while trozo := r.read(1 << 20):
+                    f.write(trozo)
+            if not correcto():
+                destino.unlink()
+                return None
+        with zipfile.ZipFile(destino) as z:
+            nombres = z.namelist()
+            de_ejemplos = set()
+            for n in nombres:
+                if "/examples/" in n and re.search(r"\.(ino|h|cpp|c)$", n, re.I):
+                    texto = z.read(n).decode("utf-8", "replace")
+                    de_ejemplos |= {m.split("/")[-1] for m in re.findall(r'#\s*include\s*[<"]([^>"]+)[>"]', texto)}
+    except (OSError, zipfile.BadZipFile, ValueError):
+        return None
+    res = set()
+    for n in nombres:
+        partes = n.split("/")
+        # <carpeta>/<x>.h   o   <carpeta>/src/<x>.h
+        if len(partes) == 2 or (len(partes) == 3 and partes[1] == "src"):
+            if re.search(r"\.(h|hpp)$", partes[-1], re.I):
+                res.add(partes[-1])
+    nombre = _normal(lib["name"])
+    publicas = {h for h in res if h in de_ejemplos or h in cabeceras_de(lib)
+                or (len(_normal(h.rsplit(".", 1)[0])) >= 3 and _normal(h.rsplit(".", 1)[0]) in nombre)}
+    if not publicas:
+        publicas = set(res)        # sin pistas: todas cuentan como públicas
+    return sorted(res), sorted(res - publicas)
+
+
 # Bibliotecas que trae el núcleo de cada placa: no se instalan aparte.
 DEL_NUCLEO = {"SPI", "Wire", "EEPROM", "SoftwareSerial", "HID", "WiFi", "Keyboard", "Mouse"}
+
+
+LEER_ARCHIVOS = True
 
 
 def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problemas: list[str], via: str | None = None):
@@ -82,15 +148,20 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
     if lib is None:
         problemas.append(f"«{nombre}» no está en el índice de Arduino" + (f" (dependencia de {via})" if via else ""))
         return
+    del_archivo = cabeceras_del_archivo(lib) if LEER_ARCHIVOS else None
+    if LEER_ARCHIVOS and del_archivo is None:
+        problemas.append(f"«{nombre}»: no se pudo leer su .zip (descarga o checksum); cabeceras deducidas del nombre")
+    cabeceras = sorted(set(cabeceras_de(lib)) | set(del_archivo[0] if del_archivo else []))
     salida[nombre] = {
         "nombre": nombre,
         "version": lib["version"],
         "grupo": grupo if via is None else None,
         "requerida_por": [via] if via else [],
-        "cabeceras": cabeceras_de(lib),
-        # Si el índice no las declara, las probables por el nombre (Adafruit MPU6050 →
-        # Adafruit_MPU6050.h). Las reales las lee el servidor de la biblioteca instalada.
-        "cabeceras_probables": [] if cabeceras_de(lib) else probables(nombre),
+        "cabeceras": cabeceras,
+        "cabeceras_origen": "archivo" if del_archivo is not None else ("indice" if cabeceras else None),
+        "cabeceras_internas": del_archivo[1] if del_archivo else [],
+        # Solo si no hubo forma de leerlas: deducidas del nombre (Adafruit MPU6050 → Adafruit_MPU6050.h).
+        "cabeceras_probables": [] if cabeceras else probables(nombre),
         "arquitecturas": lib.get("architectures") or [],
         "autor": lib.get("author"),
         "repositorio": lib.get("repository") or lib.get("website"),
@@ -104,7 +175,10 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
 
 
 def principal() -> int:
-    ruta = Path(sys.argv[1]) if len(sys.argv) > 1 else next((p for p in INDICES if p.is_file()), None)
+    global LEER_ARCHIVOS
+    args = [a for a in sys.argv[1:] if a != "--sin-descargar"]
+    LEER_ARCHIVOS = "--sin-descargar" not in sys.argv
+    ruta = Path(args[0]) if args else next((p for p in INDICES if p.is_file()), None)
     if ruta is None or not ruta.is_file():
         print("No encuentro library_index.json. Descárgalo con: sh scripts/placas.sh lista", file=sys.stderr)
         return 1
@@ -125,7 +199,11 @@ def principal() -> int:
     for lib in salida.values():
         for c in lib["cabeceras"]:
             duenos.setdefault(c, []).append(lib["nombre"])
-    choques = {c: sorted(ns) for c, ns in duenos.items() if len(ns) > 1}
+    internas = {lib["nombre"]: set(lib["cabeceras_internas"]) for lib in salida.values()}
+    repetidas = {c: sorted(ns) for c, ns in duenos.items() if len(ns) > 1}
+    # Choque: la ofrece hacia fuera alguna de ellas. Si en todas es interna, cada una usa la suya.
+    choques = {c: ns for c, ns in repetidas.items() if not all(c in internas[n] for n in ns)}
+    solo_internas = {c: ns for c, ns in repetidas.items() if c not in choques}
 
     lock = {
         "_nota": ("Biblioteca oficial de EMBEDVERSE. Generado por scripts/biblioteca_oficial.py desde "
@@ -136,6 +214,7 @@ def principal() -> int:
         "indice": {"archivo": ruta.name, "bytes": ruta.stat().st_size},
         "bibliotecas": sorted(salida.values(), key=lambda x: x["nombre"].lower()),
         "cabeceras_repetidas": choques,
+        "cabeceras_internas_repetidas": solo_internas,
         "problemas": problemas,
     }
     SALIDA.write_text(json.dumps(lock, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
@@ -158,7 +237,8 @@ def principal() -> int:
     curadas = sum(1 for x in salida.values() if x["grupo"])
     print(f"· {curadas} bibliotecas curadas + {len(salida) - curadas} dependencias = {len(salida)} con versión fija")
     print(f"· {sum(len(x['cabeceras']) for x in salida.values())} cabeceras conocidas; "
-          f"{len(choques)} repetidas entre bibliotecas oficiales")
+          f"{len(choques)} repetidas entre bibliotecas oficiales"
+          + (f" (+{len(solo_internas)} internas, sin efecto: {', '.join(sorted(solo_internas))})" if solo_internas else ""))
     for c, ns in sorted(choques.items()):
         print(f"  ! {c}: {', '.join(ns)}")
     sin_cab = [x["nombre"] for x in salida.values() if not x["cabeceras"]]
@@ -167,7 +247,7 @@ def principal() -> int:
     for p in problemas:
         print(f"  ✗ {p}")
     print(f"· índice completo: {len(mapa)} cabeceras → {CABECERAS.relative_to(RAIZ)}")
-    return 1 if problemas else 0
+    return 1 if problemas or choques else 0
 
 
 if __name__ == "__main__":

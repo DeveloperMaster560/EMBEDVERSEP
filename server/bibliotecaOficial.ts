@@ -28,8 +28,10 @@ export interface BibliotecaFijada {
   grupo: string | null;
   requerida_por: string[];
   cabeceras: string[];
-  /** Deducidas del nombre cuando el índice no declara las cabeceras. */
+  /** Deducidas del nombre cuando no se pudo leer el .zip. */
   cabeceras_probables: string[];
+  /** Solo de uso interno (config.h de HX711_ADC): no identifican a la biblioteca. */
+  cabeceras_internas?: string[];
   repositorio: string | null;
   licencia: string | null;
 }
@@ -208,10 +210,16 @@ export function analizar(
   instaladas: Instalada[],
 ): Analisis {
   const propios = new Set(files.map((f) => path.posix.basename(f.path)));
+  // «config.h» del cliente es el suyo, no el interno de una biblioteca.
+  const interna = (nombre: string, h: string) => POR_NOMBRE.get(nombre)?.cabeceras_internas?.includes(h) ?? false;
   const instaladaPorCabecera = new Map<string, Instalada>();
-  for (const lib of instaladas) for (const h of lib.cabeceras) if (!instaladaPorCabecera.has(h)) instaladaPorCabecera.set(h, lib);
+  for (const lib of instaladas) {
+    for (const h of lib.cabeceras) if (!instaladaPorCabecera.has(h) && !interna(lib.nombre, h)) instaladaPorCabecera.set(h, lib);
+  }
   const oficialPorCabecera = new Map<string, BibliotecaFijada>();
-  for (const b of [...VERIFICADAS, ...OFICIAL]) for (const h of [...b.cabeceras, ...b.cabeceras_probables]) oficialPorCabecera.set(h, b);
+  for (const b of [...VERIFICADAS, ...OFICIAL]) {
+    for (const h of [...b.cabeceras, ...b.cabeceras_probables]) if (!interna(b.nombre, h)) oficialPorCabecera.set(h, b);
+  }
 
   const res: InclusionAnalizada[] = [];
   const usadas = new Set<string>();

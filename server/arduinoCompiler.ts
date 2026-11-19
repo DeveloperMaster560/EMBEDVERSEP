@@ -4,10 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Connect } from 'vite';
+import { anotarSolicitudes, bibliotecasEn, cabecerasDelNucleo } from './bibliotecaOficial.js';
 import {
-  analizar, anotarSolicitudes, bibliotecasEn, cabecerasDelNucleo, mensajeAjenas, mensajePendientes, mensajeVersiones,
-} from './bibliotecaOficial.js';
-import { buscarPlaca, comoInstalar, nucleoInstalado, PLACAS, type Placa } from './placas.js';
+  codigoPrincipal, diagnosticar, estadoHttp, mensaje, otroEntorno, paraRespuesta, registrar, type Problema,
+} from './diagnostico.js';
+import { buscarPlaca, nucleoInstalado, type Placa } from './placas.js';
 
 const maxRequestBytes = 2 * 1024 * 1024;
 const maxProjectBytes = 1024 * 1024;
@@ -30,40 +31,49 @@ export interface CompileResponse {
   artifacts?: { name: string; bytes: number; downloadBase64?: string }[];
   error?: string;
   code?: string;
+  /** Todo lo que impide compilar, con a quién le toca arreglarlo. */
+  diagnostico?: Problema[];
 }
 
 export class CompileRequestError extends Error {
   readonly statusCode: number;
   readonly code: string;
+  readonly diagnostico?: Problema[];
 
   constructor(
     message: string,
     statusCode: number,
     code: string,
+    diagnostico?: Problema[],
   ) {
     super(message);
     this.name = 'CompileRequestError';
     this.statusCode = statusCode;
     this.code = code;
+    this.diagnostico = diagnostico;
   }
 }
 
 export function validateCompileRequest(value: unknown): CompileRequest {
+  const files = validarArchivos(value);
+  const boardId = (value as Partial<CompileRequest>).boardId;
+  const placa = buscarPlaca(boardId);
+  if (!placa) {
+    // Sin placa no hay servidor que preparar: solo lo que el cliente puede cambiar.
+    const problemas = diagnosticar({ boardId: String(boardId), placa: undefined, files, nucleo: null, instaladas: [] })
+      .problemas.filter((p) => p.para === 'cliente' && !p.codigo.startsWith('BIBLIOTECA_OFICIAL') && !p.codigo.startsWith('BIBLIOTECA_VERSION'));
+    throw new CompileRequestError(mensaje(problemas), 422, codigoPrincipal(problemas), paraRespuesta(problemas));
+  }
+  return { boardId: placa.id, files };
+}
+
+/** Comprueba los archivos (rutas, tamaños, un único .ino). No mira la placa. */
+export function validarArchivos(value: unknown): { path: string; content: string }[] {
   if (!value || typeof value !== 'object') {
     throw new CompileRequestError('El cuerpo de la solicitud no es válido.', 400, 'INVALID_REQUEST');
   }
 
   const request = value as Partial<CompileRequest>;
-  const placa = buscarPlaca(request.boardId);
-  if (!placa) {
-    throw new CompileRequestError(
-      `Placa desconocida: ${String(request.boardId)}. Las placas admitidas están en server/placas.json `
-      + `(${PLACAS.length}); para añadir otra, ver la guía de placas y bibliotecas.`,
-      422,
-      'UNSUPPORTED_BOARD',
-    );
-  }
-
   if (!Array.isArray(request.files) || request.files.length === 0 || request.files.length > maxFiles) {
     throw new CompileRequestError('El proyecto debe contener entre 1 y 40 archivos.', 400, 'INVALID_FILES');
   }
@@ -113,7 +123,7 @@ export function validateCompileRequest(value: unknown): CompileRequest {
     );
   }
 
-  return { boardId: placa.id, files };
+  return files;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
@@ -249,6 +259,18 @@ export async function hasUsableToolchain(
   return false;
 }
 
+/** Registra (solicitudes y avisos) y responde con el diagnóstico completo. */
+async function rechazar(
+  raiz: string, boardId: string, files: { path: string; content: string }[], problemas: Problema[],
+): Promise<never> {
+  if (!process.env.VITEST) {
+    const { analisis } = diagnosticar({ boardId, placa: buscarPlaca(boardId), files, nucleo: null, instaladas: [] });
+    await anotarSolicitudes(raiz, analisis.ajenas, boardId).catch(() => undefined);
+    await registrar(raiz, boardId, problemas, otroEntorno(files)).catch(() => undefined);
+  }
+  throw new CompileRequestError(mensaje(problemas), estadoHttp(problemas), codigoPrincipal(problemas), paraRespuesta(problemas));
+}
+
 async function compileProject(project: CompileRequest, rootDirectory: string): Promise<CompileResponse> {
   const placa = buscarPlaca(project.boardId) as Placa;   // validateCompileRequest ya la comprobó
   const esAvr = placa.paquete === 'arduino:avr';
@@ -289,10 +311,7 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       'TOOLCHAIN_NOT_INSTALLED',
     );
   }
-  if (dataDirectory === null && !esAvr) {
-    throw new CompileRequestError(comoInstalar(placa), 503, 'CORE_NOT_INSTALLED');
-  }
-  if (dataDirectory === null) {
+  if (dataDirectory === null && esAvr) {
     throw new CompileRequestError(
       `Hay Arduino CLI, pero no un núcleo AVR 1.8.8 con compilador para ${process.platform}. `
       + 'Un núcleo instalado en otro sistema no sirve: trae los binarios de aquel. '
@@ -302,22 +321,16 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
     );
   }
 
-  // Biblioteca oficial: el cliente compila con NUESTRAS bibliotecas (versión fija).
-  const analisis = analizar(
-    project.files,
-    await cabecerasDelNucleo(dataDirectory, placa),
-    await bibliotecasEn(path.join(userDirectory, 'libraries')),
-  );
-  if (analisis.ajenas.length) {
-    if (!process.env.VITEST) await anotarSolicitudes(rootDirectory, analisis.ajenas, placa.id).catch(() => undefined);
-    throw new CompileRequestError(mensajeAjenas(analisis.ajenas), 422, 'BIBLIOTECA_NO_OFICIAL');
-  }
-  if (analisis.pendientes.length) {
-    throw new CompileRequestError(mensajePendientes(analisis.pendientes), 503, 'BIBLIOTECA_OFICIAL_NO_INSTALADA');
-  }
-  if (analisis.versionesDistintas.length) {
-    throw new CompileRequestError(mensajeVersiones(analisis.versionesDistintas), 503, 'BIBLIOTECA_VERSION_DISTINTA');
-  }
+  // Todo de una vez: núcleo y cada #include contra la biblioteca de EMBEDVERSE (versión fija).
+  const { problemas } = diagnosticar({
+    boardId: placa.id,
+    placa,
+    files: project.files,
+    nucleo: dataDirectory ? await cabecerasDelNucleo(dataDirectory, placa) : null,
+    instaladas: await bibliotecasEn(path.join(userDirectory, 'libraries')),
+  });
+  if (problemas.length) await rechazar(rootDirectory, placa.id, project.files, problemas);
+  if (dataDirectory === null) throw new Error('núcleo ausente sin diagnóstico');   // no ocurre: diagnosticar lo informa
 
   const workspace = await mkdtemp(path.join(os.tmpdir(), 'embedverse-compile-'));
   const sketchDirectory = path.join(workspace, 'EmbedverseSketch');
@@ -500,7 +513,16 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
         }
 
         const body = await readJsonBody(request);
-        const project = validateCompileRequest(body);
+        let project: CompileRequest;
+        try {
+          project = validateCompileRequest(body);
+        } catch (error) {
+          if (error instanceof CompileRequestError && error.diagnostico) {
+            const files = validarArchivos(body);
+            await rechazar(rootDirectory, String((body as { boardId?: unknown }).boardId), files, error.diagnostico ?? []);
+          }
+          throw error;
+        }
         const result = await compileProject(project, rootDirectory);
         sendJson(response, result.success ? 200 : 422, result);
       } catch (error) {
@@ -511,6 +533,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
             output: '',
             error: error.message,
             code: error.code,
+            ...(error.diagnostico ? { diagnostico: error.diagnostico } : {}),
           });
           return;
         }

@@ -90,7 +90,6 @@
   ],
   "fuerza_deformacion": [
    "HX711 Arduino Library",
-   "HX711",
    "HX711_ADC",
    "Adafruit NAU7802 Library",
    "SparkFun Qwiic Scale NAU7802 Arduino Library"
