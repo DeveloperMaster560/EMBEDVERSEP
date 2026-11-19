@@ -33,6 +33,7 @@ import {
 import { categoryLabels, componentCatalog } from './domain/catalog';
 import { PhotoIdentifier } from './vision/PhotoIdentifier';
 import { changeCircuitBoard, createArduinoPracticeCircuit, normalizeElectronicCircuit, validateCircuit } from './domain/circuit';
+import { loadBridgeScene } from './bridge-designer/persistence';
 import type { BoardId, ComponentCategory, DigitalTwinScene, ElectronicCircuit, EmbeddedProject, ProjectFile } from './domain/types';
 import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
 import { ShmStationSimulator } from './shm/sim/ShmStationSimulator';
@@ -576,7 +577,7 @@ function App() {
               ))}
             </select>
             <p className="modal-description">{templateById(templateId).description}</p>
-            <div className="modal-note"><Cpu size={15} /> Arduino Uno puede compilarse con el toolchain AVR instalado localmente. ESP32 aún no está configurado.</div>
+            <div className="modal-note"><Cpu size={15} /> <NotaNucleo placaId={boardId} /> En el editor puedes compilar además para otras placas (Nano, Mega, ESP32-S3, Pico, STM32, Teensy…).</div>
             <div className="modal-actions">
               <button className="secondary-button" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
               <button className="primary-button" onClick={() => void createProject()}><Plus size={16} /> Crear proyecto</button>
@@ -892,7 +893,7 @@ function WorkspaceSummaryPage({
         <article className="summary-card stats-card">
           <span className="summary-label">Microcontrolador</span>
           <strong>{boardName}</strong>
-          <small>{project.boardId === 'arduino-uno' ? 'Core AVR disponible localmente' : 'ESP32 preparado para ampliación futura'}</small>
+          <small><NotaNucleo placaId={project.boardId} /></small>
         </article>
 
         <article className="summary-card stats-card">
@@ -1075,36 +1076,117 @@ function SimulationPage({ project }: { project: EmbeddedProject }) {
   );
 }
 
+type EstadoPrueba = 'ok' | 'falla' | 'aviso' | 'falta' | 'corriendo';
+
+interface PruebaProyecto {
+  nombre: string;
+  estado: EstadoPrueba;
+  detalle: string;
+}
+
+const MARCA_PRUEBA: Record<EstadoPrueba, string> = { ok: '✓', falla: '✗', aviso: '!', falta: '—', corriendo: '…' };
+
+/** Pruebas reales del proyecto: cada una ejecuta algo (compilar, simular, validar) y dice qué encontró. */
+async function probarProyecto(project: EmbeddedProject, avance: (p: PruebaProyecto[]) => void): Promise<PruebaProyecto[]> {
+  const r: PruebaProyecto[] = [];
+  const poner = (x: PruebaProyecto) => { r.push(x); avance([...r]); };
+  const archivos = project.files.map(({ path, content }) => ({ path, content }));
+  const principal = project.files.find((f) => /\.(ino|cpp)$/i.test(f.path) && /\bvoid\s+setup\s*\(/.test(f.content) && /\bvoid\s+loop\s*\(/.test(f.content));
+  poner(principal
+    ? { nombre: 'Programa principal', estado: 'ok', detalle: `${principal.path} tiene setup() y loop().` }
+    : { nombre: 'Programa principal', estado: 'falla', detalle: 'Ningún .ino/.cpp tiene setup() y loop().' });
+
+  const placaId = leerPlacaGuardada(project.id, project.boardId);
+  try {
+    const res = await fetch('/api/compile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boardId: placaId, files: archivos }) });
+    const c = await res.json() as CompileResult;
+    if (res.ok && c.success) {
+      const uso = /usa (\d+) bytes \((\d+)%\)/.exec(c.output)?.slice(1);
+      const carga = c.carga ? { name: c.carga.archivo } : c.artifacts?.find((x) => /\.ino\.(hex|bin|uf2)$/.test(x.name));
+      poner({ nombre: `Compila para ${c.board}`, estado: 'ok', detalle: `${uso ? `${uso[0]} bytes (${uso[1]} % de la memoria). ` : ''}${carga ? `Archivo para cargar en la placa: ${carga.name}.` : 'Sin archivo para cargar.'}` });
+      const avisos = c.avisosLicencia ?? [];
+      const libs = c.bibliotecas?.filter((x) => !x.delNucleo) ?? [];
+      poner(avisos.length
+        ? { nombre: 'Licencias de las bibliotecas', estado: 'aviso', detalle: avisos.join(' ') }
+        : { nombre: 'Licencias de las bibliotecas', estado: 'ok', detalle: libs.length ? `${libs.length} biblioteca(s), todas permisivas o LGPL.` : 'Solo usa el núcleo de la placa.' });
+    } else {
+      poner({ nombre: `Compila para ${placaId}`, estado: 'falla', detalle: (c.error ?? c.output ?? 'Error de compilación').split('\n').filter(Boolean).slice(0, 3).join(' ') });
+      poner({ nombre: 'Licencias de las bibliotecas', estado: 'falta', detalle: 'Se sabe al compilar.' });
+    }
+  } catch {
+    poner({ nombre: 'Compilación', estado: 'falla', detalle: 'No se pudo contactar al compilador local.' });
+  }
+
+  try {
+    const res = await fetch('/api/simular', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boardId: placaId, files: archivos, escenario: leerEscenario(project.id), duracion_s: 60 }) });
+    const s = await res.json() as SimulacionResult;
+    if (s.code === 'SIMULACION_SOLO_LOCAL') poner({ nombre: 'Simulación (60 s)', estado: 'falta', detalle: s.error ?? '' });
+    else if (!s.ok) poner({ nombre: 'Simulación (60 s)', estado: 'falla', detalle: (s.error ?? '').slice(0, 300) });
+    else poner({
+      nombre: 'Simulación (60 s)',
+      estado: s.con_problemas ? 'falla' : s.notas?.length ? 'aviso' : 'ok',
+      detalle: `${s.serie_total ?? 0} líneas impresas, ${s.mensajes ?? 0} mensajes${s.con_problemas ? `, ${s.con_problemas} fuera del contrato` : ''}.${s.notas?.length ? ` Notas: ${s.notas.slice(0, 3).join(' · ')}` : ''}`,
+    });
+  } catch {
+    poner({ nombre: 'Simulación (60 s)', estado: 'falla', detalle: 'No se pudo contactar al simulador local.' });
+  }
+
+  if (project.electronicLab) {
+    const v = validateCircuit(project.electronicLab);
+    poner({ nombre: 'Circuito del laboratorio', estado: v.valid ? (v.warnings.length ? 'aviso' : 'ok') : 'falla', detalle: [v.summary, ...v.issues, ...v.warnings].slice(0, 4).join(' ') });
+  } else {
+    poner({ nombre: 'Circuito del laboratorio', estado: 'falta', detalle: 'El proyecto no tiene circuito dibujado.' });
+  }
+
+  try {
+    const escena = await loadBridgeScene(project.id);
+    const objetos = escena?.objects ?? [];
+    const sensores = objetos.filter((o) => o.role === 'iot');
+    const enlazados = sensores.filter((o) => o.association?.deviceId);
+    poner(!objetos.length && !project.digitalTwin
+      ? { nombre: 'Modelo 3D', estado: 'falta', detalle: 'Sin modelo en «Modelos 3D».' }
+      : { nombre: 'Modelo 3D', estado: sensores.length && enlazados.length < sensores.length ? 'aviso' : 'ok', detalle: `${objetos.length} objeto(s)${project.digitalTwin ? ` + modelo ${project.digitalTwin.name}` : ''}; ${sensores.length} equipo(s) embebidos en el modelo, ${enlazados.length} enlazados a un dispositivo.` });
+  } catch {
+    poner({ nombre: 'Modelo 3D', estado: 'falta', detalle: 'No se pudo leer el modelo guardado.' });
+  }
+  return r;
+}
+
 function TestsPage({ project }: { project: EmbeddedProject }) {
-  const checks = [
-    ['Crear proyecto con ESP32', '✓'],
-    ['Editar código', '✓'],
-    ['Diseñar circuito embebido', '✓'],
-    ['Crear escena 3D', '✓'],
-    ['Mover, rotar y escalar', '✓'],
-    ['Importar GLB', project.digitalTwin ? '✓' : '—'],
-    ['Guardar y reabrir proyecto', '✓'],
-    ['Persistencia de objetos y circuitos', '✓'],
-    ['Asociar 3D con componente', project.electronicLab ? '✓' : '—'],
-    ['Cambios entre espacios', '✓'],
-  ];
+  const [pruebas, setPruebas] = useState<PruebaProyecto[]>([]);
+  const [corriendo, setCorriendo] = useState(false);
+  const [hora, setHora] = useState<string | null>(null);
+  const ejecutar = async () => {
+    setCorriendo(true);
+    setPruebas([]);
+    try {
+      await probarProyecto(project, setPruebas);
+      setHora(new Date().toLocaleTimeString());
+    } finally {
+      setCorriendo(false);
+    }
+  };
 
   return (
     <div className="standard-page">
       <div className="page-heading-row">
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> TESTS</div>
-          <h1>Pruebas del flujo de ingeniería</h1>
-          <p>Verificación funcional del entorno de trabajo y la persistencia del proyecto.</p>
+          <h1>Pruebas del proyecto</h1>
+          <p>Compila, simula y valida el proyecto tal como está guardado. Nada se marca como correcto sin haberlo ejecutado.</p>
         </div>
+        <button className="primary-button" disabled={corriendo} onClick={() => void ejecutar()}><Play size={15} /> {corriendo ? 'Probando…' : 'Ejecutar pruebas'}</button>
       </div>
       <div className="tests-list">
-        {checks.map(([name, state]) => (
-          <div className="test-row" key={name}>
-            <span>{name}</span>
-            <strong>{state}</strong>
+        {pruebas.length === 0 && !corriendo && <div className="test-row"><span>Aún no se ha probado este proyecto en esta sesión.</span><strong className="test-falta">—</strong></div>}
+        {pruebas.map((x) => (
+          <div className="test-row" key={x.nombre}>
+            <span><b>{x.nombre}</b><small>{x.detalle}</small></span>
+            <strong className={`test-${x.estado}`}>{MARCA_PRUEBA[x.estado]}</strong>
           </div>
         ))}
+        {corriendo && <div className="test-row"><span>Probando… (compilar y simular pueden tardar un minuto la primera vez)</span><strong className="test-corriendo">…</strong></div>}
+        {hora && <small className="test-hora">Última ejecución: {hora}</small>}
       </div>
     </div>
   );
@@ -1279,6 +1361,28 @@ interface PlacaCompilador {
   notas: string | null;
 }
 
+/** Si el núcleo de la placa está instalado en el servidor de compilación (null = aún no se sabe). */
+function useNucleoInstalado(placaId: string): boolean | null {
+  const [instalada, setInstalada] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetch('/api/placas')
+      .then((r) => (r.ok ? r.json() as Promise<{ placas: PlacaCompilador[] }> : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (vivo) setInstalada(d.placas.find((x) => x.id === placaId)?.instalada ?? false); })
+      .catch(() => { if (vivo) setInstalada(null); });
+    return () => { vivo = false; };
+  }, [placaId]);
+  return instalada;
+}
+
+function textoNucleo(instalada: boolean | null): string {
+  return instalada === null ? 'Consultando el compilador…' : instalada ? 'Núcleo instalado: compila en este servidor.' : 'Su núcleo aún no está instalado en el servidor de compilación (lo instala el administrador).';
+}
+
+function NotaNucleo({ placaId }: { placaId: string }) {
+  return <>{textoNucleo(useNucleoInstalado(placaId))}</>;
+}
+
 function leerPlacaGuardada(projectId: string, porDefecto: string): string {
   try {
     return localStorage.getItem(`embedverse.placa.${projectId}`) ?? porDefecto;
@@ -1304,6 +1408,8 @@ interface CompileResult {
   code?: string;
   bibliotecas?: { nombre: string; version: string; licencia: string | null; grupo: string; delNucleo: boolean }[];
   avisosLicencia?: string[];
+  /** Qué archivo grabar en la placa y cómo (server/arduinoCompiler.ts → elegirCarga). */
+  carga?: { archivo: string; formato: string; direccion: string | null; herramienta: string; pasos: string[]; comandoArduinoCli: string; advertencias: string[] };
 }
 
 /** Respuesta de /api/simular (server/simulador.ts). */
@@ -1316,6 +1422,7 @@ interface SimulacionResult {
   notas?: string[];
   tiempo_simulado_s?: number;
   serie?: string[];
+  serie_t?: number[];
   serie_total?: number;
   mensajes_detalle?: { t_s: number; topico: string; problemas: string[] }[];
 }
@@ -1351,7 +1458,10 @@ function guardarEscenario(projectId: string, texto: string): void {
 function textoSimulacion(r: SimulacionResult): string {
   if (!r.ok) return r.error ?? 'La simulación falló.';
   const lineas = [`Simulación: ${Math.round(r.tiempo_simulado_s ?? 0)} s simulados · ${r.mensajes ?? 0} mensajes · ${r.con_problemas ?? 0} con problemas`, ''];
-  for (const l of r.serie ?? []) lineas.push(`placa │ ${l}`);
+  (r.serie ?? []).forEach((l, i) => {
+    const t = r.serie_t?.[i];
+    lineas.push(`${t === undefined ? '' : `[${t.toFixed(1).padStart(7)} s] `}placa │ ${l}`);
+  });
   if ((r.serie_total ?? 0) > (r.serie?.length ?? 0)) lineas.push(`placa │ … (${r.serie_total} líneas en total)`);
   for (const m of r.mensajes_detalle ?? []) {
     lineas.push(`[${m.t_s.toFixed(1).padStart(7)} s] ${m.topico}  ${m.problemas.length ? '✗ ' + m.problemas.slice(0, 2).join('; ') : '✓'}`);
@@ -1426,6 +1536,9 @@ function EditorPage({
         return;
       }
       const artifacts = result.artifacts?.map((artifact) => `${artifact.name} (${artifact.bytes.toLocaleString()} bytes)`).join('\n');
+      // Las instrucciones nombran el archivo como lo guarda el navegador, no como sale del compilador.
+      const nombreDescarga = (archivo: string) => `${project.name.replace(/[^a-zA-Z0-9_-]+/g, '-')}.${archivo.endsWith('.merged.bin') ? 'merged.bin' : archivo.split('.').pop()}`;
+      const conNombre = (t: string) => (result.carga ? t.split(result.carga.archivo).join(nombreDescarga(result.carga.archivo)) : t);
       const libs = result.bibliotecas?.filter((b) => !b.delNucleo)
         .map((b) => `${b.nombre} ${b.version} — ${b.licencia ?? 'sin licencia'}`).join('\n');
       setCompileState('success');
@@ -1434,14 +1547,14 @@ function EditorPage({
         artifacts ? `Artefactos generados:\n${artifacts}` : 'Compilación correcta.',
         libs ? `Bibliotecas dentro del firmware (incluye sus avisos de copyright al entregarlo):\n${libs}` : '',
         result.avisosLicencia?.length ? `⚠ Licencias:\n${result.avisosLicencia.map((a) => `· ${a}`).join('\n')}` : '',
+        result.carga ? conNombre(`Cargar en la placa (${result.carga.herramienta}):\n${result.carga.pasos.map((x) => `· ${x}`).join('\n')}${result.carga.direccion ? `\nDirección: ${result.carga.direccion}` : ''}\nCon Arduino CLI: ${result.carga.comandoArduinoCli}${result.carga.advertencias.map((a) => `\n⚠ ${a}`).join('')}`) : '',
       ].filter(Boolean).join('\n\n'));
-      const hex = result.artifacts?.find((artifact) => /\.ino\.(hex|bin|uf2)$/.test(artifact.name) && artifact.downloadBase64);
+      const hex = result.artifacts?.find((a) => a.downloadBase64 && (result.carga ? a.name === result.carga.archivo : /\.ino\.(hex|bin|uf2)$/.test(a.name)));
       if (hex?.downloadBase64) {
-        const extension = hex.name.split('.').pop() ?? 'hex';
         const binary = atob(hex.downloadBase64);
         const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
         setFirmwareDownload({
-          name: `${project.name.replace(/[^a-zA-Z0-9_-]+/g, '-')}.${extension}`,
+          name: nombreDescarga(hex.name),
           url: URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' })),
         });
       }
@@ -1513,11 +1626,11 @@ function EditorPage({
               }}
             />
           ) : <div className="editor-empty">Selecciona un archivo para editar.</div>}
-          <div className={`terminal-panel terminal-${compileState}`}><div className="terminal-heading"><span><TerminalSquare size={14} /> CONSOLA · {simState === 'running' ? 'SIMULANDO' : compileState === 'compiling' ? 'COMPILANDO' : compileState === 'success' ? 'COMPILACIÓN CORRECTA' : compileState === 'error' ? 'COMPILACIÓN FALLIDA' : 'LISTA'}</span><span className={`terminal-idle ${compileState}`}>{compileState === 'compiling' ? 'EN CURSO' : compileState === 'error' ? 'ERROR' : compileState === 'success' ? 'OK' : 'ARDUINO CLI'}</span></div><pre className="terminal-content compile-output">{compileOutput || 'Listo. Compila para verificar el firmware real, o simula para ejecutarlo en el PC contra el escenario.'}</pre>{firmwareDownload && <a className="firmware-download" href={firmwareDownload.url} download={firmwareDownload.name}><Save size={13} /> Descargar firmware HEX</a>}</div>
+          <div className={`terminal-panel terminal-${compileState}`}><div className="terminal-heading"><span><TerminalSquare size={14} /> CONSOLA · {simState === 'running' ? 'SIMULANDO' : compileState === 'compiling' ? 'COMPILANDO' : compileState === 'success' ? 'COMPILACIÓN CORRECTA' : compileState === 'error' ? 'COMPILACIÓN FALLIDA' : 'LISTA'}</span><span className={`terminal-idle ${compileState}`}>{compileState === 'compiling' ? 'EN CURSO' : compileState === 'error' ? 'ERROR' : compileState === 'success' ? 'OK' : 'ARDUINO CLI'}</span></div><pre className="terminal-content compile-output">{compileOutput || 'Listo. Compila para verificar el firmware real, o simula para ejecutarlo en el PC contra el escenario.'}</pre>{firmwareDownload && <a className="firmware-download" href={firmwareDownload.url} download={firmwareDownload.name}><Save size={13} /> Descargar firmware ({firmwareDownload.name.split('.').slice(1).join('.').toUpperCase()})</a>}</div>
         </section>
         <aside className="properties-panel"><div className="properties-heading"><Settings2 size={15} /> PROPIEDADES</div><div className="property-group"><span className="property-label">PROYECTO</span><strong>{project.name}</strong><small>Proyecto local</small></div><div className="property-group"><span className="property-label">MICROCONTROLADOR</span><strong><Cpu size={14} /> {boardLabels[project.boardId]}</strong><label className="property-label" htmlFor="placa-compilar">COMPILAR PARA</label><select id="placa-compilar" value={placaId} onChange={(e) => elegirPlaca(e.target.value)}>{placas === null ? <option value={placaId}>{placaId}</option> : [...new Set(placas.map((p) => p.familia))].map((familia) => <optgroup key={familia} label={familia}>{placas.filter((p) => p.familia === familia).map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.instalada ? '' : ' — sin instalar'}</option>)}</optgroup>)}</select><small>{placas === null ? 'Consultando placas…' : placas.length === 0 ? 'No se pudo leer la lista de placas del compilador.' : !placa ? 'Esta placa no está en la lista del compilador.' : placa.instalada ? `Núcleo ${placa.paquete} instalado.` : `Falta el núcleo ${placa.paquete}${placa.descarga_mb ? ` (~${placa.descarga_mb} MB)` : ''}: ver la guía de placas.`}{placa?.notas ? ` ${placa.notas}` : ''}</small></div><div className="property-group"><span className="property-label">ARCHIVOS</span><strong>{project.files.length} archivo{project.files.length === 1 ? '' : 's'}</strong><small>{project.files.map((file) => file.path.split('.').pop()?.toUpperCase()).filter(Boolean).join(' · ')}</small></div><div className="property-group"><label className="property-label" htmlFor="escenario-sim">ESCENARIO DE SIMULACIÓN</label><textarea id="escenario-sim" className="escenario-input" spellCheck={false} value={escenario} onChange={(e) => { setEscenario(e.target.value); guardarEscenario(project.id, e.target.value); }} /><label className="property-label" htmlFor="duracion-sim">DURACIÓN (S SIMULADOS)</label><input id="duracion-sim" className="duracion-input" type="number" min={1} max={3600} value={duracionSim} onChange={(e) => setDuracionSim(Math.max(1, Math.min(3600, Number(e.target.value) || 1)))} /><small>Datos inventados para probar el programa: no son mediciones. Columnas y dispositivos: firmware/simulador-host/LEEME.md.</small></div><div className="property-warning"><AlertCircle size={15} /><span>Simular ejecuta el programa en este PC con las bibliotecas reales; que funcione aquí no prueba que funcione en la placa (tiempos, RAM, tensiones).</span></div></aside>
       </div>
-      <div className="ide-statusbar"><span><span className="status-dot" /> {boardLabels[project.boardId]}</span><span>UTF-8</span><span>Arduino Framework · no configurado</span><span>{activeFile?.content.split('\n').length ?? 0} líneas</span></div>
+      <div className="ide-statusbar"><span><span className="status-dot" /> {boardLabels[project.boardId]}</span><span>UTF-8</span><span>Arduino · compilar para {placa?.nombre ?? placaId}{placa ? (placa.instalada ? '' : ' (núcleo sin instalar)') : ''}</span><span>{activeFile?.content.split('\n').length ?? 0} líneas</span></div>
     </div>
   );
 }

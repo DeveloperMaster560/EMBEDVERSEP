@@ -45,6 +45,8 @@ export interface SimulacionResultado {
   notas?: string[];
   tiempo_simulado_s?: number;
   serie?: string[];
+  /** Segundo simulado en que la placa imprimió cada línea de `serie`. */
+  serie_t?: number[];
   serie_total?: number;
   mensajes_detalle?: { t_s: number; topico: string; carga: string; problemas: string[] }[];
 }
@@ -179,8 +181,8 @@ export function createSimuladorMiddleware(raiz: string): Connect.NextHandleFunct
     if (esPublico()) {
       enviar(res, 403, {
         ok: false, code: 'SIMULACION_SOLO_LOCAL',
-        error: 'La simulación ejecuta el programa en el servidor: en el servicio público aún no está disponible. '
-          + 'Se puede simular en el PC propio con firmware/simulador-host.',
+        error: 'La simulación todavía no está disponible en el servicio en línea: ejecutar tu programa en el servidor '
+          + 'exige un entorno aislado que aún no está listo. Compilar y descargar el firmware sí funcionan.',
       });
       return;
     }

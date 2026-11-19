@@ -53,7 +53,7 @@ describe('validateGeneratorSpec', () => {
   });
 
   it('rechaza dimensiones fuera del rango que el generador puede resolver', () => {
-    expectRejection({ length_x_m: 5 }, 'OUT_OF_RANGE');
+    expectRejection({ length_x_m: 4.5 }, 'OUT_OF_RANGE');
     expectRejection({ width_y_m: 500 }, 'OUT_OF_RANGE');
     expectRejection({ length_x_m: Number.NaN }, 'INVALID_NUMBER');
     expectRejection({ length_x_m: Number.POSITIVE_INFINITY }, 'INVALID_NUMBER');
@@ -141,5 +141,28 @@ describe('resolución del intérprete de Python', () => {
     } finally {
       if (previous !== undefined) process.env.EMBEDVERSE_PYTHON = previous;
     }
+  });
+});
+
+describe('vivienda (19/11/2026)', () => {
+  it('acepta una casa de 12 x 9 m con su programa', () => {
+    const spec = validateGeneratorSpec({
+      levels: 2, length_x_m: 12, width_y_m: 9, clear_height_m: 2.5, floor_to_floor_m: 2.8,
+      building_use: 'vivienda',
+      residential_program: { dormitorio: 3, cocina: 1, sala: 1, bano: 2 },
+      disciplines: ['electrical'],
+    });
+    expect(spec.length_x_m).toBe(12);
+    expect(spec.residential_program).toEqual({ dormitorio: 3, cocina: 1, sala: 1, bano: 2 });
+  });
+
+  it('rechaza recintos de vivienda desconocidos y cantidades no enteras', () => {
+    expectRejection({ residential_program: { piscina: 1 } }, 'INVALID_ROOM_USE');
+    expectRejection({ residential_program: { dormitorio: 1.5 } }, 'INVALID_NUMBER');
+    expectRejection({ residential_program: [1] }, 'INVALID_ROOMS');
+  });
+
+  it('sigue rechazando lados por debajo de 5 m', () => {
+    expectRejection({ length_x_m: 4 }, 'OUT_OF_RANGE');
   });
 });

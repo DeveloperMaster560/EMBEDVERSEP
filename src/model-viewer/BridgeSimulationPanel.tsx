@@ -9,7 +9,7 @@
  * conviven las dos cosas.
  */
 
-import { Car, Lightbulb, Play, Power, Square } from 'lucide-react';
+import { Car, Cpu, Lightbulb, Play, Power, Square } from 'lucide-react';
 
 import { BRIDGE_CONTROL_MODES } from '../domain/bridgeLightingCircuit';
 import { VEHICLE_CLASSES, VEHICLE_CLASS_IDS } from '../traffic/vehicles';
@@ -23,7 +23,16 @@ const number = (value: number, digits = 0) =>
 export function BridgeSimulationPanel({
   running, lighting, traffic, deck, trafficNote, light,
   onStart, onStop, onPressed, onLight,
+  firmwareName, firmwareError, onFirmwareFile, onReferenceFirmware,
 }: {
+  /** Firmware que se ejecuta (o se ejecutará al poner en marcha). */
+  firmwareName?: string;
+  /** Por qué el firmware elegido no se puede ejecutar. */
+  firmwareError?: string | null;
+  /** El usuario elige su propio .hex (el que descargó de «Compilar» con Arduino Uno). */
+  onFirmwareFile?: (file: File) => void;
+  /** Volver al firmware de referencia del armario. */
+  onReferenceFirmware?: () => void;
   running: boolean;
   lighting: FirmwareLightingState | null;
   traffic: TrafficStats | null;
@@ -45,6 +54,39 @@ export function BridgeSimulationPanel({
         sobre la estructura: son dos cosas que ocurren a la vez sobre el mismo puente, no
         un modelo acoplado.
       </p>
+
+      {onFirmwareFile && (
+        <div className="bsim-firmware">
+          <p className="bs-note">
+            <Cpu size={12} /> Firmware: <strong>{firmwareName}</strong>
+          </p>
+          {!running && (
+            <div className="bsim-controls">
+              <label className="bsim-file">
+                Usar mi firmware (.hex de Arduino Uno)
+                <input
+                  type="file"
+                  accept=".hex,.bin,.uf2,.elf"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) onFirmwareFile(file);
+                    event.target.value = '';
+                  }}
+                />
+              </label>
+              {onReferenceFirmware && (
+                <button type="button" onClick={onReferenceFirmware}>Firmware de referencia</button>
+              )}
+            </div>
+          )}
+          <p className="bs-note">
+            El armario espera: zonas en D4 (vial), D5 (tirantes), D6 (torres) y D7 (barreras),
+            fotocelda en A0 y pulsador en D2 a masa. Solo se ejecuta el .hex del Arduino Uno:
+            no hay emulador de ESP32 en el navegador.
+          </p>
+        </div>
+      )}
+      {firmwareError && <p className="bs-note bsim-error" role="alert">{firmwareError}</p>}
 
       <div className="bsim-controls">
         {running
@@ -100,6 +142,9 @@ export function BridgeSimulationPanel({
                     {zone.presentInModel
                       ? <>
                           {zone.fixtureCount} luminarias
+                          {zone.energized && zone.duty !== null && zone.duty > 0 && zone.duty < 1
+                            ? ` · PWM ${Math.round(zone.duty * 100)} %`
+                            : ''}
                           {zone.connectedPowerW !== null
                             ? ` · ${number(zone.connectedPowerW)} W declarados`
                             : ' · potencia no declarada'}
@@ -113,6 +158,12 @@ export function BridgeSimulationPanel({
               </div>
             ))}
           </div>
+
+          {lighting.firmwareWarnings.length > 0 && (
+            <ul className="bs-validation bsim-warnings" role="status">
+              {lighting.firmwareWarnings.map((warning) => <li key={warning}>⚠ {warning}</li>)}
+            </ul>
+          )}
 
           <ul className="bs-validation">
             <li>

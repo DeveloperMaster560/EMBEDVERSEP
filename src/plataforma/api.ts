@@ -1,6 +1,6 @@
 /** Llamadas del navegador al puente local `/api/plataforma` (server/plataformaBridge.ts). */
 
-import type { Aviso, EstacionDb, HoraDisponibilidad, ProyectoFicha, ProyectoResumen, Sesion, Ventana } from './model';
+import type { Aviso, EstacionDb, HoraDisponibilidad, Medida, ProyectoFicha, ProyectoResumen, Sesion, Ventana } from './model';
 
 const BASE = '/api/plataforma';
 
@@ -40,6 +40,7 @@ export const plataforma = {
   proyecto: (id: string) => pedir<ProyectoFicha>(`/v1/proyectos/${encodeURIComponent(id)}`),
   estaciones: () => pedir<EstacionDb[]>('/v1/estaciones'),
   ventanas: (id: string, limite = 90) => pedir<Ventana[]>(`/v1/estaciones/${encodeURIComponent(id)}/ventanas?limite=${limite}`),
+  medidas: (id: string, limite = 2000) => pedir<Medida[]>(`/v1/estaciones/${encodeURIComponent(id)}/medidas?limite=${limite}`),
   disponibilidad: (id: string, horas = 24) =>
     pedir<HoraDisponibilidad[]>(`/v1/estaciones/${encodeURIComponent(id)}/disponibilidad?horas=${horas}`),
   avisos: () => pedir<Aviso[]>('/v1/avisos?abiertos=true&limite=100'),

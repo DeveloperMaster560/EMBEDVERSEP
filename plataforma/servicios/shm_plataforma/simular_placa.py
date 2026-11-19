@@ -92,6 +92,7 @@ class Resultado:
     serie: list[str]
     notas: list[str]
     t_fin_s: float
+    serie_t: list[float] = field(default_factory=list)   # segundo simulado de cada línea
 
     def resumen(self) -> dict:
         por = Counter(m.topico for m in self.mensajes)
@@ -463,6 +464,7 @@ def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
         preparar_aire(aire, nombre)
         env["SIM_AIRE"] = str(aire.resolve())
     mensajes, serie, notas, t_fin = [], [], [], 0.0
+    serie_t: list[float] = []
     hora = reloj_placa if reloj_placa is not None else [0.0]
     cortado = threading.Event()
     with subprocess.Popen([str(exe)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -492,10 +494,12 @@ def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
                     hora[0] = int(t_us) / 1e6
                     linea = resto[0] if resto else ""
                     serie.append(linea)
+                    serie_t.append(hora[0])
                     if al_serie:
                         al_serie(linea)
                 elif linea:
                     serie.append(linea)
+                    serie_t.append(hora[0])
                     if al_serie:
                         al_serie(linea)
             err = proc.stderr.read()
@@ -507,7 +511,7 @@ def ejecutar(exe: Path, escenario: Path, duracion_s: float, inicio_ms: int,
                               "que no deja pasar el tiempo (¿un while sin delay()?).")
     if codigo != 0:
         raise ErrorSimulacion(f"La simulación terminó con error ({codigo}): {err.strip()[:500]}")
-    return Resultado(mensajes, serie, notas, t_fin)
+    return Resultado(mensajes, serie, notas, t_fin, serie_t)
 
 
 def _pasarela(proyecto: Path, estaciones: list[str], inicio_ms: int, hora: list[float],
@@ -625,7 +629,8 @@ def principal(argv: Optional[list[str]] = None) -> int:
         res["con_problemas"] += pasarela.rechazados
     if a.json:
         print(json.dumps(res | {"mensajes_detalle": [m.__dict__ for m in r.mensajes[:200]],
-                                "serie": r.serie[:500], "serie_total": len(r.serie)}, ensure_ascii=False))
+                                "serie": r.serie[:500], "serie_t": r.serie_t[:500],
+                                "serie_total": len(r.serie)}, ensure_ascii=False))
     else:
         print(f"\n· {res['tiempo_simulado_s']:.0f} s simulados; {res['mensajes']} mensajes "
               f"({', '.join(f'{k}: {v}' for k, v in res['por_topico'].items()) or 'ninguno'}); "

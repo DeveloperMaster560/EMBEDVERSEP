@@ -27,7 +27,7 @@ const READ_ROUTES: RegExp[] = [
   /^\/v1\/proyectos$/,
   /^\/v1\/proyectos\/[a-z0-9][a-z0-9-]{1,39}$/,
   /^\/v1\/estaciones$/,
-  /^\/v1\/estaciones\/[A-Z0-9][A-Z0-9-]{1,31}\/(ventanas|disponibilidad)$/,
+  /^\/v1\/estaciones\/[A-Z0-9][A-Z0-9-]{1,31}\/(ventanas|medidas|disponibilidad)$/,
   /^\/v1\/avisos$/,
 ];
 const QUERY_PARAMS = new Set(['desde', 'hasta', 'limite', 'completo', 'horas', 'abiertos']);

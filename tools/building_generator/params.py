@@ -168,6 +168,64 @@ MIN_FOOTPRINT_Y = 15.0
 MIN_BAND_DEPTH = 2.40
 
 # ---------------------------------------------------------------------------
+# Vivienda (casa unifamiliar)
+# ---------------------------------------------------------------------------
+# La tipologia de oficinas (nucleo central rodeado por un anillo de
+# circulacion y cuatro bandas de recintos) no cabe en una casa: con una
+# escalera de dos tramos, dos pasillos y dos bandas utiles necesita al menos
+# 15 m de lado. Una vivienda se resuelve con OTRA topologia:
+#
+#     +------------------------------------------+  INNER_Y1
+#     | nucleo  |  banda NORTE (recintos)        |
+#     | escalera|                                |
+#     +---------+--------------------------------+  RING_Y1 = CORE_Y0
+#     |  pasillo (circulacion, de fachada a fachada)
+#     +------------------------------------------+  RING_Y0
+#     |  banda SUR (recintos)                    |
+#     +------------------------------------------+  INNER_Y0
+#
+# No hay bandas oeste ni este. El nucleo de la escalera ocupa el arranque de
+# la banda norte y abre al pasillo por su muro sur.
+#
+# Los valores siguientes son HIPOTESIS geometricas conceptuales de vivienda,
+# no requisitos de una norma: ancho de tramo, muros y pasillo deben
+# verificarse con la norma aplicable antes de cualquier uso constructivo.
+RESIDENTIAL_USES = ("vivienda", "residencial", "vivienda-unifamiliar")
+HYP_RESIDENTIAL = {
+    "HYP_WALL_EXTERIOR": 0.15,
+    "HYP_WALL_INTERIOR": 0.10,
+    "HYP_WALL_CORE": 0.12,
+    "HYP_COLUMN_SIZE": (0.30, 0.30),
+    "HYP_STAIR_FLIGHT_WIDTH": 0.90,
+    "HYP_STAIR_LANDING_DEPTH": 0.90,
+    # El pasillo aloja el ducto tecnico (1.40 x 0.80 m con 0.20 m de holgura),
+    # de ahi su ancho; no es un minimo normativo de circulacion.
+    "HYP_CORRIDOR_WIDTH": 1.20,
+}
+# Zona libre delante del arranque de la escalera, dentro del nucleo.
+HYP_RESIDENTIAL_STAIR_ARRIVAL = 0.90
+
+# Recintos de vivienda. Igual que ROOM_TYPES: anchos de reparto GEOMETRICO,
+# no superficies minimas normativas.
+RESIDENTIAL_ROOM_TYPES = {
+    "sala":        {"min_w": 3.0, "target_w": 4.5, "max_w": 7.0, "label": "Sala"},
+    "comedor":     {"min_w": 2.7, "target_w": 3.5, "max_w": 5.5, "label": "Comedor"},
+    "cocina":      {"min_w": 2.4, "target_w": 3.0, "max_w": 4.5, "label": "Cocina"},
+    "dormitorio":  {"min_w": 2.7, "target_w": 3.3, "max_w": 5.0, "label": "Habitacion"},
+    "bano":        {"min_w": 1.6, "target_w": 2.0, "max_w": 3.0, "label": "Bano"},
+    "estudio":     {"min_w": 2.4, "target_w": 3.0, "max_w": 4.5, "label": "Estudio"},
+    "lavanderia":  {"min_w": 1.6, "target_w": 2.0, "max_w": 3.0, "label": "Zona de ropas"},
+    # Lo que sobra de una banda sin programa pedido. NO es un recinto
+    # inventado: se rotula como espacio sin uso asignado.
+    "espacio_libre": {"min_w": 1.0, "target_w": 4.0, "max_w": 99.0,
+                      "label": "Espacio sin uso asignado"},
+}
+# Zona dia en el nivel de acceso; zona noche en los superiores. Es un
+# criterio de reparto declarado, no una regla de diseno.
+RESIDENTIAL_DAY_USES = ("sala", "comedor", "cocina", "lavanderia")
+RESIDENTIAL_PROGRAM: dict = {}
+
+# ---------------------------------------------------------------------------
 # Valores derivados
 # ---------------------------------------------------------------------------
 # Todo lo que sigue se RECALCULA desde los parametros REQ_* y HYP_*. No hay
@@ -196,6 +254,17 @@ SPEC_ADJUSTMENTS: list = []
 PROGRAM_REQUEST: dict = {}
 
 _GRID_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"   # sin I ni O, como es habitual en planos
+
+
+def is_residential() -> bool:
+    return str(REQ_BUILDING_USE).lower() in RESIDENTIAL_USES
+
+
+def room_type(use: str) -> dict:
+    """Ficha de reparto de un uso de recinto en la tipologia vigente."""
+    if is_residential() and use in RESIDENTIAL_ROOM_TYPES:
+        return RESIDENTIAL_ROOM_TYPES[use]
+    return ROOM_TYPES[use]
 
 
 def _level_elevation(index: int) -> float:
@@ -260,6 +329,9 @@ def _recompute_zoning() -> None:
     global HYP_PERIMETER_BAND_WEST, HYP_PERIMETER_BAND_EAST
 
     ew = HYP_WALL_EXTERIOR
+    if is_residential():
+        _recompute_zoning_residential()
+        return
     CORE_X0 = round((REQ_LENGTH_X - HYP_CORE_SIZE[0]) / 2.0, 3)
     CORE_X1 = round(CORE_X0 + HYP_CORE_SIZE[0], 3)
     CORE_Y0 = round((REQ_WIDTH_Y - HYP_CORE_SIZE[1]) / 2.0, 3)
@@ -284,6 +356,58 @@ def _recompute_zoning() -> None:
     HYP_PERIMETER_BAND_NORTH = round(INNER_Y1 - RING_Y1, 3)
     HYP_PERIMETER_BAND_WEST = round(RING_X0 - INNER_X0, 3)
     HYP_PERIMETER_BAND_EAST = round(INNER_X1 - RING_X1, 3)
+
+
+def residential_band_depths() -> tuple:
+    """Fondos (sur, norte) de las bandas de una vivienda.
+
+    El norte debe alojar el nucleo de la escalera; el resto se reparte a
+    partes iguales, sin bajar ninguna banda de MIN_BAND_DEPTH.
+    """
+    inner = REQ_WIDTH_Y - 2 * HYP_WALL_EXTERIOR - HYP_CORRIDOR_WIDTH
+    north = max(HYP_CORE_SIZE[1], inner / 2.0)
+    south = inner - north
+    return round(south, 4), round(north, 4)
+
+
+def _recompute_zoning_residential() -> None:
+    global CORE_X0, CORE_X1, CORE_Y0, CORE_Y1
+    global RING_X0, RING_X1, RING_Y0, RING_Y1
+    global INNER_X0, INNER_X1, INNER_Y0, INNER_Y1
+    global BAND_SOUTH, BAND_NORTH, BAND_WEST, BAND_EAST
+    global HYP_PERIMETER_BAND_SOUTH, HYP_PERIMETER_BAND_NORTH
+    global HYP_PERIMETER_BAND_WEST, HYP_PERIMETER_BAND_EAST
+
+    ew = HYP_WALL_EXTERIOR
+    INNER_X0 = round(ew, 3)
+    INNER_X1 = round(REQ_LENGTH_X - ew, 3)
+    INNER_Y0 = round(ew, 3)
+    INNER_Y1 = round(REQ_WIDTH_Y - ew, 3)
+    south, _north = residential_band_depths()
+
+    RING_X0, RING_X1 = INNER_X0, INNER_X1
+    RING_Y0 = round(INNER_Y0 + south, 3)
+    RING_Y1 = round(RING_Y0 + HYP_CORRIDOR_WIDTH, 3)
+
+    CORE_X0 = INNER_X0
+    CORE_X1 = round(INNER_X0 + HYP_CORE_SIZE[0], 3)
+    CORE_Y0 = RING_Y1
+    CORE_Y1 = INNER_Y1
+
+    BAND_SOUTH = (INNER_X0, INNER_Y0, INNER_X1, RING_Y0)
+    BAND_NORTH = (CORE_X1, RING_Y1, INNER_X1, INNER_Y1)
+    # Sin bandas laterales: rectangulos de ancho nulo sobre la fachada.
+    BAND_WEST = (INNER_X0, RING_Y0, INNER_X0, RING_Y1)
+    BAND_EAST = (INNER_X1, RING_Y0, INNER_X1, RING_Y1)
+
+    HYP_PERIMETER_BAND_SOUTH = round(RING_Y0 - INNER_Y0, 3)
+    HYP_PERIMETER_BAND_NORTH = round(INNER_Y1 - RING_Y1, 3)
+    HYP_PERIMETER_BAND_WEST = 0.0
+    HYP_PERIMETER_BAND_EAST = 0.0
+
+
+def bands_in_use() -> tuple:
+    return ("SOUTH", "NORTH") if is_residential() else BANDS
 
 
 def band_span(band: str):
@@ -398,9 +522,103 @@ def _distribute_band(band: str, level_index: int, is_top: bool,
     return laid
 
 
+def residential_level_program() -> dict:
+    """Reparte el programa de la vivienda entre niveles.
+
+    Zona dia (sala, comedor, cocina, ropas) en el nivel de acceso; habitaciones
+    y estudios en los superiores, a partes iguales. Los banos: uno en el
+    acceso si hay mas de un nivel, el resto con las habitaciones. En una casa
+    de un nivel todo va en el nivel 1. Solo se reparte lo pedido.
+    """
+    req = {k: int(v) for k, v in RESIDENTIAL_PROGRAM.items() if int(v) > 0}
+    levels = [lv["index"] for lv in LEVELS]
+    out = {i: [] for i in levels}
+    if len(levels) == 1:
+        for use in ("sala", "comedor", "cocina", "lavanderia", "dormitorio",
+                    "estudio", "bano"):
+            out[1] += [use] * req.get(use, 0)
+        return out
+    for use in RESIDENTIAL_DAY_USES:
+        out[1] += [use] * req.get(use, 0)
+    banos = req.get("bano", 0)
+    if banos:
+        out[1].append("bano")
+        banos -= 1
+    upper = levels[1:]
+    night = (["dormitorio"] * req.get("dormitorio", 0)
+             + ["estudio"] * req.get("estudio", 0)
+             + ["bano"] * banos)
+    for k, use in enumerate(night):
+        out[upper[k % len(upper)]].append(use)
+    return out
+
+
+def _lay_band(band: str, uses: list) -> list:
+    """Coloca recintos en una banda: ancho proporcional al de referencia.
+
+    Lo que sobra queda como `espacio_libre`, rotulado como tal; no se
+    convierte en un recinto que nadie pidio.
+    """
+    start, end = band_span(band)
+    length = end - start
+    if not uses:
+        return [{"use": "espacio_libre", "label": None,
+                 "start": round(start, 4), "end": round(end, 4)}]
+    widths = [room_type(u)["target_w"] for u in uses]
+    total = sum(widths)
+    if total > length:
+        widths = [room_type(u)["min_w"] for u in uses]
+        if sum(widths) > length + 1e-6:
+            raise SpecError(
+                "No caben %s en la banda %s: necesitan al menos %.2f m y la banda "
+                "mide %.2f m. Amplia la planta o reparte los recintos en mas niveles."
+                % (", ".join(uses), band, sum(widths), length))
+        scale = length / sum(widths)
+        widths = [w * scale for w in widths]
+    else:
+        # Se estira cada recinto hasta su maximo; el resto queda libre.
+        spare = length - total
+        grown = []
+        for u, w in zip(uses, widths):
+            extra = min(spare / len(uses), room_type(u)["max_w"] - w)
+            grown.append(w + max(0.0, extra))
+        widths = grown
+    laid, cursor = [], start
+    for u, w in zip(uses, widths):
+        laid.append({"use": u, "label": None,
+                     "start": round(cursor, 4), "end": round(cursor + w, 4)})
+        cursor += w
+    if end - cursor > room_type("espacio_libre")["min_w"]:
+        laid.append({"use": "espacio_libre", "label": None,
+                     "start": round(cursor, 4), "end": round(end, 4)})
+    elif laid:
+        laid[-1]["end"] = round(end, 4)
+    return laid
+
+
+def _residential_program_for_level(index: int) -> dict:
+    """Asigna los recintos de un nivel a las bandas sur y norte.
+
+    Cada recinto va a la banda con mas longitud libre en ese momento, de
+    modo que ninguna se sature mientras la otra queda vacia.
+    """
+    uses = residential_level_program()[index]
+    free = {b: band_span(b)[1] - band_span(b)[0] for b in ("SOUTH", "NORTH")}
+    chosen = {"SOUTH": [], "NORTH": []}
+    # Los grandes primero: reparto mas equilibrado.
+    for use in sorted(uses, key=lambda u: -room_type(u)["target_w"]):
+        band = max(free, key=lambda b: free[b])
+        chosen[band].append(use)
+        free[band] -= room_type(use)["target_w"]
+    return {band: _lay_band(band, chosen[band]) for band in ("SOUTH", "NORTH")}
+
+
 def _recompute_space_program() -> None:
     """Construye SPACE_PROGRAM y WET_SPACES por reglas, no por tabla fija."""
     global SPACE_PROGRAM, WET_SPACES, SPEC_ADJUSTMENTS
+    if is_residential():
+        _recompute_space_program_residential()
+        return
     program = {}
     wet = {}
     adjustments = list(SPEC_ADJUSTMENTS)
@@ -433,6 +651,30 @@ def _recompute_space_program() -> None:
     SPEC_ADJUSTMENTS = adjustments
 
 
+def _recompute_space_program_residential() -> None:
+    global SPACE_PROGRAM, WET_SPACES
+    program, wet = {}, {}
+    for level in LEVELS:
+        idx, lid = level["index"], level["level_id"]
+        rooms, wet_codes, seq = [], [], 0
+        counters: dict = {}
+        for band, laid in _residential_program_for_level(idx).items():
+            for item in laid:
+                seq += 1
+                code = "%d%02d" % (idx, seq)
+                use = item["use"]
+                counters[use] = counters.get(use, 0) + 1
+                label = room_type(use)["label"]
+                name = "%s %s" % (label, code)
+                rooms.append((code, name, use, band, item["start"], item["end"]))
+                if use == "bano":
+                    wet_codes.append(code)
+        program[lid] = rooms
+        wet[lid] = tuple(wet_codes)
+    SPACE_PROGRAM = program
+    WET_SPACES = wet
+
+
 def _validate() -> None:
     """Comprobaciones de coherencia. Fallan ruidosamente, no en silencio."""
     assert abs(REQ_FLOOR_TO_FLOOR - HYP_STRUCTURAL_DEPTH - REQ_CLEAR_HEIGHT) < 1e-9, (
@@ -446,7 +688,7 @@ def _validate() -> None:
     assert GRID_X[-1] == REQ_LENGTH_X and GRID_Y[-1] == REQ_WIDTH_Y
     assert len(GRID_X) == len(GRID_X_LABELS) and len(GRID_Y) == len(GRID_Y_LABELS)
     assert set(SPACE_PROGRAM) == {lv["level_id"] for lv in LEVELS}
-    for band in BANDS:
+    for band in bands_in_use():
         x0, y0, x1, y1 = band_rect(band)
         depth = (y1 - y0) if band in ("SOUTH", "NORTH") else (x1 - x0)
         assert depth >= MIN_BAND_DEPTH - 1e-6, (
@@ -454,10 +696,24 @@ def _validate() -> None:
             % (band, depth, MIN_BAND_DEPTH))
 
 
+def _recompute_grid_residential() -> None:
+    """Ejes en Y de la vivienda: fachadas y muro sur del pasillo.
+
+    La rejilla regular de 6 m ponia una linea de columnas en mitad del
+    pasillo de 1.20 m, que lo obstruia y chocaba con la puerta de acceso. Las
+    columnas se llevan al muro del pasillo.
+    """
+    global GRID_Y, GRID_Y_LABELS
+    GRID_Y = (0.0, round(RING_Y0, 4), REQ_WIDTH_Y)
+    GRID_Y_LABELS = tuple(_GRID_LETTERS[i] for i in range(len(GRID_Y)))
+
+
 def recompute() -> None:
     _recompute_grid()
     _recompute_levels()
     _recompute_zoning()
+    if is_residential():
+        _recompute_grid_residential()
     _recompute_space_program()
     _validate()
 
@@ -500,10 +756,28 @@ def apply_spec(spec: dict) -> dict:
     """
     global REQ_AREA_PER_LEVEL, REQ_TOTAL_AREA, SPEC_ADJUSTMENTS, PROGRAM_REQUEST
     global HYP_STRUCTURAL_DEPTH, HYP_BEAM_DEPTH, HYP_CORE_SIZE, HYP_CORRIDOR_WIDTH
-    global HYP_STAIR_RISER, HYP_STAIR_RISERS_PER_FLIGHT
+    global HYP_STAIR_RISER, HYP_STAIR_RISERS_PER_FLIGHT, RESIDENTIAL_PROGRAM
 
     g = globals()
     adjustments: list = []
+
+    if not isinstance(spec, dict):
+        raise SpecError("La especificacion debe ser un objeto JSON.")
+    for key in ("levels", "length_x_m", "width_y_m", "clear_height_m", "floor_to_floor_m"):
+        value = spec.get(key)
+        if value is not None and (isinstance(value, bool)
+                                  or not isinstance(value, (int, float))
+                                  or value != value or value in (float("inf"), float("-inf"))):
+            raise SpecError("%s debe ser un numero finito (se recibio %r)." % (key, value))
+    if spec.get("levels") is not None and spec["levels"] != int(spec["levels"]):
+        raise SpecError("levels debe ser entero (se recibio %r)." % spec["levels"])
+
+    # La tipologia de vivienda cambia las hipotesis por defecto ANTES de leer
+    # la solicitud, de modo que un valor pedido explicitamente sigue mandando.
+    use = spec.get("building_use")
+    if isinstance(use, str) and use.lower() in RESIDENTIAL_USES:
+        for const, value in HYP_RESIDENTIAL.items():
+            g[const] = value
 
     for key, const in SPEC_FIELDS.items():
         if key in spec and spec[key] is not None:
@@ -523,7 +797,16 @@ def apply_spec(spec: dict) -> dict:
             "Este generador cubre hasta 12 niveles. Por encima, el sistema "
             "estructural y la evacuacion dejan de ser una extrapolacion razonable "
             "de la hipotesis de porticos y un solo nucleo.")
-    if REQ_LENGTH_X < MIN_FOOTPRINT_X or REQ_WIDTH_Y < MIN_FOOTPRINT_Y:
+    if REQ_LENGTH_X > 120.0 or REQ_WIDTH_Y > 120.0:
+        raise SpecError(
+            "La planta de %.2f x %.2f m supera los 120 m de lado que resuelve este "
+            "generador." % (REQ_LENGTH_X, REQ_WIDTH_Y))
+    if is_residential():
+        RESIDENTIAL_PROGRAM = _read_residential_program(spec.get("residential_program"))
+    elif spec.get("residential_program"):
+        raise SpecError("residential_program solo se admite con building_use 'vivienda'.")
+    if not is_residential() and (
+            REQ_LENGTH_X < MIN_FOOTPRINT_X or REQ_WIDTH_Y < MIN_FOOTPRINT_Y):
         raise SpecError(
             "La planta de %.2f x %.2f m no admite nucleo central, anillo de "
             "circulacion y bandas de recintos a la vez. El minimo es %.0f x %.0f m."
@@ -561,6 +844,13 @@ def apply_spec(spec: dict) -> dict:
     HYP_STAIR_RISER = riser
     HYP_STAIR_RISERS_PER_FLIGHT = risers
 
+    if is_residential():
+        _apply_residential_geometry(adjustments)
+        _apply_residential_heights(adjustments)
+        return _finish_apply(adjustments, spec)
+
+    _apply_office_heights(adjustments)
+
     # El nucleo no puede ser mas pequeno que la escalera que contiene.
     run = 0.280 * (risers - 1)
     min_core_y = round(run + HYP_STAIR_LANDING_DEPTH + 2 * HYP_WALL_CORE + 0.40, 2)
@@ -588,9 +878,136 @@ def apply_spec(spec: dict) -> dict:
                 "alrededor del nucleo y la circulacion."
                 % (REQ_LENGTH_X, REQ_WIDTH_Y))
 
+    return _finish_apply(adjustments, spec)
+
+
+def _read_residential_program(raw) -> dict:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise SpecError("residential_program debe ser un objeto uso -> cantidad.")
+    out = {}
+    for use, qty in raw.items():
+        if use not in RESIDENTIAL_ROOM_TYPES or use == "espacio_libre":
+            raise SpecError("Recinto de vivienda no reconocido: %r. Opciones: %s."
+                            % (use, ", ".join(u for u in RESIDENTIAL_ROOM_TYPES
+                                              if u != "espacio_libre")))
+        if isinstance(qty, bool) or not isinstance(qty, (int, float)) or qty != int(qty) \
+                or not 0 <= qty <= 20:
+            raise SpecError("La cantidad de %s debe ser un entero entre 0 y 20." % use)
+        out[use] = int(qty)
+    return out
+
+
+def residential_minimum_footprint() -> tuple:
+    """Planta minima (largo, ancho) que esta tipologia de vivienda construye.
+
+    No es un limite normativo: es lo que necesita la geometria para alojar
+    nucleo de escalera, pasillo y dos bandas de recintos de MIN_BAND_DEPTH.
+    """
+    ew = HYP_WALL_EXTERIOR
+    min_x = 2 * ew + HYP_CORE_SIZE[0] + RESIDENTIAL_ROOM_TYPES["cocina"]["min_w"]
+    min_y = 2 * ew + MIN_BAND_DEPTH + HYP_CORRIDOR_WIDTH + max(MIN_BAND_DEPTH, HYP_CORE_SIZE[1])
+    return round(min_x, 2), round(min_y, 2)
+
+
+def _apply_residential_geometry(adjustments: list) -> None:
+    """Nucleo de escalera ajustado a la escalera, y comprobacion de planta."""
+    global HYP_CORE_SIZE
+    wc = HYP_WALL_CORE
+    run = HYP_STAIR_TREAD * (HYP_STAIR_RISERS_PER_FLIGHT - 1)
+    # Mismo ojo de 0.40 m entre tramos que usa stair_geometry().
+    core_x = 2 * HYP_STAIR_FLIGHT_WIDTH + 0.40 + 2 * wc
+    core_y = run + HYP_STAIR_LANDING_DEPTH + HYP_RESIDENTIAL_STAIR_ARRIVAL + 2 * wc
+    HYP_CORE_SIZE = (round(core_x, 3), round(core_y, 3))
+    adjustments.append(
+        "Vivienda: nucleo de escalera de %.2f x %.2f m (tramos de %.2f m, descanso de "
+        "%.2f m), pasillo de %.2f m y muros de fachada de %.2f m. Son hipotesis "
+        "geometricas, no verificadas contra norma."
+        % (HYP_CORE_SIZE[0], HYP_CORE_SIZE[1], HYP_STAIR_FLIGHT_WIDTH,
+           HYP_STAIR_LANDING_DEPTH, HYP_CORRIDOR_WIDTH, HYP_WALL_EXTERIOR))
+    min_x, min_y = residential_minimum_footprint()
+    # El lado mayor se toma como longitud: la escalera y el pasillo corren a lo largo.
+    if REQ_LENGTH_X < min_x or REQ_WIDTH_Y < min_y:
+        raise SpecError(
+            "La vivienda de %.2f x %.2f m no aloja nucleo de escalera, pasillo y dos "
+            "bandas de recintos. Con %.2f m entre niveles esta tipologia necesita al "
+            "menos %.2f x %.2f m (largo x ancho)."
+            % (REQ_LENGTH_X, REQ_WIDTH_Y, REQ_FLOOR_TO_FLOOR, min_x, min_y))
+
+
+# Cielo raso mas bajo que se admite en la tipologia de oficinas. Es la altura
+# libre minima que acepta el propio API (server/buildingGenerator.ts).
+MIN_OFFICE_CEILING = 2.20
+# Altura libre para la que estan escritas las cotas del vacio tecnico.
+_OFFICE_REFERENCE_CLEAR = 3.20
+
+
+def _apply_office_heights(adjustments: list) -> None:
+    """Baja el vacio tecnico con la altura libre.
+
+    Las cotas de instalaciones (cielo raso 2.55 m, ductos a 3.01 m...) estan
+    escritas para 3.20 m libres. Con menos altura quedaban DENTRO de las vigas:
+    con 2.50 m libres el modelo salia con cientos de colisiones estructurales.
+    Se conserva el espesor del vacio tecnico bajo el fondo de viga y se baja
+    todo el conjunto; si el cielo raso quedara por debajo de MIN_OFFICE_CEILING,
+    se rechaza.
+    """
+    global HYP_CEILING_HEIGHT, HYP_PLENUM_ROUTING_Z, HYP_ROUTING_Z
+    shift = REQ_CLEAR_HEIGHT - _OFFICE_REFERENCE_CLEAR
+    if shift >= -1e-9:
+        return
+    ceiling = round(HYP_CEILING_HEIGHT + shift, 3)
+    if ceiling < MIN_OFFICE_CEILING - 1e-9:
+        minimum = _OFFICE_REFERENCE_CLEAR - (HYP_CEILING_HEIGHT - MIN_OFFICE_CEILING)
+        raise SpecError(
+            "Con %.2f m de altura libre no cabe el vacio tecnico de %.2f m de esta "
+            "tipologia sobre un cielo raso de al menos %.2f m. La altura libre minima "
+            "es %.2f m (o indica que es una vivienda, que no lleva cielo falso)."
+            % (REQ_CLEAR_HEIGHT, _OFFICE_REFERENCE_CLEAR - HYP_CEILING_HEIGHT,
+               MIN_OFFICE_CEILING, minimum))
+    HYP_CEILING_HEIGHT = ceiling
+    HYP_PLENUM_ROUTING_Z = round(HYP_PLENUM_ROUTING_Z + shift, 3)
+    HYP_ROUTING_Z = {k: round(v + shift, 3) for k, v in HYP_ROUTING_Z.items()}
+    adjustments.append(
+        "Vacio tecnico bajado %.2f m para quedar bajo el fondo de viga: cielo raso a "
+        "%.2f m." % (-shift, HYP_CEILING_HEIGHT))
+
+
+def _apply_residential_heights(adjustments: list) -> None:
+    """Cotas de instalaciones de una vivienda: sin cielo falso.
+
+    Las cotas de oficina (cielo raso a 2.55 m, vacio tecnico hasta 3.20 m)
+    suponen una altura libre de 3.20 m. Con la altura libre de una casa
+    quedarian DENTRO de las vigas. Se adopta canalizacion a la vista bajo el
+    fondo de viga, escalonada por disciplina, y el plano de luminarias justo
+    debajo. Es una hipotesis geometrica declarada.
+    """
+    global HYP_CEILING_HEIGHT, HYP_PLENUM_ROUTING_Z, HYP_ROUTING_Z
+    top = REQ_CLEAR_HEIGHT
+    HYP_ROUTING_Z = {
+        "hvac": round(top - 0.20, 3),
+        "hydrosanitary": round(top - 0.12, 3),
+        "electrical": round(top - 0.04, 3),
+        "telecommunications": round(top - 0.07, 3),
+        "security": round(top - 0.09, 3),
+    }
+    HYP_PLENUM_ROUTING_Z = HYP_ROUTING_Z["electrical"]
+    HYP_CEILING_HEIGHT = round(top - 0.10, 3)
+    adjustments.append(
+        "Vivienda sin cielo falso: canalizaciones a la vista bajo el fondo de viga "
+        "(electrica a %.2f m) y luminarias a %.2f m sobre el piso terminado."
+        % (HYP_PLENUM_ROUTING_Z, HYP_CEILING_HEIGHT))
+
+
+def _finish_apply(adjustments: list, spec: dict) -> dict:
+    global REQ_AREA_PER_LEVEL, REQ_TOTAL_AREA, SPEC_ADJUSTMENTS, PROGRAM_REQUEST
     REQ_AREA_PER_LEVEL = round(REQ_LENGTH_X * REQ_WIDTH_Y, 4)
     REQ_TOTAL_AREA = round(REQ_AREA_PER_LEVEL * REQ_LEVEL_COUNT, 4)
     PROGRAM_REQUEST = dict(spec.get("rooms_by_band") or {})
+    if is_residential() and PROGRAM_REQUEST:
+        raise SpecError("En vivienda el programa se pide con residential_program, "
+                        "no con rooms_by_band.")
     SPEC_ADJUSTMENTS = adjustments
 
     recompute()
@@ -611,6 +1028,8 @@ def apply_spec(spec: dict) -> dict:
             "grid_y": list(GRID_Y),
             "stair_riser_m": HYP_STAIR_RISER,
             "stair_risers_per_flight": HYP_STAIR_RISERS_PER_FLIGHT,
+            "typology": "vivienda" if is_residential() else "nucleo-anillo-bandas",
+            "residential_program": dict(RESIDENTIAL_PROGRAM) if is_residential() else None,
         },
         "adjustments": list(SPEC_ADJUSTMENTS),
         "space_count": sum(len(v) for v in SPACE_PROGRAM.values()),

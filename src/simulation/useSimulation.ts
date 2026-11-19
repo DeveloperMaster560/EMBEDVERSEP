@@ -42,6 +42,20 @@ interface CompileResult {
 /** Periodo del lazo de refresco, en milisegundos de reloj de pantalla. */
 const TICK_MS = 33;
 
+/**
+ * Por qué esta placa no se ejecuta en el navegador, o null si se ejecuta.
+ *
+ * El motor es un ATmega328P: un ESP32 no se finge. Se dice qué SÍ se puede
+ * hacer con ese proyecto, para que el aviso no sea un callejón sin salida.
+ */
+export function unsupportedBoardMessage(boardId: BoardId): string | null {
+  if (boardId === 'arduino-uno') return null;
+  return `El motor del navegador ejecuta ${CAPABILITIES.mcu} (Arduino Uno). La placa de este proyecto `
+    + `(${boardId}) es otra arquitectura y no hay emulador para ella aquí, así que su firmware no puede `
+    + 'mover los componentes del circuito ni el modelo 3D. Sí puedes compilarlo para grabarlo en la placa '
+    + 'real («Compilar») o ejecutarlo en el PC con sensores simulados («Simular»).';
+}
+
 export function useSimulation(circuit: ElectronicCircuit, boardId: BoardId, files: ProjectFile[]) {
   const [status, setStatus] = useState<SimulationStatus>('idle');
   const [report, setReport] = useState<SessionReport | null>(null);
@@ -139,12 +153,10 @@ export function useSimulation(circuit: ElectronicCircuit, boardId: BoardId, file
 
   /** Compila y arranca. Si no hay compilador, lo dice con la salida entera. */
   const start = useCallback(async () => {
-    if (boardId !== 'arduino-uno') {
+    const unsupported = unsupportedBoardMessage(boardId);
+    if (unsupported) {
       setStatus('error');
-      setMessage(
-        `El motor ejecuta ${CAPABILITIES.mcu}. La placa de este proyecto es otra arquitectura `
-        + 'y no hay emulador para ella.',
-      );
+      setMessage(unsupported);
       return;
     }
 

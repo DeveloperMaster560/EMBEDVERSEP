@@ -1,0 +1,15 @@
+# Escenario de PRUEBA (inventado, no medido): un día de consumo de una casa.
+# 0–60 s: noche, consumo base (nevera). 60–120 s: ducha eléctrica encendida.
+# 120–150 s: corte de energía (tensión vacía: el PZEM no responde).
+# 150–180 s: vuelve la red. El DHT22 del tablero falla de 160 a 170 s.
+#@ conectar PZEM004T serie=Serial2
+t_s,tension,corriente,potencia,energia,frecuencia,factor_potencia,temperatura,humedad
+0,121.0,0.9,95,152.300,60.0,0.92,27.0,60
+60,120.4,0.9,95,152.302,60.0,0.92,27.2,60
+61,118.6,29.5,3480,152.302,59.9,0.99,27.4,60
+120,118.4,29.6,3490,152.360,59.9,0.99,29.0,60
+121,,,,,,,29.0,60
+150,,,,,,,28.5,60
+151,120.9,1.1,120,152.360,60.0,0.90,28.5,60
+160,120.9,1.1,120,152.360,60.0,0.90,,
+170,120.9,1.1,120,152.361,60.0,0.90,28.2,60

@@ -97,6 +97,11 @@ HYP_ABUTMENT_WINGWALL_THICKNESS = 0.40
 HYP_FOOTING_PLAN = (4.50, 4.50)
 HYP_FOOTING_THICKNESS = 1.00
 HYP_FOOTING_DEPTH = 2.00            # profundidad de la cara superior bajo el terreno
+# Vuelo minimo de la zapata por fuera de lo que sostiene. La planta 4.50 x 4.50
+# es un minimo: si las columnas, el muro o los fustes de torre que apoyan en
+# ella quedan mas abiertos, la zapata se ensancha para recibirlos. Antes no se
+# ensanchaba y las columnas de un tablero de 10 m quedaban fuera de su zapata.
+HYP_FOOTING_EDGE_MARGIN = 0.50
 
 # Apoyos y juntas
 HYP_BEARING_SIZE = (0.45, 0.45, 0.08)
@@ -216,6 +221,7 @@ MAX_SPAN_LENGTH = {"beam": 45.0, "slab": 25.0, "cable_stayed": 300.0,
                    # (Wanxian, 420 m). Se acota ahi.
                    "arch": 420.0}
 MIN_DECK_HEIGHT = 1.5
+MAX_DECK_HEIGHT = 120.0   # igual que server/bridgeGenerator.ts
 
 SUPPORTED_TYPES = ("beam", "slab", "cable_stayed", "arch")
 TYPE_LABEL = {
@@ -684,6 +690,24 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     g = globals()
     adjustments: List[str] = []
 
+    # Defensa en profundidad: el servidor ya valida, pero el script tambien se
+    # invoca a mano. Un NaN pasaba todas las comparaciones y rompia la
+    # geometria mas adelante con un error de shapely ilegible.
+    if not isinstance(spec, dict):
+        raise SpecError("La especificacion debe ser un objeto JSON.")
+    for key in ("length_m", "width_m", "deck_height_m", "span_count",
+                "girder_count", "lanes"):
+        value = spec.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)) \
+                or not math.isfinite(value):
+            raise SpecError("%s debe ser un numero finito (se recibio %r)." % (key, value))
+        if key in ("span_count", "girder_count", "lanes") and value != int(value):
+            raise SpecError("%s debe ser entero (se recibio %r)." % (key, value))
+    if spec.get("bridge_type") is not None and not isinstance(spec["bridge_type"], str):
+        raise SpecError("bridge_type debe ser texto.")
+
     # El emplazamiento no se arrastra de una generacion a la anterior.
     for key in SITE:
         SITE[key] = {} if key == "provenance" else None
@@ -784,6 +808,10 @@ def apply_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
         raise SpecError(
             "El ancho de tablero de %.2f m esta fuera del rango admitido "
             "(%.0f a %.0f m)." % (REQ_WIDTH, MIN_WIDTH, MAX_WIDTH))
+    if REQ_DECK_HEIGHT > MAX_DECK_HEIGHT:
+        raise SpecError(
+            "La altura del tablero (%.2f m) supera el maximo de %.0f m que resuelve "
+            "este generador." % (REQ_DECK_HEIGHT, MAX_DECK_HEIGHT))
     if REQ_DECK_HEIGHT < MIN_DECK_HEIGHT:
         raise SpecError(
             "La altura del tablero (%.2f m) es menor que el minimo de %.2f m "

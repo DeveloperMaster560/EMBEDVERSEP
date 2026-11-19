@@ -140,3 +140,80 @@ describe('contrato de especificacion', () => {
     expect(lines.join(' ')).toContain('24.00 x 18.00 m');
   });
 });
+
+describe('barrido de enunciados y vivienda (19/11/2026)', () => {
+  const CASA =
+    'Casa unifamiliar de 2 pisos de 12 x 9 metros, altura libre 2.50 m y altura entre niveles 2.80 m, con 3 habitaciones, cocina, sala y 2 baños, con instalación eléctrica.';
+
+  it('interpreta la casa del enunciado de prueba', () => {
+    const spec = interpretBuildingPrompt(CASA);
+    expect(spec.buildingUse).toBe('vivienda');
+    expect(spec.levels).toBe(2);
+    expect(spec.lengthXM).toBe(12);
+    expect(spec.widthYM).toBe(9);
+    expect(spec.residentialProgram).toEqual({ dormitorio: 3, cocina: 1, sala: 1, bano: 2 });
+    expect(spec.disciplines).toEqual(['electrical']);
+    expect(spec.questions).toEqual([]);
+    expect(validateSpecification(spec)).toEqual([]);
+    const out = toGeneratorSpec(spec);
+    expect(out.building_use).toBe('vivienda');
+    expect(out.residential_program).toEqual({ dormitorio: 3, cocina: 1, sala: 1, bano: 2 });
+  });
+
+  it('una casa sin disciplinas nombradas pide solo las que la vivienda cubre', () => {
+    const spec = interpretBuildingPrompt('Casa de 1 piso de 10 x 8 m, altura libre 2.50 m');
+    expect(spec.disciplines).toEqual(['architecture', 'structure', 'electrical']);
+    expect(spec.questions.join(' ')).toMatch(/recintos tiene la vivienda/);
+  });
+
+  it('«sala de juntas» no es la sala de una casa', () => {
+    const spec = interpretBuildingPrompt('Casa de 1 piso de 10 x 8 m con sala de juntas');
+    expect(spec.residentialProgram?.sala).toBeUndefined();
+  });
+
+  it('no inventa niveles desde la planta ni desde la altura libre', () => {
+    expect(interpretBuildingPrompt('edificio de oficinas, planta de 24 x 18 m, altura libre 3 m').levels)
+      .toBeNull();
+    expect(interpretBuildingPrompt('edificio de oficinas de 24 x 18 m con altura libre de 3 m').levels)
+      .toBeNull();
+    expect(interpretBuildingPrompt('edificio de oficinas, niveles: 4, de 24 x 18 m').levels).toBe(4);
+  });
+
+  it('«30 m de largo y 20 m de ancho» no toma el 20 como largo', () => {
+    const spec = interpretBuildingPrompt('edificio de 4 plantas, 30 m de largo y 20 m de ancho, altura libre 3 m');
+    expect(spec.lengthXM).toBe(30);
+    expect(spec.widthYM).toBe(20);
+  });
+
+  it('reconoce disciplinas en plural', () => {
+    const spec = interpretBuildingPrompt(
+      'hospital de 5 niveles de 60 x 40 m con instalaciones eléctricas, hidrosanitarias y HVAC',
+    );
+    expect(spec.disciplines).toEqual(['electrical', 'hydrosanitary', 'hvac']);
+  });
+
+  it('declara la planta en L como no modelada', () => {
+    expect(interpretBuildingPrompt('edificio de oficinas en L de 4 pisos de 30 x 20 m').unrecognized)
+      .toContain('plantas no rectangulares');
+  });
+
+  it('avisa de un texto de puente y de más de 12 niveles', () => {
+    expect(interpretBuildingPrompt('puente de vigas de 60 m').questions.join(' ')).toMatch(/puente/);
+    expect(interpretBuildingPrompt('edificio de 20 pisos de 40 x 30 m').questions.join(' '))
+      .toMatch(/hasta 12/);
+  });
+
+  it('valida la planta en el cliente con el mínimo de cada tipología', () => {
+    const oficina = interpretBuildingPrompt('edificio de oficinas de 2 pisos de 12 x 10 m, altura libre 3 m');
+    expect(validateSpecification(oficina).join(' ')).toMatch(/15 m/);
+    const enorme = interpretBuildingPrompt('casa de 1 piso de 200 x 9 m, altura libre 2.5 m');
+    expect(validateSpecification(enorme).join(' ')).toMatch(/entre 5 y 120/);
+  });
+});
+
+describe('programa de la vivienda, como se lee', () => {
+  it('plurales y tildes', () => {
+    const spec = interpretBuildingPrompt('Casa unifamiliar de 2 pisos de 12 x 9 metros, altura libre 2.50 m y altura entre niveles 2.80 m, con 3 habitaciones, cocina, sala y 2 baños, con instalación eléctrica.');
+    expect(describeSpecification(spec).find((l) => l.startsWith('Programa:'))).toBe('Programa: 3 dormitorios, 1 cocina, 1 sala, 2 baños');
+  });
+});

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -27,11 +27,212 @@ export interface CompileRequest {
   files: { path: string; content: string }[];
 }
 
+/**
+ * Cómo se graba en la placa REAL el firmware que se acaba de compilar.
+ *
+ * Existe porque cada familia se carga de una forma distinta y con un archivo
+ * distinto, y equivocarse de archivo no da error: da una placa que no arranca.
+ * El caso que lo motivó es el ESP32: el `.ino.bin` es solo la aplicación, va
+ * en 0x10000 y necesita el gestor de arranque y la tabla de particiones; el que
+ * se puede grabar en 0x0 en una placa virgen es el `.ino.merged.bin`.
+ */
+export interface InstruccionesCarga {
+  /** Nombre del artefacto que se recomienda grabar (lleva `downloadBase64`). */
+  archivo: string;
+  formato: 'hex' | 'bin' | 'uf2';
+  /** Dirección de la flash donde va el archivo, cuando la herramienta la pide. */
+  direccion: string | null;
+  /** Programa con que se graba sin el núcleo instalado. */
+  herramienta: string;
+  pasos: string[];
+  /** Con Arduino CLI y el núcleo de la placa instalado, el mismo archivo. */
+  comandoArduinoCli: string;
+  advertencias: string[];
+}
+
+/** Parámetros de avrdude de cada placa AVR, leídos del boards.txt de arduino:avr 1.8.8. */
+const AVRDUDE: Record<string, { mcu: string; protocolo: string; baudios: number; toque1200?: boolean }> = {
+  'arduino-uno': { mcu: 'atmega328p', protocolo: 'arduino', baudios: 115200 },
+  'arduino-nano': { mcu: 'atmega328p', protocolo: 'arduino', baudios: 115200 },
+  'arduino-nano-clon': { mcu: 'atmega328p', protocolo: 'arduino', baudios: 57600 },
+  'arduino-mega': { mcu: 'atmega2560', protocolo: 'wiring', baudios: 115200 },
+  'arduino-leonardo': { mcu: 'atmega32u4', protocolo: 'avr109', baudios: 57600, toque1200: true },
+  'arduino-pro-mini': { mcu: 'atmega328p', protocolo: 'arduino', baudios: 57600 },
+};
+
+/** Sufijos que se pueden grabar, por orden de preferencia, según la familia de la placa. */
+function preferenciaDeCarga(placa: Placa): string[] {
+  switch (placa.familia) {
+    case 'Arduino AVR':
+    case 'Arduino megaAVR':
+    case 'Teensy':
+      return ['.ino.hex'];
+    case 'ESP32':
+      return ['.ino.merged.bin', '.ino.bin'];
+    case 'ESP8266':
+      return ['.ino.bin'];
+    case 'RP2040/RP2350':
+      return ['.ino.uf2', '.ino.bin'];
+    default:
+      // STM32, SAMD, SAM, Renesas, Mbed, Seeed: sus cargadores (STM32CubeProgrammer,
+      // bossac, dfu-util) trabajan con el binario plano.
+      return ['.ino.bin', '.ino.hex', '.ino.uf2'];
+  }
+}
+
+/** Archivos que no se graban solos: gestor de arranque, particiones, imágenes con bootloader. */
+function esParcial(nombre: string): boolean {
+  return /bootloader|partitions|boot_app0/i.test(nombre);
+}
+
+/**
+ * Elige qué artefacto se entrega para grabar y explica cómo hacerlo.
+ *
+ * Devuelve `descargables`: los nombres que deben llevar su contenido en la
+ * respuesta. El primero es siempre el recomendado.
+ */
+export function elegirCarga(placa: Placa, nombres: string[]): { descargables: string[]; carga: InstruccionesCarga | null } {
+  let archivo: string | undefined;
+  for (const sufijo of preferenciaDeCarga(placa)) {
+    archivo = nombres.find((n) => n.endsWith(sufijo) && (sufijo.includes('merged') || (!esParcial(n) && !n.includes('merged'))));
+    if (archivo) break;
+  }
+  if (!archivo) return { descargables: [], carga: null };
+
+  const formato = (archivo.split('.').pop() ?? 'bin') as InstruccionesCarga['formato'];
+  const comandoArduinoCli = `arduino-cli upload -p <PUERTO> --fqbn ${placa.fqbn} --input-file ${archivo}`;
+  const descargables = [archivo];
+  const base = { archivo, formato, comandoArduinoCli };
+
+  switch (placa.familia) {
+    case 'Arduino AVR': {
+      const a = AVRDUDE[placa.id];
+      return {
+        descargables,
+        carga: {
+          ...base,
+          direccion: null,
+          herramienta: 'avrdude (el gestor de arranque de la placa recibe el .hex por USB)',
+          pasos: [
+            'Conecta la placa por USB y anota su puerto (COM3, /dev/ttyACM0, /dev/cu.usbmodem…).',
+            a
+              ? `avrdude -p ${a.mcu} -c ${a.protocolo} -P <PUERTO> -b ${a.baudios} -D -U flash:w:${archivo}:i`
+              : comandoArduinoCli,
+            ...(a?.toque1200 ? ['La placa entra en el gestor de arranque al abrir su puerto a 1200 bps (o al pulsar reset); arduino-cli lo hace solo.'] : []),
+            'O desde el IDE de Arduino / arduino-cli con el comando de abajo.',
+          ],
+          advertencias: [
+            'No uses el .with_bootloader.hex por USB: es para grabar con programador ISP y sobrescribe el gestor de arranque.',
+          ],
+        },
+      };
+    }
+    case 'Arduino megaAVR':
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: null,
+          herramienta: 'avrdude por UPDI (lo hace arduino-cli upload con el núcleo arduino:megaavr)',
+          pasos: ['Conecta la placa por USB.', comandoArduinoCli],
+          advertencias: [],
+        },
+      };
+    case 'Teensy':
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: null,
+          herramienta: 'Teensy Loader de PJRC',
+          pasos: [
+            'Abre Teensy Loader y carga el .hex (File → Open HEX File).',
+            'Pulsa el botón de programa de la Teensy: el cargador graba y reinicia la placa.',
+          ],
+          advertencias: [],
+        },
+      };
+    case 'ESP32': {
+      const fusionado = archivo.endsWith('.merged.bin');
+      // La aplicación sola también se entrega con la imagen completa: sirve para OTA.
+      const app = nombres.find((n) => n.endsWith('.ino.bin') && !esParcial(n) && !n.includes('merged'));
+      if (fusionado && app) descargables.push(app);
+      return {
+        descargables,
+        carga: {
+          ...base,
+          direccion: fusionado ? '0x0' : '0x10000',
+          herramienta: 'esptool (o el grabador web de Espressif, esptool-js, desde Chrome/Edge)',
+          pasos: [
+            'Conecta la placa por USB. Si no entra sola en modo de carga, mantén BOOT y pulsa EN/RST.',
+            `esptool.py --port <PUERTO> --baud 460800 write_flash ${fusionado ? '0x0' : '0x10000'} ${archivo}`,
+          ],
+          advertencias: fusionado
+            ? ['Graba la imagen completa (.merged.bin) en 0x0. El .ino.bin es solo la aplicación: en 0x0 la placa no arranca.']
+            : ['El núcleo no generó la imagen completa (.merged.bin): este .bin es solo la aplicación y va en 0x10000. '
+              + 'La placa debe tener ya el gestor de arranque y la tabla de particiones del mismo núcleo; si se graba en 0x0 no arranca.'],
+        },
+      };
+    }
+    case 'ESP8266':
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: '0x0',
+          herramienta: 'esptool',
+          pasos: ['Conecta la placa por USB.', `esptool.py --port <PUERTO> --baud 460800 write_flash 0x0 ${archivo}`],
+          advertencias: [],
+        },
+      };
+    case 'RP2040/RP2350':
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: null,
+          herramienta: 'ninguna: la placa se monta como unidad USB',
+          pasos: [
+            'Mantén pulsado BOOTSEL y conecta el USB: aparece una unidad (RPI-RP2 o RP2350).',
+            `Copia ${archivo} a esa unidad. La placa se reinicia con el firmware nuevo.`,
+          ],
+          advertencias: formato === 'uf2' ? [] : ['El núcleo no generó .uf2: usa arduino-cli upload.'],
+        },
+      };
+    case 'STM32':
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: formato === 'bin' ? '0x08000000' : null,
+          herramienta: 'STM32CubeProgrammer (ST-LINK, USB DFU o UART con BOOT0)',
+          pasos: [
+            `STM32CubeProgrammer → Erasing & Programming → ${archivo}${formato === 'bin' ? ' en 0x08000000' : ''} → Start Programming.`,
+            'En las Nucleo, también vale copiar el .bin a la unidad USB que crea su ST-LINK.',
+          ],
+          advertencias: placa.id === 'stm32-bluepill'
+            ? ['La Blue Pill no trae gestor de arranque USB de fábrica: hace falta un ST-LINK o un adaptador serie con BOOT0 en alto.']
+            : [],
+        },
+      };
+    default:
+      return {
+        descargables,
+        carga: {
+          ...base, direccion: null,
+          herramienta: 'el cargador del núcleo (bossac o dfu-util), a través de arduino-cli',
+          pasos: [
+            'Conecta la placa por USB. Si el puerto no aparece, pulsa reset dos veces seguidas para entrar al gestor de arranque.',
+            comandoArduinoCli,
+          ],
+          advertencias: [],
+        },
+      };
+  }
+}
+
 export interface CompileResponse {
   success: boolean;
   board: string;
   output: string;
   artifacts?: { name: string; bytes: number; downloadBase64?: string }[];
+  /** Qué archivo grabar en la placa real y cómo. */
+  carga?: InstruccionesCarga;
   error?: string;
   code?: string;
   /** Todo lo que impide compilar, con a quién le toca arreglarlo. */
@@ -51,6 +252,23 @@ interface SalidaCompilador {
 }
 
 /** El texto que ve el cliente (el mismo que sin --format json) y lo que se enlazó. */
+/**
+ * Quita del texto del compilador las rutas del servidor (carpeta temporal,
+ * raíz del proyecto) y devuelve al .ino principal el nombre que le dio el
+ * cliente: «main.ino:3:5: error…» en vez de «/private/var/…/EmbedverseSketch.ino:3:5».
+ */
+export function limpiarRutas(texto: string, carpetas: string[], sketch: string, principal: string | null): string {
+  let t = texto;
+  for (const c of [...new Set(carpetas)].filter(Boolean).sort((a, b) => b.length - a.length)) {
+    const conSketch = path.join(c, 'EmbedverseSketch') + path.sep;
+    if (principal) t = t.split(conSketch + 'EmbedverseSketch.ino').join(principal);
+    t = t.split(conSketch).join('');
+    t = t.split(c + path.sep).join('');
+  }
+  if (principal) t = t.split(sketch).join(principal);
+  return t;
+}
+
 export function leerSalidaCompilador(stdout: string, stderr: string): { texto: string; usadas: UsadaPorCompilador[] } {
   let r: SalidaCompilador | null = null;
   try {
@@ -395,6 +613,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       await writeFile(destination, file.content, { encoding: 'utf8', flag: 'wx' });
     }
 
+    // Para limpiar las rutas del servidor en lo que ve el cliente (macOS: /var → /private/var).
+    const carpetasDelServidor = [workspace, await realpath(workspace).catch(() => workspace), rootDirectory, await realpath(rootDirectory).catch(() => rootDirectory)];
+    const principalDelCliente = (sketchFile ?? project.files.find((f) => path.posix.basename(f.path).toLowerCase() === 'main.cpp'))?.path ?? null;
     const args = [
       'compile',
       '--config-file',
@@ -470,7 +691,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
           reject(new CompileRequestError('La salida del compilador superó el límite permitido.', 413, 'OUTPUT_TOO_LARGE'));
           return;
         }
-        const { texto: output, usadas } = leerSalidaCompilador(stdout, stderr);
+        const leida = leerSalidaCompilador(stdout, stderr);
+        const output = limpiarRutas(leida.texto, carpetasDelServidor, 'EmbedverseSketch.ino', principalDelCliente);
+        const usadas = leida.usadas;
         if (exitCode !== 0) {
           resolve({ success: false, board: placa.nombre, output, code: 'COMPILE_FAILED' });
           return;
@@ -479,22 +702,22 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
 
         void readdir(outputDirectory)
           .then(async (names) => {
-            // Lo que se graba en la placa: .hex (AVR, SAMD, STM32), .bin (ESP32,
-            // ESP8266) o .uf2 (RP2040). Sin el bootloader ni las particiones.
-            const hexName = ['.ino.hex', '.ino.uf2', '.ino.bin']
-              .map((ext) => names.find((name) => name.endsWith(ext) && !name.includes('bootloader') && !name.includes('partitions') && !name.includes('merged')))
-              .find(Boolean);
+            // Lo que se graba en la placa depende de la familia (ver elegirCarga).
+            const { descargables, carga } = elegirCarga(placa, names);
+            // El recomendado va primero: quien busque «el primer descargable» se lleva ese.
+            const ordenados = [...descargables, ...names.filter((n) => !descargables.includes(n))];
             return {
               success: true,
               board: placa.nombre,
               output,
               bibliotecas: licencias.bibliotecas,
               ...(licencias.avisos.length ? { avisosLicencia: licencias.avisos } : {}),
+              ...(carga ? { carga } : {}),
               artifacts: await Promise.all(
-                names.map(async (name) => ({
+                ordenados.map(async (name) => ({
                   name,
                   bytes: (await stat(path.join(outputDirectory, name))).size,
-                  ...(name === hexName
+                  ...(descargables.includes(name)
                     ? { downloadBase64: (await readFile(path.join(outputDirectory, name))).toString('base64') }
                     : {}),
                 })),
@@ -521,7 +744,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
     if (!isLocalRequest(request)) {
       sendJson(response, 403, {
         success: false,
-        board: 'Arduino Uno R3',
+        board: '',
         output: '',
         error: 'La compilación solo acepta solicitudes locales del mismo origen.',
         code: 'LOCAL_ORIGIN_REQUIRED',
@@ -532,7 +755,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
     if (compilationInProgress) {
       sendJson(response, 429, {
         success: false,
-        board: 'Arduino Uno R3',
+        board: '',
         output: '',
         error: 'Ya hay una compilación en curso.',
         code: 'COMPILATION_IN_PROGRESS',
@@ -541,6 +764,8 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
     }
 
     compilationInProgress = true;
+    // La placa pedida, para que un error de ESP32 no diga «Arduino Uno R3».
+    let placaPedida = '';
     void (async () => {
       try {
         const contentType = request.headers['content-type'] ?? '';
@@ -549,6 +774,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
         }
 
         const body = await readJsonBody(request);
+        placaPedida = buscarPlaca((body as { boardId?: unknown } | null)?.boardId)?.nombre ?? '';
         let project: CompileRequest;
         try {
           project = validateCompileRequest(body);
@@ -565,7 +791,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
         if (error instanceof CompileRequestError) {
           sendJson(response, error.statusCode, {
             success: false,
-            board: 'Arduino Uno R3',
+            board: placaPedida,
             output: '',
             error: error.message,
             code: error.code,
@@ -576,7 +802,7 @@ export function createArduinoCompileMiddleware(rootDirectory: string): Connect.N
         const message = error instanceof Error ? error.message : 'Error interno del compilador.';
         sendJson(response, 500, {
           success: false,
-          board: 'Arduino Uno R3',
+          board: placaPedida,
           output: '',
           error: message,
           code: 'INTERNAL_ERROR',

@@ -55,6 +55,11 @@ export interface BridgeSimulationOptions {
    * otra.
    */
   initialLight?: number;
+  /**
+   * Firmware propio del usuario (Intel HEX de Arduino Uno). Sin él se ejecuta
+   * el firmware de referencia del armario, `public/firmware/puente-alumbrado.hex`.
+   */
+  firmware?: { hex: string; name: string } | null;
 }
 
 export interface BridgeSimulationState {
@@ -65,7 +70,14 @@ export interface BridgeSimulationState {
   deck: DeckReference | null;
   /** Por qué no hay tráfico, cuando no lo hay. */
   trafficNote: string | null;
+  /** Nombre del firmware que se está ejecutando. */
+  firmwareName: string;
+  /** Por qué no se pudo arrancar el firmware, cuando no se pudo. */
+  firmwareError: string | null;
 }
+
+/** Nombre del firmware de referencia, para mostrar cuál se ejecuta. */
+export const REFERENCE_FIRMWARE_NAME = 'puente-alumbrado.hex (firmware de referencia del armario)';
 
 export function useBridgeSimulation(
   viewportRef: { current: ModelViewportHandle | null },
@@ -73,14 +85,16 @@ export function useBridgeSimulation(
 ) {
   const {
     control, lanesPerDirection = 2, flowVehPerHour = 700,
-    speedLimitKmh = null, seed = 2026, initialLight = 1,
+    speedLimitKmh = null, seed = 2026, initialLight = 1, firmware = null,
   } = options;
+  const firmwareName = firmware?.name ?? REFERENCE_FIRMWARE_NAME;
 
   const [running, setRunning] = useState(false);
   const [lighting, setLighting] = useState<FirmwareLightingState | null>(null);
   const [traffic, setTraffic] = useState<TrafficStats | null>(null);
   const [deck, setDeck] = useState<DeckReference | null>(null);
   const [trafficNote, setTrafficNote] = useState<string | null>(null);
+  const [firmwareError, setFirmwareError] = useState<string | null>(null);
 
   const lightingRef = useRef<FirmwareLightingController | null>(null);
   const trafficRef = useRef<TrafficSimulation | null>(null);
@@ -128,7 +142,16 @@ export function useBridgeSimulation(
     const elapsedS = Math.min(MAX_STEP_S, (now - lastTickRef.current) / 1000);
     lastTickRef.current = now;
 
-    if (lightingRef.current) setLighting(lightingRef.current.advance(elapsedS * 1000));
+    if (lightingRef.current) {
+      try {
+        setLighting(lightingRef.current.advance(elapsedS * 1000));
+      } catch (error) {
+        // Una instrucción que el emulador no sabe ejecutar no debe tumbar la página.
+        lightingRef.current = null;
+        setLighting(null);
+        setFirmwareError(error instanceof Error ? error.message : 'El firmware se detuvo por un error.');
+      }
+    }
     if (trafficRef.current) {
       trafficRef.current.advance(elapsedS);
       setTraffic(trafficRef.current.stats());
@@ -139,9 +162,22 @@ export function useBridgeSimulation(
   const start = useCallback(() => {
     clearTimer();
 
-    lightingRef.current = new FirmwareLightingController(firmwareHex, control);
-    lightingRef.current.setLight(initialLight);
-    setLighting(lightingRef.current.state());
+    let controller: FirmwareLightingController;
+    try {
+      controller = new FirmwareLightingController(firmware?.hex ?? firmwareHex, control);
+    } catch (error) {
+      // Sin esto, un .hex mal formado lanzaba dentro del manejador del botón y
+      // el panel se quedaba quieto sin decir nada.
+      lightingRef.current = null;
+      setLighting(null);
+      setRunning(false);
+      setFirmwareError(error instanceof Error ? error.message : 'No se pudo cargar el firmware.');
+      return;
+    }
+    setFirmwareError(null);
+    lightingRef.current = controller;
+    controller.setLight(initialLight);
+    setLighting(controller.state());
 
     const reference = viewportRef.current?.deckReference() ?? null;
     setDeck(reference);
@@ -173,7 +209,7 @@ export function useBridgeSimulation(
     setRunning(true);
     lastTickRef.current = performance.now();
     timerRef.current = window.setInterval(tick, TICK_MS);
-  }, [clearTimer, control, flowVehPerHour, initialLight, lanesPerDirection, seed, speedLimitKmh, tick, viewportRef]);
+  }, [clearTimer, control, firmware, flowVehPerHour, initialLight, lanesPerDirection, seed, speedLimitKmh, tick, viewportRef]);
 
   const stop = useCallback(() => {
     clearTimer();
@@ -199,6 +235,8 @@ export function useBridgeSimulation(
   // moviendo coches contra una escena que ya no existe.
   useEffect(() => clearTimer, [clearTimer]);
 
-  const state: BridgeSimulationState = { running, lighting, traffic, deck, trafficNote };
+  const state: BridgeSimulationState = {
+    running, lighting, traffic, deck, trafficNote, firmwareName, firmwareError,
+  };
   return { ...state, start, stop, setPressed, setLight };
 }

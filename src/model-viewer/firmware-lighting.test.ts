@@ -89,6 +89,13 @@ describe('el firmware enciende las luminarias del puente', () => {
     expect(state.powerNote).toBeNull();
   });
 
+  it('el firmware de referencia usa los pines del armario: ningún aviso', () => {
+    const c = arrancar();
+    c.setLight(0.05);
+    c.advance(50); c.advance(50);
+    expect(c.advance(50).firmwareWarnings).toEqual([]);
+  });
+
   it('el operador fuerza todo encendido con una pulsación, aunque sea de día', () => {
     const c = arrancar();
     c.setLight(1);
@@ -182,5 +189,50 @@ describe('honestidad de la potencia', () => {
     expect(state.zones[0].modelLabel).toBeNull();
     // Sin zonas no hay nada encendido, así que la suma es cero, no nula.
     expect(state.totalPowerW).toBe(0);
+  });
+});
+
+/** Serializa memoria de programa a Intel HEX, para probar el camino real (`fromHex`). */
+function toIntelHex(bytes: Uint8Array): string {
+  const lines: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 16) {
+    const chunk = bytes.subarray(offset, Math.min(offset + 16, bytes.length));
+    const record = [chunk.length, (offset >> 8) & 0xff, offset & 0xff, 0, ...chunk];
+    const sum = (0x100 - (record.reduce((a, b) => a + b, 0) & 0xff)) & 0xff;
+    lines.push(`:${[...record, sum].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()}`);
+  }
+  lines.push(':00000001FF');
+  return `${lines.join('\n')}\n`;
+}
+
+describe('PWM sobre una zona', () => {
+  /**
+   * Regresión: `advance` leía los componentes dos veces (la sesión y luego el
+   * mando). La segunda lectura medía una ventana vacía, el ciclo de trabajo
+   * salía nulo y la zona se daba por encendida o apagada según el instante.
+   */
+  it('mide el ciclo de trabajo de la ventana entera, no el estado del instante', async () => {
+    const { assemble } = await import('avr8js/dist/esm/utils/assembler');
+    // PD5 (tirantes): 2 ciclos en alto y 8 en bajo → 20 %.
+    const { bytes, errors } = assemble(`
+      ldi r16, 0x20
+      out 0x0A, r16
+    bucle:
+      ldi r17, 0x20
+      out 0x0B, r17
+      ldi r18, 0
+      out 0x0B, r18
+      nop
+      nop
+      nop
+      nop
+      rjmp bucle
+    `);
+    expect(errors).toEqual([]);
+    const c = new FirmwareLightingController(toIntelHex(bytes), control);
+    c.advance(5);
+    const tirantes = c.advance(5).zones.find((zone) => zone.zone === 'tirantes')!;
+    expect(tirantes.duty).toBeCloseTo(0.2, 3);
+    expect(tirantes.energized).toBe(true);
   });
 });

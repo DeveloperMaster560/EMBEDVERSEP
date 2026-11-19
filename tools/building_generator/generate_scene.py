@@ -54,6 +54,8 @@ REQUIRED_BY = {
 
 MAX_COMPONENTS = 20000
 
+RESIDENTIAL_DISCIPLINES = ("structure", "architecture", "electrical")
+
 
 def _fresh_modules():
     """Recarga los modulos para que lean los parametros recien aplicados.
@@ -101,6 +103,25 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
     report = P.apply_spec(spec)
 
     requested = spec.get("disciplines") or [k for k, _ in DISCIPLINE_MODULES]
+    known = [k for k, _ in DISCIPLINE_MODULES]
+    if not isinstance(requested, list) or any(d not in known for d in requested):
+        raise P.SpecError("Disciplinas no reconocidas en %r. Opciones: %s."
+                          % (requested, ", ".join(known)))
+    residential_note = []
+    if P.is_residential():
+        # La vivienda solo cubre, por ahora, estructura, arquitectura y
+        # electrica. Las demas disciplinas estan escritas para la tipologia de
+        # oficinas (cuarto de telecomunicaciones, cuarto tecnico de HVAC...).
+        unsupported = [d for d in requested if d not in RESIDENTIAL_DISCIPLINES]
+        if spec.get("disciplines") and unsupported:
+            raise P.SpecError(
+                "En vivienda el generador cubre estructura, arquitectura y electrica; "
+                "no modela todavia: %s." % ", ".join(unsupported))
+        if unsupported:
+            requested = [d for d in requested if d in RESIDENTIAL_DISCIPLINES]
+            residential_note.append(
+                "Vivienda: se generan estructura, arquitectura y electrica. %s no se "
+                "modelan todavia en esta tipologia." % ", ".join(unsupported))
     disciplines = expand_disciplines(list(requested))
     added = sorted(set(disciplines) - set(requested))
 
@@ -154,7 +175,7 @@ def build_scene(spec: Dict[str, Any]) -> Dict[str, Any]:
         "project_id": P.PROJECT_ID,
         "glb_base64": base64.b64encode(glb).decode("ascii"),
         "applied": report["applied"],
-        "adjustments": report["adjustments"]
+        "adjustments": report["adjustments"] + residential_note
         + (["Se anadieron las disciplinas %s porque las pedidas dependen de ellas."
             % ", ".join(added)] if added else []),
         "counts": {

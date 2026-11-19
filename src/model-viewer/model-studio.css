@@ -4,8 +4,10 @@
   display: grid;
   grid-template-columns: minmax(320px, 400px) 1fr;
   gap: 0;
-  height: 100%;
-  min-height: 640px;
+  /* Alto de la pantalla, no del contenido: si crece con el panel izquierdo, el
+     lienzo 3D se estira (716 × 3622 px) y el modelo queda fuera de la vista. */
+  height: calc(100vh - 180px);
+  min-height: 520px;
   background: #0b0e13;
   color: #e6e9ef;
   border-radius: 14px;
@@ -437,7 +439,7 @@
 
 .bs-viewport {
   flex: 1;
-  min-height: 420px;
+  min-height: 0;
   position: relative;
 }
 
@@ -645,6 +647,14 @@
 .bsim-controls button:hover { background: #26323e; }
 .bsim-controls .bsim-primary { background: #2f6d4c; border-color: #3c8a60; color: #eafaf0; }
 .bsim-controls .bsim-primary:hover { background: #37805a; }
+.bsim-file {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px;
+  border: 1px solid #32404d; border-radius: 5px; background: #1d2731;
+  color: #c9d6e0; font-size: 11px; cursor: pointer;
+}
+.bsim-file input { display: none; }
+.bsim-error { color: #ffb4a8; }
+.bsim-warnings li { color: #ffd59a; }
 
 .bsim-mode { display: flex; align-items: center; gap: 9px; margin: 10px 0; }
 .bsim-mode-tag {
@@ -687,3 +697,9 @@
 }
 
 .bs-section-divider { height: 1px; margin: 13px 0; background: #26313b; }
+
+/* Datos en vivo de la estación ubicada en el componente seleccionado. */
+.bs-envivo { margin-top: 10px; border-top: 1px solid #1d2430; padding-top: 8px; max-height: 260px; overflow: auto; }
+.bs-envivo h4 { margin: 0 0 2px; font-size: 0.8rem; color: #8fd4b8; }
+.bs-envivo small { color: #7f8ca0; font-size: 0.7rem; }
+.bs-envivo table { font-size: 0.68rem; }

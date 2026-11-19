@@ -95,9 +95,11 @@ describe('interpretBridgePrompt', () => {
   });
 
   it('declara las tipologías que no modela en vez de sustituirlas en silencio', () => {
-    const spec = interpretBridgePrompt('Puente en arco de 80 m de longitud.');
-    expect(spec.unrecognized).toContain('puentes en arco');
-    expect(spec.questions.some((q) => q.includes('puentes en arco'))).toBe(true);
+    // El arco SÍ se modela desde que existe la tipología `arch`; esta prueba
+    // usaba el arco y afirmaba lo contrario. Se prueba con la celosía.
+    const spec = interpretBridgePrompt('Puente en celosía de 80 m de longitud.');
+    expect(spec.unrecognized).toContain('puentes en celosía');
+    expect(spec.questions.some((q) => q.includes('puentes en celosía'))).toBe(true);
   });
 
   it('redirige a Edificación cuando el enunciado describe un edificio', () => {
@@ -209,5 +211,47 @@ describe('tipología en arco', () => {
     const spec = interpretBridgePrompt('un puente de 120 m');
     expect(spec.bridgeType).toBe('beam');
     expect(spec.assumptions.join(' ')).toMatch(/viga/i);
+  });
+});
+
+describe('barrido de enunciados (19/11/2026)', () => {
+  it('«3 vanos de 80 m» fija vanos y longitud total sin preguntar la longitud', () => {
+    const spec = interpretBridgePrompt('puente atirantado de 3 vanos de 80 m');
+    expect(spec.bridgeType).toBe('cable_stayed');
+    expect(spec.spanCount).toBe(3);
+    expect(spec.lengthM).toBe(240);
+    expect(spec.questions.join(' ')).not.toMatch(/longitud total tiene/);
+    expect(spec.assumptions.join(' ')).toMatch(/3 vanos iguales/);
+  });
+
+  it('si la luz por vano y la longitud total no cuadran, pregunta en vez de elegir', () => {
+    const spec = interpretBridgePrompt(
+      'puente de 100 m de longitud, 10 m de ancho, tablero a 7 m, 3 vanos de 20 m',
+    );
+    expect(spec.lengthM).toBe(100);
+    expect(spec.questions.join(' ')).toMatch(/suman 60 m/);
+  });
+
+  it('el arco ya no se declara como tipología no modelada', () => {
+    const spec = interpretBridgePrompt('puente en arco de 120 m de longitud, 12 m de ancho y tablero a 25 m');
+    expect(spec.bridgeType).toBe('arch');
+    expect(spec.unrecognized).toEqual([]);
+    expect(spec.questions).toEqual([]);
+  });
+
+  it('una medida negativa no se lee como positiva', () => {
+    expect(interpretBridgePrompt('puente de -50 m de longitud').lengthM).toBeNull();
+    expect(interpretBridgePrompt('puente de longitud -50 m').lengthM).toBeNull();
+  });
+
+  it('una tipología no soportada no se describe como «no indicada»', () => {
+    const spec = interpretBridgePrompt('puente colgante de 300 m de longitud');
+    expect(spec.unrecognized).toContain('puentes colgantes');
+    expect(spec.assumptions.join(' ')).toMatch(/Se pidieron puentes colgantes/);
+    expect(spec.assumptions.join(' ')).not.toMatch(/No se indicó la tipología/);
+  });
+
+  it('admite kilómetros', () => {
+    expect(interpretBridgePrompt('viaducto de 0,55 km de longitud').lengthM).toBeCloseTo(550, 6);
   });
 });

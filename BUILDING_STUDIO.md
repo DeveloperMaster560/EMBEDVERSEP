@@ -240,3 +240,27 @@ vocabulario, el intérprete y la validación de la solicitud.
 
 Pruebas: `npm test` cubre el intérprete, el contrato, el convenio de nombres,
 la presentación de materiales y la validación del endpoint.
+
+## Vivienda unifamiliar y enlace con el sistema embebido (19/11/2026)
+
+- **Casas.** El uso `vivienda` (casa, unifamiliar, residencial, apartamento)
+  tiene su propia distribución: banda sur, pasillo de fachada a fachada,
+  escalera al inicio de la banda norte. Solo se colocan los recintos que el
+  enunciado nombra (dormitorios, cocina, sala, baños…); lo que sobra queda como
+  «Espacio sin uso asignado». El lado mínimo se calcula a partir de la escalera
+  (con 2,80 m entre niveles, unos 5,14 × 7,90 m). La escalera de 0,90 m, el
+  pasillo de 1,20 m y los muros de 0,15 m son **hipótesis geométricas sin
+  verificar contra norma**, y la respuesta lo dice.
+- **Disciplinas en vivienda:** estructura, arquitectura y eléctrica. Las demás
+  dependen de recintos de oficina y se rechazan si se piden.
+- **Eléctrica de la casa en el modelo:** tablero general `ELE-TAB-TG`,
+  tableros por piso `ELE-TAB-TS-N*`, circuitos `ELE-CIR-*` (2 de iluminación y
+  2 de tomas por piso), acometida `ELE-ACO-001`, medidor `ELE-MED-001`, puesta a
+  tierra `ELE-PAT-*`. Calibres, protecciones y demanda quedan `null` hasta que
+  los fije el ingeniero electricista.
+- **Enlace con el embebido.** Si una estación del proyecto de la plataforma
+  declara `ubicacion.elemento` con el id de un componente del modelo, el estudio
+  lo lista en «Estaciones en el modelo» y, al seleccionarlo, el inspector
+  muestra sus medidas reales (solo lectura, con el token del servidor local).
+  Ejemplo probado: `proyectos/casa-demo` ubica `CASA-TAB-01`
+  (`firmware/esp32-tablero-casa`, PZEM-004T + DHT22) en `ELE-TAB-TG`.

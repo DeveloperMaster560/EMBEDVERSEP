@@ -505,7 +505,36 @@ def write_package(model, sheets: Sequence, out_root: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# Bibliotecas sin las que el expediente completo no se puede escribir. La
+# generacion en linea del Studio (generate_scene.py) NO las necesita: solo
+# usa trimesh, shapely y numpy.
+PACKAGE_LIBRARIES = {
+    "ifcopenshell": "IFC4 (02_3D_MODEL/building.ifc)",
+    "cadquery": "STEP (02_3D_MODEL/building.step)",
+    "ezdxf": "DXF (11_DRAWINGS/dxf)",
+    "reportlab": "PDF (11_DRAWINGS/pdf)",
+}
+
+
+def missing_package_libraries() -> List[str]:
+    import importlib.util
+    return [m for m in PACKAGE_LIBRARIES if importlib.util.find_spec(m) is None]
+
+
 def main(argv: Sequence[str]) -> int:
+    # Se comprueba ANTES de construir nada: sin esto el proceso trabajaba varios
+    # minutos y moria al escribir el IFC con un traceback de ImportError,
+    # dejando un expediente a medias en la carpeta de salida.
+    missing = missing_package_libraries()
+    if missing:
+        import deps
+
+        log("No se puede escribir el expediente completo: faltan bibliotecas.")
+        for m in missing:
+            msg = deps.mensaje_dependencia(ImportError(name=m)) or m
+            log("  - %s, necesaria para %s. %s" % (m, PACKAGE_LIBRARIES[m], msg))
+        log("La generacion en linea del Studio (modelo 3D GLB) no depende de ellas.")
+        return 2
     out_base = argv[1] if len(argv) > 1 else os.getcwd()
     out_root = os.path.join(out_base, P.PROJECT_ID)
     if os.path.isdir(out_root):

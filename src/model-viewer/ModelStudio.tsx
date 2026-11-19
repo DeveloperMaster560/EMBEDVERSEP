@@ -44,6 +44,8 @@ import { lanesPerDirectionFrom } from '../traffic/simulation';
 import { MASS_BASIS_NOTE, MODELLED_MASS_LABEL, formatModelledMass } from './mass-report';
 import { BridgeSimulationPanel } from './BridgeSimulationPanel';
 import { useBridgeSimulation } from './useBridgeSimulation';
+import { readBridgeFirmware } from './firmware-lighting';
+import { DatosDelComponente, EstacionesEnElModelo } from '../plataforma/DatosDelComponente';
 
 const ZONE_LIGHT_COLOR: Record<string, string> = {
   vial: '#ffd9a0',
@@ -130,6 +132,9 @@ export function ModelStudio<S>({
   // Luz que ve la fotocelda del armario. Arranca de noche cerrada para que al
   // poner en marcha se vea algo encendido.
   const [photocellLight, setPhotocellLight] = useState(0.05);
+  // Firmware propio para el armario (el .hex que el usuario compiló para el Uno).
+  const [customFirmware, setCustomFirmware] = useState<{ hex: string; name: string } | null>(null);
+  const [firmwareFileError, setFirmwareFileError] = useState<string | null>(null);
   const [accentZonesOn, setAccentZonesOn] = useState<Set<string>>(
     () => new Set(['tirantes', 'torres', 'barreras']),
   );
@@ -187,7 +192,19 @@ export function ModelStudio<S>({
     lanesPerDirection: lanesPerDirectionFrom(
       typeof result?.applied?.lanes === 'number' ? result.applied.lanes : null,
     ),
+    firmware: customFirmware,
   });
+
+  /** Lee el archivo como bytes: un .bin de ESP32 leído como texto no se podría reconocer. */
+  const chooseFirmwareFile = useCallback(async (file: File) => {
+    try {
+      const hex = readBridgeFirmware(new Uint8Array(await file.arrayBuffer()), file.name);
+      setCustomFirmware({ hex, name: file.name });
+      setFirmwareFileError(null);
+    } catch (error) {
+      setFirmwareFileError(error instanceof Error ? error.message : 'No se pudo leer el archivo.');
+    }
+  }, []);
 
   /**
    * Qué manda sobre las luces del visor.
@@ -275,8 +292,8 @@ export function ModelStudio<S>({
       }
       const generated = normalizeResult(payload, config.domain);
       setResult(generated);
-      // Se abre sola al generar un modelo que la tiene; se cierra para ver el 3D.
-      setExtraOpen(Boolean(config.extraView?.available(generated)));
+      // Primero se ve el modelo 3D que se pidió; la vista extra (circuito SHM) se abre con su botón.
+      setExtraOpen(false);
       setVisibleDisciplines(new Set(Object.keys(generated.counts.byDiscipline)));
       setVisibleLevels(new Set());
       setSelectedId(null);
@@ -426,6 +443,10 @@ export function ModelStudio<S>({
 
         {result && (
           <>
+            <EstacionesEnElModelo
+              componentes={result.components}
+              onElegir={(id) => { setSelectedId(id); viewportRef.current?.focus(id); }}
+            />
             <section className="bs-section">
               <h3>Modelo generado</h3>
               <div className="bs-stats">
@@ -627,6 +648,10 @@ export function ModelStudio<S>({
                 onStop={simulation.stop}
                 onPressed={simulation.setPressed}
                 onLight={(value) => { setPhotocellLight(value); simulation.setLight(value); }}
+                firmwareName={simulation.firmwareName}
+                firmwareError={firmwareFileError ?? simulation.firmwareError}
+                onFirmwareFile={(file) => { void chooseFirmwareFile(file); }}
+                onReferenceFirmware={() => { setCustomFirmware(null); setFirmwareFileError(null); }}
               />
             )}
 
@@ -904,6 +929,7 @@ export function ModelStudio<S>({
             >
               Centrar en el componente
             </button>
+            <DatosDelComponente componentId={selected.component_id} />
           </div>
         )}
       </main>

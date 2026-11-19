@@ -48,6 +48,12 @@ def electrical_room():
     cambia con la solicitud. Se busca por uso y se degrada a un recinto tecnico
     equivalente si el programa no incluye cuarto electrico.
     """
+    if P.is_residential():
+        # Una casa no tiene cuarto electrico: el tablero va en el recinto del
+        # nivel de acceso que toca la fachada oeste, donde llega la acometida
+        # (vease meter_position). Es una hipotesis de ubicacion, no de diseno.
+        south = [r for r in P.SPACE_PROGRAM["N1"] if r[3] == "SOUTH"]
+        return min(south, key=lambda r: r[4]) if south else None
     return P.find_space_any("N1", ("cuarto_electrico", "zona_tecnica", "archivo", "oficina"))
 
 
@@ -66,6 +72,10 @@ def meter_position():
 def ts_position():
     """Tablero secundario de piso, junto al ducto tecnico de la circulacion."""
     tx0, ty0, tx1, ty1 = shaft_tech()
+    if P.is_residential():
+        # En la vivienda el pasillo es estrecho: al norte del ducto ya esta el
+        # nucleo de la escalera. El tablero va al este del ducto, en el pasillo.
+        return (round(tx1 + 0.35, 3), round((ty0 + ty1) / 2.0, 3))
     return (round((tx0 + tx1) / 2.0, 3), round(ty1 + 0.35, 3))
 
 
@@ -282,7 +292,8 @@ def build_subpanels(model) -> None:
 
     # Alimentador TG -> montante
     tgx, tgy = tg_position()
-    tg_path = R.manhattan((tgx, tgy, 1.90), (rx, ry, 0.30), 2.60)
+    tg_path = R.manhattan((tgx, tgy, 1.90), (rx, ry, 0.30),
+                           round(P.HYP_PLENUM_ROUTING_Z - 0.08, 3))  # 2.60 en oficina
     sid = "SOL-ELE-ALI-MON"
     solid = _route_solid(sid, [tg_path], P.HYP_CONDUIT_DIAMETERS["alimentador"],
                          "cobre", "N1", "ELE-ALIMENTADORES")
@@ -412,7 +423,31 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
 
         for sp in _space_list(model, lid):
             n = max(1, int(math.ceil(sp.area_m2 / lum["area_per_luminaire_m2"])))
-            if sp.shape == "ring":
+            lz = cz
+            if P.is_residential() and sp.shape == "ring":
+                # Pasillo de vivienda: una fila sobre su eje, fuera del ducto
+                # tecnico y apartada de las lineas de columnas.
+                my = round((P.RING_Y0 + P.RING_Y1) / 2.0, 3)
+                x = shaft_tech()[2] + 1.0
+                pts = []
+                while x <= P.RING_X1 - 0.8:
+                    if all(abs(x - gx) > 0.65 for gx in P.GRID_X):
+                        pts.append((round(x, 3), my))
+                    x += 3.0 if all(abs(x - gx) > 0.65 for gx in P.GRID_X) else 0.7
+                pts = pts or [(round(P.RING_X1 - 1.0, 3), my)]
+                n = len(pts)
+            elif P.is_residential() and sp.use == "escalera":
+                # El nucleo de una vivienda no tiene franjas laterales: los
+                # tramos lo llenan. La luminaria va sobre el descanso, a 2.10 m
+                # de su piso, que es donde no pasa ningun tramo.
+                g = stair_geometry()
+                py = round((g["y_top_flight"] + g["y_landing_end"]) / 2.0, 3)
+                px = round((g["xa0"] + g["xb1"]) / 2.0, 3)
+                pts = [(px, py)]
+                landing_z = e + P.HYP_STAIR_RISER * P.HYP_STAIR_RISERS_PER_FLIGHT
+                lz = round(landing_z + 2.10, 3)
+                n = 1
+            elif sp.shape == "ring":
                 # la circulacion se reparte en el perimetro del anillo
                 pts = [(x, y) for x, y, _ in R.perimeter_points(
                     [P.RING_X0 + 0.9, P.RING_Y0 + 0.9, P.RING_X1 - 0.9, P.RING_Y1 - 0.9],
@@ -436,15 +471,15 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
                 sid = "SOL-%s" % cid
                 solid = S.Solid(
                     sid, [S.box_prism(px - 0.30, py - 0.30, px + 0.30, py + 0.30,
-                                      round(cz - 0.07, 4), cz)],
+                                      round(lz - 0.07, 4), lz)],
                     "luminaria", "electrical", lid, "ELE-ILUMINACION")
                 op = model.oplog.record(
                     "extrude", "creation",
                     ("Luminaria %s en el recinto %s: panel 0.60x0.60 a cota de cielo raso %.2f. "
                      "Reparto geometrico de %d unidades para %.2f m2 a razon de %.1f m2/unidad.")
-                    % (cid, sp.code, cz, n, sp.area_m2, lum["area_per_luminaire_m2"]),
+                    % (cid, sp.code, lz, n, sp.area_m2, lum["area_per_luminaire_m2"]),
                     component_id=cid, solid_id=sid,
-                    inputs={"space": sp.space_id, "position": [px, py, cz],
+                    inputs={"space": sp.space_id, "position": [px, py, lz],
                             "area_m2": sp.area_m2, "units": n,
                             "criterion_m2_per_unit": lum["area_per_luminaire_m2"]},
                     outputs={"nominal_power_w": lum["nominal_power_w"]},
@@ -455,7 +490,7 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
                     component_id=cid, discipline="electrical", type="luminaire",
                     name="Luminaria %s-%02d" % (sp.code, k), level_id=lid,
                     space_id=sp.space_id, material="luminaria", ifc_class="IfcLightFixture",
-                    position=[px, py, cz], dimensions={"width": 0.60, "depth": 0.60, "height": 0.07},
+                    position=[px, py, lz], dimensions={"width": 0.60, "depth": 0.60, "height": 0.07},
                     parameters={
                         "model_reference": lum["model_ref"],
                         "nominal_power_w": lum["nominal_power_w"],
@@ -472,7 +507,7 @@ def build_lighting(model) -> Dict[str, List[Dict[str, Any]]]:
                     provenance="hypothesis", tags=["electrico", "iluminacion"],
                 ), solid, op)
                 model.relate(cid, "serves_space", sp.space_id)
-                points.append({"component_id": cid, "xyz": (px, py, cz),
+                points.append({"component_id": cid, "xyz": (px, py, lz),
                                "space": sp.space_id, "code": sp.code,
                                "power_w": lum["nominal_power_w"]})
 
@@ -553,6 +588,14 @@ def build_outlets(model) -> Dict[str, List[Dict[str, Any]]]:
                 cx = round((sp.rect[0] + sp.rect[2]) / 2, 4)
                 cy = round(sp.rect[1] + 0.15, 4)
                 candidates = [(cx, cy, "S")]
+            if P.is_residential():
+                # En la vivienda hay columnas sobre el muro del pasillo, no solo
+                # en las esquinas de la rejilla: la toma no puede caer dentro.
+                clear = P.HYP_COLUMN_SIZE[0] / 2.0 + 0.10
+                candidates = [
+                    (px, py, f) for px, py, f in candidates
+                    if not any(abs(px - gx) < clear and abs(py - gy) < clear
+                               for gx in P.GRID_X for gy in P.GRID_Y)] or candidates
 
             for k, (px, py, face) in enumerate(candidates, start=1):
                 cid = "ELE-TOM-%s-%s-%02d" % (lid, sp.code, k)
@@ -782,6 +825,10 @@ def build_cable_tray(model) -> None:
 
 def build_grounding(model) -> None:
     electrodes = [(-1.20, 3.00), (-1.20, 6.00), (-1.20, 9.00)]
+    if P.is_residential():
+        # Las posiciones de oficina (y = 3, 6, 9 m) caen en el borde o fuera
+        # de una casa estrecha: se reparten sobre el ancho real de la fachada.
+        electrodes = [(-1.20, round(P.REQ_WIDTH_Y * f, 3)) for f in (0.25, 0.50, 0.75)]
     ids: List[str] = []
     for k, (ex, ey) in enumerate(electrodes, start=1):
         cid = "ELE-PAT-ELE-%02d" % k
@@ -815,6 +862,10 @@ def build_grounding(model) -> None:
     for ex, ey in electrodes[1:]:
         path.append((ex, ey, -0.60))
     tgx, tgy = tg_position()
+    if P.is_residential():
+        # Por fuera de la planta hasta la altura del tablero; en diagonal
+        # cruzaba bajo la casa a traves de los pedestales.
+        path.append((electrodes[-1][0], tgy, -0.60))
     path.append((tgx, tgy, -0.60))
     path.append((tgx, tgy, 1.00))
     cid = "ELE-PAT-COND-001"
@@ -980,5 +1031,9 @@ def build(model) -> None:
     lighting = build_lighting(model)
     outlets = build_outlets(model)
     build_circuits(model, lighting, outlets)
-    build_cable_tray(model)
+    # Una vivienda no lleva bandeja portacables: los circuitos van en tubo
+    # desde el tablero. En el pasillo de una casa la bandeja chocaria ademas
+    # con las columnas y el fondo de viga.
+    if not P.is_residential():
+        build_cable_tray(model)
     build_grounding(model)

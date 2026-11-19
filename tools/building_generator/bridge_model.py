@@ -95,11 +95,68 @@ def cap_top() -> float:
 # ---------------------------------------------------------------------------
 
 
+def tower_leg_offset() -> float:
+    """Distancia transversal del eje del puente al eje de cada fuste de torre."""
+    tw, _td = B.HYP_TOWER_SECTION
+    # El fuste se aparta tambien del colector de drenaje, que cuelga por fuera
+    # del borde del tablero.
+    anchor_y = B.REQ_WIDTH / 2 + 0.55
+    return round(anchor_y + tw / 2 + 0.35, 4)
+
+
+def _pier_column_offsets() -> List[float]:
+    n = B.HYP_PIER_COLUMNS_PER_AXIS
+    usable = B.REQ_WIDTH - 2.0
+    return ([round(-usable / 2 + usable * i / max(1, n - 1), 4) for i in range(n)]
+            if n > 1 else [0.0])
+
+
+def _tower_at(x: float) -> bool:
+    return any(abs(x - t) < 1e-6 for t in B.TOWER_AXES)
+
+
+def footing_half_width(tag: str, x: float) -> float:
+    """Semiancho transversal de la zapata del eje: lo que sostiene, mas el vuelo.
+
+    La planta HYP_FOOTING_PLAN es el minimo. Una zapata mas estrecha que las
+    columnas, el muro o los fustes que recibe deja esos elementos apoyados en
+    el aire, que es lo que pasaba con cualquier tablero de mas de ~6 m.
+    """
+    m = B.HYP_FOOTING_EDGE_MARGIN
+    half = B.HYP_FOOTING_PLAN[0] / 2.0
+    if tag in ("EA", "EB"):
+        half = max(half, B.REQ_WIDTH / 2.0 + m)
+    elif tag.startswith("P"):
+        outer = max(abs(o) for o in _pier_column_offsets())
+        half = max(half, outer + B.HYP_PIER_COLUMN_DIAMETER / 2.0 + m)
+    if B.REQ_TYPE == "cable_stayed" and (tag.startswith("T") or _tower_at(x)):
+        half = max(half, tower_leg_offset() + B.HYP_TOWER_SECTION[0] / 2.0 + m)
+    return round(half, 4)
+
+
+def foundation_axes() -> List[Tuple[str, float]]:
+    """Ejes con zapata: apoyos y, en el atirantado, torres fuera de un apoyo."""
+    axes = support_axes()
+    if B.REQ_TYPE == "cable_stayed":
+        for i, x in enumerate(B.TOWER_AXES, start=1):
+            if not any(abs(x - ax) < 1e-6 for _t, ax in axes):
+                axes.append(("T%d" % i, x))
+    return axes
+
+
+def footing_id_at(x: float) -> str:
+    for tag, ax in foundation_axes():
+        if abs(ax - x) < 1e-6:
+            return "EST-ZAP-%s" % tag
+    raise KeyError(x)
+
+
 def build_foundations(model) -> None:
     fw, fl = B.HYP_FOOTING_PLAN
     ft = B.HYP_FOOTING_THICKNESS
 
-    for tag, x in support_axes():
+    for tag, x in foundation_axes():
+        fw = round(2 * footing_half_width(tag, x), 4)
         # Las PILAS bajan al fondo del cruce; los ESTRIBOS se cimientan donde
         # arrancan, que es donde el terreno encuentra al tablero. En un
         # viaducto sobre vaguada esos dos sitios no estan a la misma cota, y
@@ -144,7 +201,10 @@ def build_foundations(model) -> None:
             validation_notes=[
                 "Dimension adoptada sin estudio geotecnico ni de socavacion.",
                 "En un cauce, la cimentacion de pila exige estudio hidraulico.",
-            ],
+            ] + (["Ancho transversal ampliado de %.2f a %.2f m para recibir los "
+                  "elementos que apoyan en ella (vuelo de %.2f m)."
+                  % (B.HYP_FOOTING_PLAN[0], fw, B.HYP_FOOTING_EDGE_MARGIN)]
+                 if fw > B.HYP_FOOTING_PLAN[0] + 1e-9 else []),
         ), solid, op)
 
 
@@ -160,9 +220,7 @@ def build_piers(model) -> None:
     cap_z0 = round(cap_z1 - B.HYP_PIER_CAP_DEPTH, 4)
     foot_top = -B.HYP_FOOTING_DEPTH
 
-    usable = B.REQ_WIDTH - 2.0
-    offsets = [round(-usable / 2 + usable * i / max(1, n - 1), 4) for i in range(n)] \
-        if n > 1 else [0.0]
+    offsets = _pier_column_offsets()
 
     for i, x in enumerate(B.PIER_AXES, start=1):
         tag = "P%d" % i
@@ -713,12 +771,13 @@ def build_towers_and_stays(model) -> None:
     if B.REQ_TYPE != "cable_stayed":
         return
     tw, td = B.HYP_TOWER_SECTION
-    base = cap_top()
+    # El fuste baja hasta su zapata. Arrancaba en la cota del cabezal de pila,
+    # pero va por fuera del tablero y del cabezal: quedaba colgado a la altura
+    # del tablero sin nada debajo, y si la torre no caia en una pila, en mitad
+    # del vano.
+    base = -B.HYP_FOOTING_DEPTH
     top = round(B.DECK_TOP + B.TOWER_HEIGHT, 4)
-    # El fuste se aparta tambien del colector de drenaje, que cuelga por fuera
-    # del borde del tablero.
-    anchor_y = B.REQ_WIDTH / 2 + 0.55
-    leg_offset = round(anchor_y + tw / 2 + 0.35, 4)
+    leg_offset = tower_leg_offset()
 
     for i, x in enumerate(B.TOWER_AXES, start=1):
         zone = "T%d" % i
@@ -754,6 +813,7 @@ def build_towers_and_stays(model) -> None:
                 requires_calculation=CONCRETE_PENDING + ["axial_load_kN", "anchorage_design"],
                 provenance="hypothesis", tags=["atirantado", "torre", "conceptual"],
             ), solid, op)
+            model.relate(cid, "supported_by", footing_id_at(x))
             legs.append(cid)
 
         # --- tirantes en abanico a ambos lados de cada torre ---

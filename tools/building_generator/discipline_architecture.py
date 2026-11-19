@@ -225,10 +225,16 @@ def build_spaces(model) -> None:
         ring_area = round(
             (P.RING_X1 - P.RING_X0) * (P.RING_Y1 - P.RING_Y0)
             - (P.CORE_X1 - P.CORE_X0) * (P.CORE_Y1 - P.CORE_Y0), 4)
+        holes = [ring_hole]
+        if P.is_residential():
+            # En la vivienda el nucleo queda FUERA del pasillo (al norte), asi
+            # que el pasillo es un rectangulo sin vacio.
+            holes = []
+            ring_area = round((P.RING_X1 - P.RING_X0) * (P.RING_Y1 - P.RING_Y0), 4)
         code = "%sCIRC" % lid
         sid = "SOL-ARQ-ESP-%s" % code
         solid = S.Solid(
-            sid, [S.Prism(outer=ring_outer, holes=[ring_hole], z0=e,
+            sid, [S.Prism(outer=ring_outer, holes=holes, z0=e,
                           z1=round(e + P.HYP_CEILING_HEIGHT, 3))],
             "equipo_generico", "architecture", lid, "ARQ-ESPACIOS",
         )
@@ -252,9 +258,10 @@ def build_spaces(model) -> None:
             rect=[P.RING_X0, P.RING_Y0, P.RING_X1, P.RING_Y1],
             area_m2=ring_area,
             perimeter_m=round(2 * ((P.RING_X1 - P.RING_X0) + (P.RING_Y1 - P.RING_Y0))
-                              + 2 * ((P.CORE_X1 - P.CORE_X0) + (P.CORE_Y1 - P.CORE_Y0)), 4),
+                              + (0 if not holes else
+                                 2 * ((P.CORE_X1 - P.CORE_X0) + (P.CORE_Y1 - P.CORE_Y0))), 4),
             clear_height=P.REQ_CLEAR_HEIGHT, shape="ring",
-            polygon=[[list(p) for p in ring_outer], [list(p) for p in ring_hole]],
+            polygon=[[list(p) for p in ring_outer]] + [[list(p) for p in h] for h in holes],
             geometry_reference=sid, provenance="derived",
             requires_calculation=["occupancy_load", "egress_check"],
         ))
@@ -374,6 +381,22 @@ def plan_openings(model, level: Dict[str, Any]) -> Tuple[Dict[str, List[Dict[str
             "exterior": True, "thickness": P.HYP_WALL_EXTERIOR,
         })
 
+    if lid == "N1" and P.is_residential():
+        # Acceso de la vivienda: al final del pasillo, en la fachada este.
+        cy = (P.RING_Y0 + P.RING_Y1) / 2.0
+        w = P.HYP_DOOR_WIDTH_OFFICE
+        a, b = round(cy - w / 2, 4), round(cy + w / 2, 4)
+        add("EXT-E", a, b, dz0, dz1)
+        facade_doors["E"].append((a, b))
+        records.append({
+            "kind": "door", "code": "P-%s-ACC" % lid, "wall": "EXT-E", "axis": "y",
+            "line": round(P.REQ_LENGTH_X - P.HYP_WALL_EXTERIOR / 2.0, 4), "u0": a, "u1": b,
+            "z0": dz0, "z1": dz1, "width": w, "height": P.HYP_DOOR_HEIGHT, "leaves": 1,
+            "space": "ARQ-ESP-%sCIRC" % lid,
+            "type_label": "Puerta de acceso principal", "exterior": True,
+            "thickness": P.HYP_WALL_EXTERIOR,
+        })
+
     # Reserva en la fachada oeste para el medidor y el tablero general del N1:
     # no debe abrirse una ventana donde van esos equipos. La franja se deduce
     # del recinto que los aloja, no de una coordenada fija.
@@ -392,6 +415,10 @@ def plan_openings(model, level: Dict[str, Any]) -> Tuple[Dict[str, List[Dict[str
         axis = BAND_AXIS[band]
         wdoor = DOOR_WIDTH_BY_USE.get(use, P.HYP_DOOR_WIDTH_OFFICE)
         center = _shift_clear_of((start + end) / 2.0, wdoor, cross_lines[axis], start, end)
+        if P.is_residential() and band == "SOUTH":
+            # El muro sur del pasillo de la vivienda es un eje de columnas.
+            center = _shift_clear_of(center, wdoor, P.GRID_X, start, end,
+                                     clearance=P.HYP_COLUMN_SIZE[0] / 2.0 + 0.05)
         a, b = round(center - wdoor / 2, 4), round(center + wdoor / 2, 4)
         corridor_wall = "COR-%s" % BAND_FACADE[band]
         add(corridor_wall, a, b, dz0, dz1)
@@ -430,6 +457,20 @@ def plan_openings(model, level: Dict[str, Any]) -> Tuple[Dict[str, List[Dict[str
 
     # Puerta del nucleo de escaleras hacia la circulacion (muro oeste del nucleo).
     g = stair_geometry()
+    if P.is_residential():
+        # El nucleo de la vivienda abre al pasillo por su muro sur.
+        w = P.HYP_DOOR_WIDTH_OFFICE
+        cx = (P.CORE_X0 + P.CORE_X1) / 2.0
+        a, b = round(cx - w / 2, 4), round(cx + w / 2, 4)
+        add("CORE-S", a, b, dz0, dz1)
+        records.append({
+            "kind": "door", "code": "P-%sESC" % lid, "wall": "CORE-S", "axis": "x",
+            "line": round(P.CORE_Y0 + P.HYP_WALL_CORE / 2.0, 4), "u0": a, "u1": b,
+            "z0": dz0, "z1": dz1, "width": w, "height": P.HYP_DOOR_HEIGHT, "leaves": 1,
+            "space": "ARQ-ESP-%sESC" % lid, "type_label": "Puerta de escalera",
+            "exterior": False, "thickness": P.HYP_WALL_CORE,
+        })
+        return by_wall, records
     w = P.HYP_DOOR_WIDTH_DOUBLE
     cy = (P.CORE_Y0 + P.CORE_Y1) / 2.0
     a, b = round(cy - w / 2, 4), round(cy + w / 2, 4)
@@ -490,6 +531,14 @@ def _wall_definitions(level: Dict[str, Any]) -> List[Dict[str, Any]]:
          "u0": g["int_y0"], "u1": g["int_y1"], "thickness": cw, "kind": "core",
          "name": "Muro del nucleo este"},
     ]
+
+    if P.is_residential():
+        # Sin bandas laterales los muros de circulacion oeste y este caerian
+        # sobre las fachadas, y el norte duplicaria el muro sur del nucleo.
+        defs = [d for d in defs if d["key"] not in ("COR-W", "COR-E")]
+        for d in defs:
+            if d["key"] == "COR-N":
+                d["u0"] = P.CORE_X1
 
     # Particiones entre recintos de una misma banda.
     lid = level["level_id"]
@@ -790,10 +839,20 @@ def build_penthouse(model) -> None:
     outer = S.rect_points(x0, y0, x1, y1)
     inner = S.rect_points(x0 + cw, y0 + cw, x1 - cw, y1 - cw)
     sid = "SOL-ARQ-CAS-NC-MUROS"
-    # apertura de puerta en el muro oeste del caseton
+    # La puerta se centra en el muro del caseton. Antes iba fija en
+    # y = 8.10..9.90, que solo cae sobre el muro con la planta por defecto de
+    # 18 m de ancho: con cualquier otra planta la hoja quedaba fuera del muro.
+    # En una vivienda el nucleo toca las fachadas oeste y norte, asi que la
+    # puerta abre al este, hacia la cubierta.
+    door_w = P.HYP_DOOR_WIDTH_OFFICE if P.is_residential() else P.HYP_DOOR_WIDTH_DOUBLE
+    door_x = round(x1 - cw / 2, 4) if P.is_residential() else round(x0 + cw / 2, 4)
+    du0 = round((y0 + y1) / 2.0 - door_w / 2.0, 4)
+    du1 = round(du0 + door_w, 4)
+    opening = [{"u0": du0, "u1": du1, "z0": z0, "z1": round(z0 + P.HYP_DOOR_HEIGHT, 3)}]
     walls = decompose_wall("y", round(x0 + cw / 2, 4), y0, y1, z0, z1, cw,
-                           [{"u0": 8.10, "u1": 9.90, "z0": z0, "z1": round(z0 + P.HYP_DOOR_HEIGHT, 3)}])
-    walls += decompose_wall("y", round(x1 - cw / 2, 4), y0, y1, z0, z1, cw, [])
+                           [] if P.is_residential() else opening)
+    walls += decompose_wall("y", round(x1 - cw / 2, 4), y0, y1, z0, z1, cw,
+                            opening if P.is_residential() else [])
     walls += decompose_wall("x", round(y0 + cw / 2, 4), x0 + cw, x1 - cw, z0, z1, cw, [])
     walls += decompose_wall("x", round(y1 - cw / 2, 4), x0 + cw, x1 - cw, z0, z1, cw, [])
     solid = S.Solid(sid, walls, "muro_mamposteria", "architecture", "NC", "ARQ-CUBIERTA")
@@ -853,30 +912,30 @@ def build_penthouse(model) -> None:
 
     # puerta del caseton
     sid = "SOL-ARQ-PUE-NC-CAS"
-    solid = S.Solid(sid, [S.box_prism(round(x0 + cw / 2 - 0.0225, 4), 8.10,
-                                      round(x0 + cw / 2 + 0.0225, 4), 9.90,
+    solid = S.Solid(sid, [S.box_prism(round(door_x - 0.0225, 4), du0,
+                                      round(door_x + 0.0225, 4), du1,
                                       z0, round(z0 + P.HYP_DOOR_HEIGHT, 3))],
                     "madera_puerta", "architecture", "NC", "ARQ-PUERTAS")
     model.add_solid(solid)
     op = model.oplog.record(
         "extrude", "creation",
-        "Hoja de puerta de acceso a cubierta: 1.80 x %.2f m en el muro oeste del caseton."
-        % P.HYP_DOOR_HEIGHT,
+        "Hoja de puerta de acceso a cubierta: %.2f x %.2f m en el muro del caseton."
+        % (door_w, P.HYP_DOOR_HEIGHT),
         component_id="ARQ-PUE-NC-CAS", solid_id=sid,
-        inputs={"wall": "ARQ-CAS-NC-MUROS", "u0": 8.10, "u1": 9.90, "z0": z0,
+        inputs={"wall": "ARQ-CAS-NC-MUROS", "u0": du0, "u1": du1, "z0": z0,
                 "z1": round(z0 + P.HYP_DOOR_HEIGHT, 3),
                 "leaf_thickness": P.HYP_DOOR_LEAF_THICKNESS},
-        outputs={"width_m": 1.80, "height_m": P.HYP_DOOR_HEIGHT},
+        outputs={"width_m": door_w, "height_m": P.HYP_DOOR_HEIGHT},
         derived_from=["HYP_DOOR_HEIGHT", "HYP_DOOR_WIDTH_DOUBLE", "HYP_DOOR_LEAF_THICKNESS"],
         implementation="solids.Prism (extrusion en Z) dentro de la apertura del caseton",
     )
     comp = Component(
         component_id="ARQ-PUE-NC-CAS", discipline="architecture", type="door",
         name="Puerta de acceso a cubierta", level_id="NC", material="madera_puerta",
-        ifc_class="IfcDoor", position=[round(x0 + cw / 2, 4), 8.10, z0],
-        dimensions={"width": 1.80, "height": P.HYP_DOOR_HEIGHT},
-        parameters={"schedule_code": "P-NC-CAS", "width_m": 1.80,
-                    "height_m": P.HYP_DOOR_HEIGHT, "leaf_count": 2, "exterior": True,
+        ifc_class="IfcDoor", position=[door_x, du0, z0],
+        dimensions={"width": door_w, "height": P.HYP_DOOR_HEIGHT},
+        parameters={"schedule_code": "P-NC-CAS", "width_m": door_w,
+                    "height_m": P.HYP_DOOR_HEIGHT, "leaf_count": 2 if door_w >= P.HYP_DOOR_WIDTH_DOUBLE else 1, "exterior": True,
                     "fire_rating": None, "hardware_set": None},
         requires_calculation=["fire_rating", "hardware_set"],
         provenance="hypothesis", tags=["carpinteria", "puerta", "cubierta"],

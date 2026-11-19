@@ -21,5 +21,30 @@ class MensajeDependencia(unittest.TestCase):
         self.assertIsNone(deps.mensaje_dependencia(ImportError("sin nombre")))
 
 
+class TestExpedienteSinBibliotecas(unittest.TestCase):
+    """build.py moria a mitad del expediente con un ImportError de ifcopenshell."""
+
+    def test_se_detiene_antes_de_escribir_y_lo_explica(self):
+        import contextlib
+        import io
+        import os
+        import tempfile
+
+        import build
+
+        original = build.missing_package_libraries
+        build.missing_package_libraries = lambda: ["ifcopenshell"]
+        salida = io.StringIO()
+        try:
+            with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(salida):
+                code = build.main(["build.py", tmp])
+                self.assertEqual(os.listdir(tmp), [])
+        finally:
+            build.missing_package_libraries = original
+        self.assertEqual(code, 2)
+        self.assertIn("ifcopenshell", salida.getvalue())
+        self.assertIn("IFC4", salida.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

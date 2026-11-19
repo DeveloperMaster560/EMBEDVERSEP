@@ -34,12 +34,19 @@ function normalize(text: string): string {
 function toMeters(value: string, unit: string): number {
   const n = Number.parseFloat(value.replace(',', '.'));
   if (!Number.isFinite(n)) return Number.NaN;
+  if (/^km|kilometros?$/.test(unit)) return n * 1000;
   if (/^mm|milimetros?$/.test(unit)) return n / 1000;
   if (/^cm|centimetros?$/.test(unit)) return n / 100;
   return n;
 }
 
-const UNIT = '(mm|cm|m|metros?|centimetros?|milimetros?)';
+const UNIT = '(km|kilometros?|mm|cm|m|metros?|centimetros?|milimetros?)';
+
+/**
+ * Número con signo opcional. El signo se captura para poder RECHAZAR una
+ * medida negativa: sin él, «-50 m de longitud» se leía como 50 m.
+ */
+const NUMBER = '(-?\\d+(?:[.,]\\d+)?)';
 
 /**
  * Busca "<número> <unidad> de <etiqueta>" o "<etiqueta> … <número> <unidad>".
@@ -51,10 +58,10 @@ const UNIT = '(mm|cm|m|metros?|centimetros?|milimetros?)';
  */
 function measurement(text: string, labels: string): number | null {
   const backward = new RegExp(
-    `(\\d+(?:[.,]\\d+)?)\\s*${UNIT}\\s+(?:de\\s+)?(?:${labels})\\b`,
+    `${NUMBER}\\s*${UNIT}\\s+(?:de\\s+)?(?:${labels})\\b`,
   );
   const forward = new RegExp(
-    `(?:${labels})[^.;\\n]{0,30}?(\\d+(?:[.,]\\d+)?)\\s*${UNIT}\\b`,
+    `(?:${labels})[^.;\\n\\d-]{0,30}?${NUMBER}\\s*${UNIT}\\b`,
   );
   for (const re of [backward, forward]) {
     const m = re.exec(text);
@@ -74,7 +81,8 @@ function measurement(text: string, labels: string): number | null {
  * de canto» daría 1 viga, y es mejor preguntar que contar mal.
  */
 function count(text: string, labels: string): number | null {
-  const digits = new RegExp(`(\\d{1,3})\\s*(?:${labels})\\b`).exec(text);
+  // Sin signo delante: «-3 vanos» no son 3 vanos.
+  const digits = new RegExp(`(?<![-\\d.,])(\\d{1,3})\\s*(?:${labels})\\b`).exec(text);
   if (digits) {
     const n = Number.parseInt(digits[1], 10);
     if (Number.isFinite(n) && n > 0) return n;
@@ -107,7 +115,6 @@ const DISCIPLINE_PATTERNS: { re: RegExp; key: BridgeDisciplineKey }[] = [
 /** Tipologías o elementos que este generador no cubre. */
 const UNSUPPORTED = [
   { re: /\b(?:colgante|suspension)\b/, text: 'puentes colgantes' },
-  { re: /\b(?:arco|en arco)\b/, text: 'puentes en arco' },
   { re: /\b(?:cercha|reticulad[oa]|celosia)\b/, text: 'puentes en celosía' },
   { re: /\b(?:basculante|giratorio|levadizo)\b/, text: 'puentes móviles' },
   { re: /\b(?:curva (?:horizontal|en planta)|planta curva|esviaje|esviad[oa])\b/, text: 'trazados curvos o esviados' },
@@ -121,6 +128,9 @@ const UNSUPPORTED = [
  * un texto que mezcle ambos («puente peatonal de acceso al edificio») no se
  * desvía por error.
  */
+const LENGTH_QUESTION =
+  '¿Qué longitud total tiene el puente? Sin ese dato no se puede repartir en vanos.';
+
 function describesBuilding(text: string): boolean {
   const buildingHints =
     /\b(?:edificio|edificacion|niveles?|pisos?|plantas?|oficinas?|aulas?|apartament|vivienda)\b/;
@@ -157,7 +167,12 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   } else {
     typeStated = false;
   }
-  if (!typeStated) {
+  const unsupportedType = UNSUPPORTED.slice(0, 2).find(({ re }) => re.test(text));
+  if (!typeStated && unsupportedType) {
+    assumptions.push(
+      `Se pidieron ${unsupportedType.text}, que el generador no modela; se propone en su lugar un puente de vigas. Confírmalo antes de generar.`,
+    );
+  } else if (!typeStated) {
     assumptions.push(
       'No se indicó la tipología, así que se genera un puente de vigas, que es el caso más común en luces medias.',
     );
@@ -167,7 +182,7 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   // Se prueba primero la etiqueta inequívoca y solo después la genérica: en un
   // enunciado de puente hay muchos «ancho» y muchas «altura» que no son los del
   // tablero (ancho de viga, altura de barrera…).
-  const lengthM = firstMeasurement(text, [
+  let lengthM = firstMeasurement(text, [
     'longitud total|luz total',
     'longitud|largo',
   ]);
@@ -183,7 +198,7 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   ]);
 
   if (lengthM === null) {
-    questions.push('¿Qué longitud total tiene el puente? Sin ese dato no se puede repartir en vanos.');
+    questions.push(LENGTH_QUESTION);
   }
   if (widthM === null) {
     questions.push('¿Qué ancho de tablero tiene? Define calzada, aceras y barreras.');
@@ -198,6 +213,33 @@ export function interpretBridgePrompt(prompt: string): BridgeSpecification {
   const spanCount = count(text, 'vanos?|luces|tramos?');
   const girderCount = count(text, 'vigas?(?: principales| longitudinales)?');
   const lanes = count(text, 'carriles?|calzadas? de');
+
+  // «3 vanos de 80 m»: la luz de cada vano. Con el número de vanos, la
+  // longitud total es aritmética de datos declarados, no una suposición. Si el
+  // enunciado da también la longitud y no cuadra, se pregunta en vez de elegir.
+  // Una medida seguida de «de longitud/largo» es la total, no la del vano.
+  const spanEach = (() => {
+    const m = new RegExp(
+      `\\b(?:vanos?|luces|tramos?)(?: iguales)? de ${NUMBER}\\s*${UNIT}\\b(?!\\s+(?:de\\s+)?(?:longitud|largo))`,
+    ).exec(text);
+    if (!m) return null;
+    const v = toMeters(m[1], m[2]);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  })();
+  if (spanEach !== null && spanCount !== null) {
+    const total = Math.round(spanEach * spanCount * 1000) / 1000;
+    if (lengthM === null) {
+      lengthM = total;
+      questions.splice(questions.indexOf(LENGTH_QUESTION), 1);
+      assumptions.push(
+        `Se interpretó «${spanCount} vanos de ${spanEach} m» como ${spanCount} vanos iguales: longitud total ${total} m.`,
+      );
+    } else if (Math.abs(lengthM - total) > 0.05) {
+      questions.push(
+        `${spanCount} vanos de ${spanEach} m suman ${total} m, pero la longitud indicada es ${lengthM} m. ¿Cuál de los dos datos es el correcto?`,
+      );
+    }
+  }
 
   if (spanCount === null && lengthM !== null) {
     assumptions.push(

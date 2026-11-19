@@ -341,6 +341,7 @@
 .property-group small { color: #7e8b9b; font-size: 8px; line-height: 1.5; }
 .escenario-input { width: 100%; min-height: 150px; resize: vertical; padding: 7px; border: 1px solid #2c3743; border-radius: 4px; color: #cbd5e1; background: #12171d; font: 9px/1.45 'Cascadia Code', Consolas, monospace; white-space: pre; overflow: auto; }
 .escenario-input:focus, .duracion-input:focus { outline: 1px solid #3b82f6; outline-offset: 0; }
+#placa-compilar { width: 100%; padding: 5px 6px; border: 1px solid #2c3743; border-radius: 4px; color: #cbd5e1; background: #12171d; font-size: 9px; }
 .duracion-input { width: 100%; padding: 5px 7px; border: 1px solid #2c3743; border-radius: 4px; color: #cbd5e1; background: #12171d; font-size: 9px; }
 .property-warning { display: flex; gap: 7px; margin: 12px 9px; padding: 9px 8px; border: 1px solid #4b4232; border-radius: 5px; color: #bbaa84; background: #29261f; font-size: 8px; line-height: 1.5; }
 .property-warning svg { flex: 0 0 auto; color: #d9b560; }
@@ -495,7 +496,14 @@
 }
 .test-row strong {
   color: #74d6a5;
+  font-size: 13px;
 }
+.test-row > span { display: flex; flex-direction: column; gap: 3px; }
+.test-row small { color: #8c9aab; font-size: 9px; line-height: 1.45; }
+.test-row strong.test-falla { color: #f08a8a; }
+.test-row strong.test-aviso { color: #e3bd62; }
+.test-row strong.test-falta, .test-row strong.test-corriendo { color: #7e8b9b; }
+.test-hora { color: #7e8b9b; font-size: 9px; }
 .settings-panel {
   width: min(100%, 540px);
   padding: 18px;

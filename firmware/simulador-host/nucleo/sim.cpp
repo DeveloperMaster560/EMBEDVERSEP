@@ -243,8 +243,16 @@ static int g_bits_adc = SIM_BITS_ADC;
 int analogRead(uint8_t pin) {
   double v;
   std::string col = "A" + std::to_string(pin);
+#if !defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_STM32)
+  /* En AVR y RP2040, A0 es un número de pin (14 en el Uno, 26 en el Pico):
+     el usuario escribe «A0» en el escenario, igual que en su programa.
+     En AVR, analogRead(0) también es el canal A0. */
+  int canal = pin >= A0 ? pin - A0 : pin;
+  std::string alias = "A" + std::to_string(canal);
+  if (alias != col && (sim::valor(alias, v) || !sim::hay_columna(col))) col = alias;
+#endif
   if (!sim::valor(col, v)) {
-    std::string n = "analogRead(" + std::to_string(pin) + "): el escenario no tiene columna " + col + " (o está vacía); devuelve 0";
+    std::string n = "analogRead(" + col + "): el escenario no tiene columna " + col + " (o está vacía); devuelve 0";
     sim::nota(n.c_str());
     return 0;
   }

@@ -9,8 +9,9 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { ErrorPlataforma, plataforma, type Conexion } from './api';
 import {
   TEXTO_ENLACE, TEXTO_ESTADO, disponibilidad, estadosActuales, filasEstaciones, gravedad, hace, horaCorta, retrasoEntrega,
-  type Aviso, type EstacionDb, type FilaEstacion, type HoraDisponibilidad, type ProyectoDef, type ProyectoFicha,
-  type ProyectoResumen, type Sesion, type Ventana,
+  seriesPorSensor, tiposDeDatos,
+  type Aviso, type EstacionDb, type FilaEstacion, type HoraDisponibilidad, type Medida, type ProyectoDef, type ProyectoFicha,
+  type ProyectoResumen, type SerieSensor, type Sesion, type Ventana,
 } from './model';
 import '../shm/shm-embedded.css';
 import './plataforma.css';
@@ -204,6 +205,64 @@ export function AvisoVinculo({ vinculado, sesion, visibles }: { vinculado?: stri
   );
 }
 
+/** Curva pequeña de un sensor; los huecos (null) cortan la línea. */
+function Curva({ puntos }: { puntos: SerieSensor['puntos'] }) {
+  const vals = puntos.filter((p) => p.v !== null) as { t: number; v: number }[];
+  if (vals.length < 2) return <span className="plat-curva-vacia">—</span>;
+  const t0 = puntos[0].t, t1 = puntos[puntos.length - 1].t || t0 + 1;
+  let lo = Math.min(...vals.map((p) => p.v)), hi = Math.max(...vals.map((p) => p.v));
+  if (hi === lo) { hi += 1; lo -= 1; }
+  const x = (t: number) => (t1 === t0 ? 0 : ((t - t0) / (t1 - t0)) * 118 + 1);
+  const y = (v: number) => 27 - ((v - lo) / (hi - lo)) * 24;
+  const tramos: string[] = [];
+  let actual = '';
+  for (const p of puntos) {
+    if (p.v === null) { if (actual) tramos.push(actual); actual = ''; continue; }
+    actual += `${actual ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`;
+  }
+  if (actual) tramos.push(actual);
+  return <svg className="plat-curva" viewBox="0 0 120 30" aria-hidden="true">{tramos.map((d) => <path key={d} d={d} />)}</svg>;
+}
+
+/** La unidad como la lee una persona (el contrato usa degC y «1» para lo adimensional). */
+const UNIDAD_VISIBLE: Record<string, string> = { degC: '°C', '1': '', '%HR': '% HR' };
+
+export function TablaMedidas({ medidas, compacta = false }: { medidas: Medida[]; compacta?: boolean }) {
+  const series = seriesPorSensor(medidas);
+  if (series.length === 0) return <p className="shm-note">Sin medidas recibidas todavía.</p>;
+  if (compacta) {
+    return (
+      <table className="shm-table">
+        <tbody>
+          {series.map((s) => (
+            <tr key={s.sensor_id} title={s.sensor_id}>
+              <td>{s.magnitud}</td>
+              <td>{s.ultima.valor === null ? <span className="shm-warn-inline" title={s.ultima.error ?? ''}>sin lectura</span> : `${s.ultima.valor} ${UNIDAD_VISIBLE[s.unidad] ?? s.unidad}`.trim()}</td>
+              <td>{horaCorta(s.ultima.instante)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  return (
+    <div className="plat-scroll"><table className="shm-table">
+      <thead><tr><th>Sensor</th><th>Magnitud</th><th>Último valor</th><th>Instante</th><th>Recibidas</th></tr></thead>
+      <tbody>
+        {series.map((s) => (
+          <tr key={s.sensor_id}>
+            <td>{s.sensor_id}</td>
+            <td>{s.magnitud}</td>
+            <td>{s.ultima.valor === null ? <span className="shm-warn-inline" title={s.ultima.error ?? ''}>sin lectura{s.ultima.error ? ` · ${s.ultima.error}` : ''}</span> : `${s.ultima.valor} ${UNIDAD_VISIBLE[s.unidad] ?? s.unidad}`.trim()}</td>
+            <td>{horaCorta(s.ultima.instante)}</td>
+            <td><Curva puntos={s.puntos} /> {s.puntos.filter((p) => p.v === null).length ? <small>{s.puntos.filter((p) => p.v === null).length} sin lectura</small> : null}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table></div>
+  );
+}
+
 export function PlataformaView({ proyectoVinculado }: { proyectoVinculado?: string } = {}) {
   const [conexion, setConexion] = useState<Conexion | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -215,6 +274,7 @@ export function PlataformaView({ proyectoVinculado }: { proyectoVinculado?: stri
   const [estacionId, setEstacionId] = useState<string | null>(null);
   const [ventanas, setVentanas] = useState<Ventana[]>([]);
   const [horas, setHoras] = useState<HoraDisponibilidad[]>([]);
+  const [medidas, setMedidas] = useState<Medida[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -269,14 +329,19 @@ export function PlataformaView({ proyectoVinculado }: { proyectoVinculado?: stri
   const estacionSel = filas.some((f) => f.id === estacionId && f.db) ? estacionId : (filas.find((f) => f.db)?.id ?? null);
 
   const ultimoVistoSel = estaciones.find((e) => e.station_id === estacionSel)?.ultimo_visto ?? null;
+  const tipos = tiposDeDatos(ficha?.definicion?.estaciones.find((e) => e.id === estacionSel));
   useEffect(() => {
     if (!estacionSel) return;
     let vivo = true;
-    Promise.all([plataforma.ventanas(estacionSel), plataforma.disponibilidad(estacionSel)])
-      .then(([v, h]) => { if (vivo) { setVentanas(v); setHoras(h); } })
+    Promise.all([
+      tipos.ventanas ? plataforma.ventanas(estacionSel) : Promise.resolve([] as Ventana[]),
+      tipos.ventanas ? plataforma.disponibilidad(estacionSel) : Promise.resolve([] as HoraDisponibilidad[]),
+      tipos.medidas ? plataforma.medidas(estacionSel) : Promise.resolve([] as Medida[]),
+    ])
+      .then(([v, h, m]) => { if (vivo) { setVentanas(v); setHoras(h); setMedidas(m); } })
       .catch((e) => { if (vivo) setError(mensaje(e)); });
     return () => { vivo = false; };
-  }, [estacionSel, ultimoVistoSel]);
+  }, [estacionSel, ultimoVistoSel, tipos.ventanas, tipos.medidas]);
 
   const conectar = async (url: string, token: string) => {
     setOcupado(true);
@@ -342,7 +407,15 @@ export function PlataformaView({ proyectoVinculado }: { proyectoVinculado?: stri
         </section>
       </div>
 
-      {estacionSel && (
+      {estacionSel && tipos.medidas && (
+        <section className="shm-card">
+          <h3>{estacionSel} · medidas de las últimas 24 h</h3>
+          <TablaMedidas medidas={medidas} />
+          <p className="shm-note">«Sin lectura» = la estación envió null con su motivo (sensor que no respondió, sin tensión de red…), nunca un valor inventado.</p>
+        </section>
+      )}
+
+      {estacionSel && tipos.ventanas && (
         <div className="shm-layout">
           <section className="shm-card">
             <h3>{estacionSel} · disponibilidad, últimas 24 h</h3>

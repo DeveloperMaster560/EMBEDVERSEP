@@ -1,0 +1,104 @@
+{
+  "formato": "embedverse-proyecto-shm/1",
+  "proyecto_id": "casa-demo",
+  "nombre": "Casa de demostración — tablero eléctrico (datos simulados)",
+  "estructura": {
+    "tipo": "edificio",
+    "nombre": "Casa unifamiliar de demostración (no existe)",
+    "modelo": null
+  },
+  "ubicacion": null,
+  "institucion": null,
+  "entidad_responsable": null,
+  "responsable_estructural": null,
+  "estaciones": [
+    {
+      "id": "CASA-TAB-01",
+      "tipo": "SR",
+      "nombre": "Tablero eléctrico principal (ESP32 + PZEM-004T + DHT22)",
+      "estado": "simulada",
+      "ubicacion": {
+        "descripcion": "Tablero general de la casa (en el modelo 3D: ELE-TAB-TG, sala del nivel 1), junto a la acometida",
+        "elemento": "ELE-TAB-TG",
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "esp32-devkit",
+        "firmware": "firmware/esp32-tablero-casa",
+        "firmware_version": "esp32-tablero-casa-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "PZEM-V-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "tension",
+          "unidad": "V",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "PZEM-I-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "corriente",
+          "unidad": "A",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "PZEM-P-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "potencia",
+          "unidad": "W",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "PZEM-E-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "energia",
+          "unidad": "kWh",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "PZEM-F-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "frecuencia",
+          "unidad": "Hz",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "PZEM-FP-CASA-TAB-01",
+          "modelo": "Peacefair PZEM-004T v3.0 (100 A, con transformador de corriente)",
+          "magnitud": "factor_potencia",
+          "unidad": "1",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "DHT22-T-CASA-TAB-01",
+          "modelo": "DHT22 (Aosong AM2302)",
+          "magnitud": "temperatura",
+          "unidad": "degC",
+          "muestreo_hz": null,
+          "calibracion": null
+        }
+      ],
+      "notas": "Escenario inventado (firmware/esp32-tablero-casa/escenario-casa.csv): no son mediciones de ninguna casa real."
+    }
+  ],
+  "criterios": {
+    "estado": "sin_definir",
+    "aprobados_por": null,
+    "fecha": null,
+    "umbrales": []
+  },
+  "notas": [
+    "Proyecto de PRUEBA del flujo completo (firmware → simulador → plataforma) con el sistema eléctrico de una casa. Sus datos son sintéticos."
+  ]
+}

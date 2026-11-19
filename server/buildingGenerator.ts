@@ -22,8 +22,17 @@ export { GenerateRequestError, pythonCandidates } from './generatorRuntime.js';
 
 const MIN_LEVELS = 1;
 const MAX_LEVELS = 12;
-const MIN_SIDE_M = 15;
+// El mínimo real depende de la tipología y lo comprueba el generador, que
+// conoce la geometría: la de oficinas (núcleo, anillo y cuatro bandas) pide
+// 15 m de lado y la de vivienda unos 5 x 8 m según la altura entre niveles.
+// Aquí solo se descarta lo que ninguna de las dos puede construir.
+const MIN_SIDE_M = 5;
 const MAX_SIDE_M = 120;
+
+/** Recintos de vivienda. Debe coincidir con RESIDENTIAL_ROOM_TYPES de params.py. */
+const ALLOWED_RESIDENTIAL_ROOMS = new Set([
+  'sala', 'comedor', 'cocina', 'dormitorio', 'bano', 'estudio', 'lavanderia',
+]);
 
 const SCRIPT = 'generate_scene.py';
 
@@ -57,6 +66,7 @@ export interface GeneratorSpec {
   building_use?: string;
   disciplines?: string[];
   rooms_by_band?: Record<string, Record<string, number>>;
+  residential_program?: Record<string, number>;
 }
 
 /** Valida y normaliza la especificación. Rechaza todo lo que no reconoce. */
@@ -125,6 +135,20 @@ export function validateGeneratorSpec(value: unknown): GeneratorSpec {
       out[band] = bucket;
     }
     spec.rooms_by_band = out;
+  }
+  if (input.residential_program !== undefined) {
+    const program = input.residential_program;
+    if (!program || typeof program !== 'object' || Array.isArray(program)) {
+      throw new GenerateRequestError('El programa de la vivienda no es válido.', 400, 'INVALID_ROOMS');
+    }
+    const out: Record<string, number> = {};
+    for (const [use, qty] of Object.entries(program as Record<string, unknown>)) {
+      if (!ALLOWED_RESIDENTIAL_ROOMS.has(use)) {
+        throw new GenerateRequestError(`Recinto de vivienda no reconocido: ${use}`, 400, 'INVALID_ROOM_USE');
+      }
+      out[use] = requireInteger(qty, `La cantidad de ${use}`, 0, 20);
+    }
+    spec.residential_program = out;
   }
   return spec;
 }

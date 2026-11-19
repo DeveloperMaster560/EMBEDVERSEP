@@ -25,6 +25,29 @@ class TestSimularPlaca(unittest.TestCase):
         (d / "sk.ino").write_text(codigo, encoding="utf-8")
         return d
 
+    def test_a0_del_uno_se_llama_a0_en_el_escenario(self):
+        # En el Uno A0 vale 14: el usuario escribe «A0» en el escenario, como en su programa.
+        d = self.sketch("void setup(){ Serial.begin(9600); }\n"
+                        "void loop(){ Serial.println(analogRead(A0)); Serial.println(analogRead(1)); delay(1000); }\n")
+        esc = self.escenario("t_s,A0,A1\n0,800,12\n")
+        r = ejecutar(compilar(d, self.tmp / "b", placa="arduino-uno"), esc, 1.5, 0)
+        self.assertEqual([l.strip() for l in r.serie[:2]], ["800", "12"])
+        self.assertEqual(r.notas, [])
+
+    def test_tablero_electrico_de_una_casa(self):
+        casa = RAIZ / "firmware" / "esp32-tablero-casa"
+        r = ejecutar(compilar(casa, self.tmp / "b"), casa / "escenario-casa.csv", 185, 1_795_000_000_000)
+        self.assertEqual([m.problemas for m in r.mensajes if m.problemas], [])
+        medidas = [{x["quantity"]: x["value"] for x in json.loads(m.carga)["measurements"]} for m in r.mensajes]
+        self.assertEqual(len(medidas), 18)
+        # Ducha eléctrica (61–120 s): ~3,5 kW. Corte de red (121–150 s): TODO null, no valores viejos.
+        self.assertTrue(any(v["potencia"] and v["potencia"] > 3400 for v in medidas))
+        corte = [v for v in medidas if v["tension"] is None]
+        self.assertEqual(len(corte), 3)
+        self.assertTrue(all(v["corriente"] is None and v["energia"] is None for v in corte))
+        self.assertTrue(all(v["temperatura"] is not None for v in corte))   # el DHT22 sigue midiendo
+        self.assertEqual(sum(v["temperatura"] is None for v in medidas), 1)
+
     def test_estacion_ambiental_sin_modificar(self):
         r = ejecutar(compilar(AMBIENTE, self.tmp / "b"), ESCENARIO, 600, 1_795_000_000_000)
         medidas = [json.loads(m.carga) for m in r.mensajes if m.topico.endswith("/medida")]

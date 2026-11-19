@@ -85,9 +85,22 @@ export class SimulationSession {
    * pedidos si se alcanzó el tope.
    */
   advance(millis: number): SessionReport {
+    this.run(millis);
+    return this.report();
+  }
+
+  /**
+   * Avanza sin leer los componentes.
+   *
+   * Leer un componente cierra su ventana de medida (el ciclo de trabajo del
+   * PWM). Quien avance y luego pida `report()` por su cuenta debe usar esto:
+   * con `advance` + `report` la segunda lectura mide una ventana VACÍA, el
+   * ciclo de trabajo sale nulo y un LED modulado se da por encendido o apagado
+   * según el instante exacto de la lectura.
+   */
+  run(millis: number): void {
     const step = Math.max(0, Math.min(millis, this.maxStepMillis));
     if (step > 0) this.runner.runMillis(step);
-    return this.report();
   }
 
   /** Estado actual, sin avanzar el tiempo. */

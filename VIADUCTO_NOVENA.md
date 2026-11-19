@@ -203,7 +203,7 @@ de lo modelado»**, nunca «masa estructural», y lleva pegada la salvedad. Ante
 se mostraba el número a secas, que ante un comité se lee como el peso del
 puente.
 
-El modelo reporta **13.871 t**. La prensa publica **7.536 t** para la obra real.
+El modelo reporta **17.526 t** (desde el 19/11/2026; ver la corrección más abajo). La prensa publica **7.536 t** para la obra real.
 **No son comparables y no debe presentarse esa cifra como el peso del
 viaducto.** El modelo construye vigas macizas y fustes macizos; la obra tiene un
 cajón hueco postesado. Nuestra cifra es la masa de *nuestra* geometría
@@ -227,6 +227,21 @@ Corregido, los estribos pasan de 10.237 t a 1.728 t y el total a 13.871 t. La
 altura del estribo se puede declarar (`abutment_height_m`); si no se declara,
 se acota a 12 m y **se advierte** que eso supone que el terreno sube a su
 encuentro, suposición que no está verificada.
+
+#### Corrección del 19/11/2026: las torres flotaban, y ahora llegan al suelo (13.871 t → 17.526 t)
+
+En el barrido de modelos del 19/11/2026 se vio que las torres del atirantado
+**empezaban a la cota del cabezal de la pila y por fuera de él**: quedaban
+suspendidas entre 12 y 37 m sobre el suelo, y en algunos casos sobre el vano.
+Ahora cada torre baja hasta una zapata, y las zapatas se ensanchan para cubrir
+lo que reciben (antes eran de 4,5 m fijos, más estrechas que las columnas que
+sostenían), con 0,50 m de vuelo declarado.
+
+Eso añade hormigón que antes faltaba y lleva la masa de lo modelado a
+**17.526 t** (medido en la app el 19/11/2026). Es coherente con la obra
+publicada (pilonos de 112/132 m en total, 72 m de ellos bajo el tablero), pero
+**sigue sin ser el peso del viaducto**: vigas y fustes son macizos y la obra es
+un cajón hueco postesado. Pruebas: `tools/building_generator/test_bridge_supports.py`.
 
 Lo que sigue sin tocarse es el cajón: el tablero continúa macizo. Las
 thicknesses de un cajón serían hipótesis, y **no se van a ajustar para que la

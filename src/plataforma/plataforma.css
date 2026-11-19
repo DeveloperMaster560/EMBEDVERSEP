@@ -44,3 +44,8 @@
 .plat-E4 { background: #ff4d4d; }
 
 .plat-scroll { overflow-x: auto; }
+
+.plat-curva { width: 120px; height: 30px; vertical-align: middle; }
+.plat-curva path { fill: none; stroke: #6aa9f0; stroke-width: 1.4; }
+.plat-curva-vacia { color: #6b7685; }
+.shm-warn-inline { color: #e3bd62; }

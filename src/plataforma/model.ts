@@ -113,6 +113,48 @@ export interface Ventana {
   fuera_de_orden: boolean;
 }
 
+/** Una lectura de un sensor lento (contrato de MEDIDAS). valor null = la estación no leyó. */
+export interface Medida {
+  sensor_id: string;
+  instante: string;
+  magnitud: string;
+  unidad: string;
+  valor: number | null;
+  error: string | null;
+  calidad_tiempo: string;
+}
+
+/** Magnitudes que llegan como ventanas (registro de varios ejes); el resto llega como medidas. */
+export const MAGNITUDES_DE_VENTANA = new Set(['aceleracion', 'inclinacion']);
+
+/** Qué envía una estación según su definición: ventanas, medidas o ambas. */
+export function tiposDeDatos(est: EstacionDef | undefined): { ventanas: boolean; medidas: boolean } {
+  const mags = (est?.sensores ?? []).map((s) => s.magnitud);
+  if (!mags.length) return { ventanas: true, medidas: false };
+  return { ventanas: mags.some((m) => MAGNITUDES_DE_VENTANA.has(m)), medidas: mags.some((m) => !MAGNITUDES_DE_VENTANA.has(m)) };
+}
+
+export interface SerieSensor {
+  sensor_id: string;
+  magnitud: string;
+  unidad: string;
+  /** La lectura más reciente (puede ser null con su error). */
+  ultima: Medida;
+  /** Valores en orden de tiempo; null = hueco (no leyó). */
+  puntos: { t: number; v: number | null }[];
+}
+
+/** Agrupa las medidas por sensor, del más antiguo al más nuevo. */
+export function seriesPorSensor(medidas: Medida[]): SerieSensor[] {
+  const por = new Map<string, Medida[]>();
+  for (const m of medidas) (por.get(m.sensor_id) ?? por.set(m.sensor_id, []).get(m.sensor_id)!).push(m);
+  return [...por.values()].map((ms) => {
+    const orden = [...ms].sort((a, b) => Date.parse(a.instante) - Date.parse(b.instante));
+    const u = orden[orden.length - 1];
+    return { sensor_id: u.sensor_id, magnitud: u.magnitud, unidad: u.unidad, ultima: u, puntos: orden.map((m) => ({ t: Date.parse(m.instante), v: m.valor })) };
+  }).sort((a, b) => a.sensor_id.localeCompare(b.sensor_id));
+}
+
 export interface HoraDisponibilidad {
   hora: string;
   ventanas: number;
