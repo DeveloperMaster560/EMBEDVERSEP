@@ -18,6 +18,12 @@ Acepta dos clases de líneas por el puerto serie (o por la entrada estándar):
    (por eso «time_uncertainty_us» es grande: el USB retrasa y agrupa).
    Una línea que no se puede leer cuenta como hueco (NaN), nunca como 0.
 
+3. **Texto libre** («t=24.31 mA=12.70», «AGUA,19.5,3.2,7.1»…) cuando el
+   proyecto.json dice, por sensor, dónde está cada valor («lectura»). Sirve
+   para placas que ya funcionan sin tocar su firmware y para receptores LoRa:
+   una pasarela puede servir a varias estaciones (cada una con su prefijo y
+   su propia contraseña del broker). Ver lector_texto.py.
+
 Las líneas que empiezan por «#» se muestran (mensajes de la placa) y no se envían.
 
 Uso (desde plataforma/servicios):
@@ -25,6 +31,8 @@ Uso (desde plataforma/servicios):
     python -m shm_plataforma.pasarela_serie --estacion LAB-SERIE-01 --puerto COM5
     python -m shm_plataforma.pasarela_serie --estacion LAB-SERIE-01 --puerto /dev/cu.usbserial-0001 --hz 100 --unidad g
     otro-programa | python -m shm_plataforma.pasarela_serie --estacion LAB-SERIE-01 --puerto -
+    python -m shm_plataforma.pasarela_serie --proyecto ../../proyectos/x/proyecto.json \
+        --estacion RIO-AGUA-01 --estacion RIO-AGUA-02 --puerto COM7          (receptor LoRa, texto libre)
 
 Para un puerto serie real hace falta pyserial (`py -m pip install pyserial`).
 Sin dependencias para lo demás: el cliente MQTT es mínimo y va aquí.
@@ -48,6 +56,7 @@ from typing import Iterable, Iterator, Optional
 
 from .contrato import validate_for_server
 from .contrato_medidas import validate_measurement_message
+from .lector_texto import LectorTexto
 
 G = 9.80665
 VENTANA_S = 10
@@ -230,13 +239,17 @@ def extraer_registro(texto: str) -> Optional[dict]:
 
 
 class Pasarela:
-    def __init__(self, estacion: str, publicar, ventanero: Optional[Ventanero], salida=print):
-        self.estacion = estacion
+    def __init__(self, estacion: str | list[str], publicar, ventanero: Optional[Ventanero], salida=print,
+                 lectores: Iterable[LectorTexto] = (), reloj=time.time):
+        self.estaciones = [estacion] if isinstance(estacion, str) else list(estacion)
+        self.estacion = self.estaciones[0]
         self.publicar = publicar          # (tópico, bytes) -> None; lanza si falla
         self.ventanero = ventanero
         self.salida = salida
-        # (tipo, mensaje): «registro» = ventana, «medida» = sensores lentos.
-        self.cola: deque[tuple[str, bytes]] = deque(maxlen=360)   # 1 h de registros si se cae el broker
+        self.lectores = list(lectores)
+        self.reloj = reloj
+        # (tipo, estación, mensaje): «registro» = ventana, «medida» = sensores lentos.
+        self.cola: deque[tuple[str, str, bytes]] = deque(maxlen=360)   # 1 h de registros si se cae el broker
         self.enviados = self.rechazados = 0
 
     def linea(self, texto: str) -> None:
@@ -247,23 +260,29 @@ class Pasarela:
             self.salida(f"placa: {texto.strip()}")
             return
         r = extraer_registro(texto)
+        if r is None and self.lectores:
+            for lector in self.lectores:
+                r = lector.medida(texto, self.reloj())
+                if r is not None:
+                    break
         if r is None and self.ventanero is not None:
             r = self.ventanero.linea(texto)
             if r is None:
                 return
         elif r is None:
-            self.salida(f"(ignorada; para muestras sueltas usa --hz) {texto[:80]}")
+            self.salida(f"(ignorada: no es un registro, ni trae sensores con «lectura» en el proyecto, "
+                        f"ni muestras sueltas --hz) {texto[:80]}")
             return
         if "measurements" in r:
             return self._medida(r)
         problemas = validate_for_server(r)
-        if r.get("station_id") != self.estacion:
-            problemas.append(f"el registro es de «{r.get('station_id')}» pero la pasarela publica como «{self.estacion}»")
+        if r.get("station_id") not in self.estaciones:
+            problemas.append(f"el registro es de «{r.get('station_id')}» pero la pasarela publica como «{', '.join(self.estaciones)}»")
         if problemas:
             self.rechazados += 1
             self.salida("✗ registro no enviado: " + "; ".join(problemas))
             return
-        self.cola.append(("registro", json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
+        self.cola.append(("registro", r["station_id"], json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
         st = r.get("stats", {}).get("std")
         self.salida(f"ventana {r['timestamp_utc']}  muestras {r.get('samples')}  huecos {r.get('gaps')}"
                     + (f"  desv. x/y/z {st}" if st else ""))
@@ -271,22 +290,22 @@ class Pasarela:
 
     def _medida(self, r: dict) -> None:
         problemas = validate_measurement_message(r)
-        if r.get("station_id") != self.estacion:
-            problemas.append(f"el mensaje es de «{r.get('station_id')}» pero la pasarela publica como «{self.estacion}»")
+        if r.get("station_id") not in self.estaciones:
+            problemas.append(f"el mensaje es de «{r.get('station_id')}» pero la pasarela publica como «{', '.join(self.estaciones)}»")
         if problemas:
             self.rechazados += 1
             self.salida("✗ medida no enviada: " + "; ".join(problemas))
             return
-        self.cola.append(("medida", json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
-        self.salida(f"medida {r['timestamp_utc']}  " + "  ".join(
+        self.cola.append(("medida", r["station_id"], json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
+        self.salida(f"medida {r['station_id']} {r['timestamp_utc']}  " + "  ".join(
             f"{m['quantity']} {'—' if m['value'] is None else m['value']} {m['unit']}" for m in r["measurements"]))
         self.vaciar()
 
     def vaciar(self) -> None:
         while self.cola:
-            tipo, carga = self.cola[0]
+            tipo, estacion, carga = self.cola[0]
             try:
-                self.publicar(f"shm/v1/{self.estacion}/{tipo}", carga)
+                self.publicar(f"shm/v1/{estacion}/{tipo}", carga)
             except (OSError, ConnectionError) as e:
                 self.salida(f"… broker no disponible ({e}); {len(self.cola)} en espera")
                 return
@@ -329,7 +348,9 @@ def lineas_de(puerto: str, baudios: int) -> Iterator[str]:
 
 def principal(argv: Optional[Iterable[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--estacion", required=True, help="ID de la estación (como en proyecto.json)")
+    ap.add_argument("--estacion", required=True, action="append",
+                    help="ID de la estación (como en proyecto.json); se repite para varias con --proyecto")
+    ap.add_argument("--proyecto", type=Path, help="proyecto.json: activa el texto libre según la «lectura» de cada sensor")
     ap.add_argument("--puerto", required=True, help="COM5, /dev/ttyUSB0, /dev/cu.usbserial-…; «-» = entrada estándar")
     ap.add_argument("--baudios", type=int, default=115200)
     ap.add_argument("--hz", type=float, help="frecuencia de las muestras sueltas (activa el modo muestras)")
@@ -345,16 +366,51 @@ def principal(argv: Optional[Iterable[str]] = None) -> int:
     except (AttributeError, ValueError):
         pass
 
-    var = "MQTT_" + a.estacion.replace("-", "_") + "_PASSWORD"
-    clave = leer_env(Path(a.env)).get(var)
-    if not clave:
-        print(f"No encuentro {var} en {a.env}. ¿La estación está en un proyecto.json y ejecutaste iniciar?")
+    estaciones = list(dict.fromkeys(a.estacion))
+    lectores: list[LectorTexto] = []
+    if a.proyecto:
+        from .proyecto import ProyectoInvalido, cargar_archivo
+        try:
+            proyecto = cargar_archivo(a.proyecto)
+        except ProyectoInvalido as e:
+            print("Proyecto no válido:\n  " + "\n  ".join(e.problemas))
+            return 1
+        por_id = {e["id"]: e for e in proyecto.datos["estaciones"]}
+        for eid in estaciones:
+            if eid not in por_id:
+                print(f"La estación {eid} no está en {a.proyecto}.")
+                return 1
+            try:
+                lectores.append(LectorTexto(por_id[eid]))
+            except ValueError as e:
+                print(f"· {e}: sus líneas tendrán que ser registros JSON")
+        sin_prefijo = [l.id for l in lectores if l.prefijo is None]
+        if len(lectores) > 1 and sin_prefijo:
+            print(f"Con varias estaciones por un mismo puerto, cada una necesita «comunicacion.prefijo»; "
+                  f"falta en {', '.join(sin_prefijo)}.")
+            return 1
+    elif len(estaciones) > 1:
+        print("Varias estaciones por un mismo puerto solo con --proyecto (para saber de quién es cada línea).")
         return 1
-    mqtt = MqttMinimo(a.broker, a.broker_puerto, a.estacion, clave)
-    ventanero = Ventanero(a.estacion, a.sensor or f"MPU6050-{a.estacion}", a.hz, a.unidad, a.rango_g) if a.hz else None
-    p = Pasarela(a.estacion, mqtt.publicar, ventanero)
-    print(f"· Pasarela serie → {a.broker}:{a.broker_puerto} como {a.estacion}"
-          + (f"; muestras sueltas a {a.hz:g} Hz en {a.unidad}" if a.hz else "; registros completos"))
+
+    env = leer_env(Path(a.env))
+    sesiones: dict[str, MqttMinimo] = {}
+    for eid in estaciones:
+        var = "MQTT_" + eid.replace("-", "_") + "_PASSWORD"
+        if not env.get(var):
+            print(f"No encuentro {var} en {a.env}. ¿La estación está en un proyecto.json y ejecutaste iniciar?")
+            return 1
+        # Una sesión por estación: cada una publica solo lo suyo (la ACL del broker no se abre).
+        sesiones[eid] = MqttMinimo(a.broker, a.broker_puerto, eid, env[var])
+
+    def publicar(topico: str, carga: bytes) -> None:
+        sesiones[topico.split("/")[2]].publicar(topico, carga)
+
+    ventanero = Ventanero(estaciones[0], a.sensor or f"MPU6050-{estaciones[0]}", a.hz, a.unidad, a.rango_g) if a.hz else None
+    p = Pasarela(estaciones, publicar, ventanero, lectores=lectores)
+    modos = (["texto libre: " + ", ".join(f"{l.id}" + (f" («{l.prefijo}»)" if l.prefijo else "") for l in lectores)]
+             if lectores else []) + ([f"muestras sueltas a {a.hz:g} Hz en {a.unidad}"] if a.hz else []) + ["registros completos"]
+    print(f"· Pasarela serie → {a.broker}:{a.broker_puerto} como {', '.join(estaciones)}; " + "; ".join(modos))
     try:
         for linea in lineas_de(a.puerto, a.baudios):
             p.linea(linea)
@@ -362,7 +418,8 @@ def principal(argv: Optional[Iterable[str]] = None) -> int:
         pass
     finally:
         p.vaciar()
-        mqtt.cerrar()
+        for m in sesiones.values():
+            m.cerrar()
         print(f"· Enviados {p.enviados}, rechazados {p.rechazados}, sin enviar {len(p.cola)}")
     return 0
 

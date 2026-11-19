@@ -51,6 +51,45 @@ En macOS/Linux el puerto es `/dev/cu.usbserial-…` o `/dev/ttyUSB0`, y `python3
 en lugar de `py`. Lo que la pasarela no puede leer cuenta como **hueco**, nunca
 como 0. La hora la pone el PC (se declara `time_uncertainty_us` = 100 000).
 
+### Texto libre y LoRa
+
+Una placa que ya funciona e imprime cosas como `t=24.31 mA=12.70`,
+`Temp: 24.3, Hum: 60` o `AGUA,19.5,3.2,7.1` se conecta **sin tocar su
+firmware**. El `proyecto.json` dice, por sensor, dónde está su valor:
+
+```json
+"comunicacion": {"protocolo": "serie", "periodo_s": 10},
+"sensores": [
+  {"id": "PT100-1", "magnitud": "temperatura", "unidad": "degC", "lectura": {"campo": "t"}, …},
+  {"id": "DS18B20-1", "magnitud": "temperatura", "unidad": "degC",
+   "lectura": {"columna": 0, "sin_lectura": [-127, 85]}, …}
+]
+```
+
+- `campo`: la clave en `clave=valor` o `clave: valor` (sin distinguir mayúsculas).
+- `columna`: la posición, empezando en 0, separando por coma, punto y coma o
+  tabulador (o espacios si no hay ninguno). El prefijo no cuenta.
+- `sin_lectura`: valores que el fabricante usa para decir «no leí» (DS18B20:
+  -127 desconectado, 85 recién encendido). Se declaran por sensor porque en
+  otro sensor podrían ser medidas válidas.
+
+```
+py -m shm_plataforma.pasarela_serie --proyecto ..\..\proyectos\x\proyecto.json --estacion LAB-UNO-01 --puerto COM5
+```
+
+**Nada se inventa:** un valor que falta, no es número, es NaN, es un centinela
+(-999…) o es un `sin_lectura` va como `null` con su motivo; los demás sensores
+de la misma línea se envían igual. Las líneas sin ningún sensor de la estación
+(mensajes de arranque) se ignoran. Los valores van tal cual, en la unidad del
+proyecto: la pasarela no convierte ni calibra.
+
+**LoRa:** un receptor por USB (`firmware/lora-receptor`) imprime cada paquete
+recibido. Varias estaciones por el mismo receptor: cada una con su
+`"prefijo"` en `comunicacion` (`"protocolo": "lora", "prefijo": "AGUA"`) y se
+pasan todas con `--estacion` repetido. La pasarela abre una sesión del broker
+**por estación**, con la contraseña de cada una, así que cada estación sigue
+publicando solo lo suyo (la ACL no se abre).
+
 ## Dos tipos de mensaje
 
 | Tópico | Para | Contrato |

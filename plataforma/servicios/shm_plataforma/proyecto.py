@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from .lector_texto import problemas_de_lectura
 from .contrato_medidas import MAGNITUDES
 
 FORMATO = "embedverse-proyecto-shm/1"
@@ -41,7 +42,9 @@ TIPOS_ESTACION = {"SD", "SS", "SR", "GW"}
 ESTADOS_ESTACION = {"diseno", "simulada", "instalada", "retirada"}
 # Las que la plataforma da de alta (tienen usuario en el broker).
 ESTADOS_CON_ALTA = {"simulada", "instalada"}
-PROTOCOLOS = {"mqtt"}
+# mqtt: la placa publica sola · serie: por USB a la pasarela del PC · lora: por radio a un
+# receptor conectado a la pasarela (ver lector_texto.py).
+PROTOCOLOS = {"mqtt", "serie", "lora"}
 
 # Magnitudes y unidades: el mismo catálogo que el contrato de medidas.
 UNIDADES = {nombre: set(m["unidades"]) for nombre, m in MAGNITUDES.items()}
@@ -130,6 +133,9 @@ def validar(d: Any) -> list[str]:
                 per = com.get("periodo_s")
                 if not isinstance(per, int) or isinstance(per, bool) or not 1 <= per <= 3600:
                     p.append(f"{donde}: «comunicacion.periodo_s» entero entre 1 y 3600")
+                pre = com.get("prefijo")
+                if pre is not None and not (isinstance(pre, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,16}", pre)):
+                    p.append(f"{donde}: «comunicacion.prefijo» de 1 a 16 letras, cifras, «-» o «_»")
         sensores = e.get("sensores", [])
         if not isinstance(sensores, list):
             p.append(f"{donde}: «sensores» debe ser una lista")
@@ -158,6 +164,8 @@ def validar(d: Any) -> list[str]:
             if vectorial or ejes is not None:
                 if not isinstance(ejes, list) or not ejes or not all(_texto(x) for x in ejes):
                     p.append(f"{sd}: «ejes» debe ser una lista no vacía" + ("" if vectorial else " u omitirse (sensor de un valor)"))
+            if "lectura" in s:
+                p.extend(f"{sd}: {x}" for x in problemas_de_lectura(s["lectura"]))
             hz = s.get("muestreo_hz")
             if hz is not None and (not isinstance(hz, (int, float)) or isinstance(hz, bool) or hz <= 0):
                 p.append(f"{sd}: «muestreo_hz» debe ser positivo o null")
