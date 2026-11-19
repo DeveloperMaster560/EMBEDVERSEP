@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { OFICIAL, analizar, bibliotecasEn, esDelSistema, inclusiones, mensajeAjenas } from './bibliotecaOficial';
+import { OFICIAL, VERIFICADAS, analizar, bibliotecasEn, esDelSistema, inclusiones, mensajeAjenas } from './bibliotecaOficial';
 
 const version = (n: string) => OFICIAL.find((b) => b.nombre === n)!.version;
 
@@ -58,13 +58,22 @@ describe('biblioteca oficial', () => {
   });
 
   it('una biblioteca que no es oficial se rechaza con su nombre', () => {
-    const a = analizar([{ path: 'a.ino', content: '#include <FastLED.h>\n#include <AsyncMqttClient.h>\n#include <WiFiManager.h>' }],
+    const a = analizar([{ path: 'a.ino', content: '#include <AsyncMqttClient.h>\n#include <WiFiManager.h>' }],
       NUCLEO_ESP32, INSTALADAS);
-    expect(a.ajenas.map((x) => x.cabecera)).toEqual(['AsyncMqttClient.h', 'FastLED.h']);
+    expect(a.ajenas.map((x) => x.cabecera)).toEqual(['AsyncMqttClient.h']);
     expect(a.ajenas[0].sugerencias?.[0]).toBe('AsyncMqttClient');
     // WiFiManager sí es oficial: falta instalarla en el servidor, no es del cliente.
     expect(a.pendientes.map((x) => x.biblioteca)).toEqual(['WiFiManager']);
-    expect(mensajeAjenas(a.ajenas)).toContain('FastLED.h → la dan: FastLED');
+    expect(mensajeAjenas(a.ajenas)).toContain('AsyncMqttClient.h → la dan: AsyncMqttClient');
+  });
+
+  it('nivel verificada: se acepta instalada y se pide al administrador si falta', () => {
+    const v = VERIFICADAS.find((b) => b.cabeceras.length && !b.requerida_por.length);
+    if (!v) return;   // aún no hay ninguna verificada
+    const codigo = [{ path: 'a.ino', content: `#include <${v.cabeceras[0]}>` }];
+    expect(analizar(codigo, NUCLEO_ESP32, [{ nombre: v.nombre, version: v.version, cabeceras: v.cabeceras }]).inclusiones[0])
+      .toMatchObject({ origen: 'verificada', biblioteca: v.nombre });
+    expect(analizar(codigo, NUCLEO_ESP32, []).pendientes[0]).toMatchObject({ biblioteca: v.nombre });
   });
 
   it('instalada pero fuera de la oficial también se rechaza', () => {

@@ -7,6 +7,7 @@
 #   sh scripts/placas.sh biblioteca "DHT sensor library" "BH1750"
 #   sh scripts/placas.sh oficial                       TODA la biblioteca oficial, versiones exactas
 #                                                      (server/bibliotecas.lock.json): lo que usa el servidor
+#   sh scripts/placas.sh verificadas                   las aprobadas por scripts/verificar_biblioteca.py
 #   sh scripts/placas.sh grupo ambiente                un grupo de server/bibliotecas.json
 #   sh scripts/placas.sh grupos                        los grupos y lo que llevan
 #   sh scripts/placas.sh zip ruta/biblioteca.zip       una biblioteca que no está en el gestor
@@ -80,6 +81,16 @@ let f='';for(const p of d.placas){if(p.familia!==f){f=p.familia;console.log('\n'
         || echo "✗ $FALLOS no se instalaron (mira arriba); vuelve a ejecutar «oficial» para reintentarlas"
     }
     ;;
+  verificadas)
+    cli lib update-index
+    # Primero sus dependencias (versión fija), luego ellas; todo sin resolver solo.
+    node -e "
+const v=require('$RAIZ/server/bibliotecas-verificadas.json').bibliotecas.filter(b=>b.estado==='verificada');
+for (const b of v) for (const d of (b.dependencias||[])) console.log(d.nombre+'@'+d.version);
+for (const b of v) console.log(b.nombre+'@'+b.version);" | while IFS= read -r b; do
+      if cli lib install --no-deps "$b" >/dev/null 2>&1; then echo "  ✓ $b"; else echo "  ✗ $b"; fi
+    done
+    ;;
   grupo)
     [ $# -ge 1 ] || { echo "Uso: sh scripts/placas.sh grupo <nombre>  (ver: sh scripts/placas.sh grupos)"; exit 1; }
     cli lib update-index
@@ -98,6 +109,6 @@ let f='';for(const p of d.placas){if(p.familia!==f){f=p.familia;console.log('\n'
     echo "Núcleos:"; cli core list; echo; echo "Bibliotecas:"; cli lib list
     ;;
   *)
-    sed -n '2,17p' "$0"
+    sed -n '2,18p' "$0"
     ;;
 esac

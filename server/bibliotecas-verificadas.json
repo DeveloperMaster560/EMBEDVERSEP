@@ -1,0 +1,128 @@
+{
+ "_nota": "Nivel «verificada»: bibliotecas pedidas por clientes y revisadas automáticamente por scripts/verificar_biblioteca.py. Solo las de estado «verificada» se aceptan al compilar.",
+ "bibliotecas": [
+  {
+   "nombre": "AsyncMqttClient",
+   "version": "0.9.0",
+   "repositorio": "https://github.com/moinologics/AsyncMqttClient.git",
+   "arquitecturas": [
+    "esp8266",
+    "esp32"
+   ],
+   "fecha": "2026-11-19T15:21:50Z",
+   "motivos": [
+    "declara esp8266, esp32; en este equipo no hay núcleo de ninguna de ellas"
+   ],
+   "dependencias": [],
+   "licencia": "MIT",
+   "licencia_fuente": "GitHub: LICENSE",
+   "cabeceras": [
+    "AsyncMqttClient.h",
+    "AsyncMqttClient.hpp"
+   ],
+   "pruebas": [],
+   "estado": "sin_probar"
+  },
+  {
+   "nombre": "FastLED",
+   "version": "3.10.9",
+   "repositorio": "https://github.com/FastLED/FastLED.git",
+   "arquitecturas": [
+    "*"
+   ],
+   "fecha": "2026-11-19T15:23:23Z",
+   "motivos": [
+    "2 de 3 ejemplos no compilan (ver «pruebas»): la biblioteca sirve, pero no todo lo que ofrece funciona en todas las placas"
+   ],
+   "dependencias": [],
+   "licencia": "MIT",
+   "licencia_fuente": "GitHub: LICENSE",
+   "cabeceras": [
+    "FastLED.cpp.hpp",
+    "FastLED.h",
+    "_build.cpp.hpp",
+    "bitswap.cpp.hpp",
+    "bitswap.h",
+    "chipsets.h",
+    "chsv.h",
+    "cled_controller.cpp.hpp",
+    "cled_controller.h",
+    "color.h",
+    "colorpalettes.cpp.hpp",
+    "colorpalettes.h",
+    "colorutils.h",
+    "controller.h",
+    "cpixel_ledcontroller.h",
+    "cpp_compat.h",
+    "crgb.cpp.hpp",
+    "crgb.h",
+    "crgb.hpp",
+    "dither_mode.h",
+    "dmx.h",
+    "eorder.h",
+    "fastled_config.h",
+    "fastled_delay.cpp.hpp",
+    "fastled_delay.h",
+    "fastled_progmem.h",
+    "fastpin.h",
+    "fastspi.h",
+    "fastspi_nop.h",
+    "fastspi_ref.h",
+    "fastspi_types.h",
+    "hsv2rgb.cpp.hpp",
+    "hsv2rgb.h",
+    "led_sysdefs.h",
+    "lib8tion.cpp.hpp",
+    "lib8tion.h",
+    "noise.cpp.hpp",
+    "noise.h",
+    "noise_test_helpers.h",
+    "noisegen.h",
+    "pixel_controller.h",
+    "pixel_iterator.h",
+    "pixelset.h",
+    "pixeltypes.h",
+    "platforms.cpp.hpp",
+    "platforms.h",
+    "power_mgt.cpp.hpp",
+    "power_mgt.h",
+    "rgbw.h",
+    "simplex.cpp.hpp",
+    "transpose8x1_noinline.cpp.hpp",
+    "transpose8x1_noinline.h",
+    "wiring.cpp.hpp"
+   ],
+   "pruebas": [
+    {
+     "placa": "arduino-uno",
+     "ejemplo": "AnalogOutput",
+     "compila": true
+    },
+    {
+     "placa": "arduino-uno",
+     "ejemplo": "Animartrix",
+     "compila": false,
+     "error": "avr/bin/ld: region `text' overflowed by 483360 bytes"
+    },
+    {
+     "placa": "arduino-uno",
+     "ejemplo": "AnimartrixRing",
+     "compila": false,
+     "error": "avr/bin/ld: region `text' overflowed by 478008 bytes"
+    }
+   ],
+   "estado": "verificada",
+   "placas_probadas": [
+    "arduino-uno"
+   ]
+  },
+  {
+   "nombre": "Sensor Que No Existe",
+   "estado": "rechazada",
+   "motivos": [
+    "no está en el índice de Arduino"
+   ],
+   "fecha": "2026-11-19T15:21:53Z"
+  }
+ ]
+}

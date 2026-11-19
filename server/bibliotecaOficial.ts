@@ -19,6 +19,7 @@ import { appendFile, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import lock from './bibliotecas.lock.json' with { type: 'json' };
 import indice from './cabeceras-indice.json' with { type: 'json' };
+import verificadas from './bibliotecas-verificadas.json' with { type: 'json' };
 import type { Placa } from './placas.js';
 
 export interface BibliotecaFijada {
@@ -34,10 +35,45 @@ export interface BibliotecaFijada {
 }
 
 export const OFICIAL: readonly BibliotecaFijada[] = (lock as unknown as { bibliotecas: BibliotecaFijada[] }).bibliotecas;
-const POR_NOMBRE = new Map(OFICIAL.map((b) => [b.nombre, b]));
+
+interface Verificacion {
+  nombre: string;
+  estado: string;
+  version?: string;
+  cabeceras?: string[];
+  dependencias?: { nombre: string; version: string }[] | null;
+  repositorio?: string | null;
+  licencia?: string | null;
+  placas_probadas?: string[];
+}
+
+/**
+ * Nivel «verificada»: pedidas por clientes y aprobadas por
+ * scripts/verificar_biblioteca.py (licencia permisiva, ejemplos que compilan,
+ * sin choques). Solo las de estado «verificada»; sus dependencias, con versión fija.
+ */
+export const VERIFICADAS: readonly BibliotecaFijada[] = (verificadas as unknown as { bibliotecas: Verificacion[] }).bibliotecas
+  .filter((v) => v.estado === 'verificada' && v.version)
+  .flatMap((v) => [
+    {
+      nombre: v.nombre, version: v.version!, grupo: null, requerida_por: [], cabeceras: v.cabeceras ?? [],
+      cabeceras_probables: [], repositorio: v.repositorio ?? null, licencia: v.licencia ?? null,
+    },
+    ...(v.dependencias ?? []).map((d) => ({
+      nombre: d.nombre, version: d.version, grupo: null, requerida_por: [v.nombre], cabeceras: [],
+      cabeceras_probables: [], repositorio: null, licencia: null,
+    })),
+  ])
+  .filter((b) => !OFICIAL.some((o) => o.nombre === b.nombre));
+
+const NIVEL = new Map<string, 'oficial' | 'verificada'>([
+  ...VERIFICADAS.map((b) => [b.nombre, 'verificada'] as const),
+  ...OFICIAL.map((b) => [b.nombre, 'oficial'] as const),
+]);
+const POR_NOMBRE = new Map([...VERIFICADAS, ...OFICIAL].map((b) => [b.nombre, b]));
 const INDICE: Record<string, string[]> = (indice as { cabeceras: Record<string, string[]> }).cabeceras;
 
-export type Origen = 'propia' | 'nucleo' | 'sistema' | 'oficial' | 'pendiente' | 'ajena' | 'desconocida';
+export type Origen = 'propia' | 'nucleo' | 'sistema' | 'oficial' | 'verificada' | 'pendiente' | 'ajena' | 'desconocida';
 
 export interface InclusionAnalizada {
   cabecera: string;
@@ -175,7 +211,7 @@ export function analizar(
   const instaladaPorCabecera = new Map<string, Instalada>();
   for (const lib of instaladas) for (const h of lib.cabeceras) if (!instaladaPorCabecera.has(h)) instaladaPorCabecera.set(h, lib);
   const oficialPorCabecera = new Map<string, BibliotecaFijada>();
-  for (const b of OFICIAL) for (const h of [...b.cabeceras, ...b.cabeceras_probables]) oficialPorCabecera.set(h, b);
+  for (const b of [...VERIFICADAS, ...OFICIAL]) for (const h of [...b.cabeceras, ...b.cabeceras_probables]) oficialPorCabecera.set(h, b);
 
   const res: InclusionAnalizada[] = [];
   const usadas = new Set<string>();
@@ -192,13 +228,13 @@ export function analizar(
     const inst = instaladaPorCabecera.get(base);
     if (inst && POR_NOMBRE.has(inst.nombre)) {
       usadas.add(inst.nombre);
-      res.push({ cabecera, origen: 'oficial', biblioteca: inst.nombre, version: inst.version });
+      res.push({ cabecera, origen: NIVEL.get(inst.nombre)!, biblioteca: inst.nombre, version: inst.version });
       continue;
     }
     if (inst) {
       res.push({
         cabecera, origen: 'ajena', biblioteca: inst.nombre,
-        detalle: `«${inst.nombre}» está instalada en el servidor pero no forma parte de la biblioteca oficial.`,
+        detalle: `«${inst.nombre}» está instalada en el servidor pero no es oficial ni verificada.`,
       });
       continue;
     }
@@ -240,10 +276,10 @@ export function mensajeAjenas(ajenas: InclusionAnalizada[]): string {
     return `  ${a.cabecera} → la dan: ${s.slice(0, 4).join(', ')}${s.length > 4 ? '…' : ''}`;
   });
   return [
-    'Tu código usa bibliotecas que no están en la biblioteca oficial de EMBEDVERSE:',
+    'Tu código usa bibliotecas que no están en la biblioteca de EMBEDVERSE (ni oficiales ni verificadas):',
     ...lineas,
-    'Quedó registrada la solicitud. Mientras tanto puedes usar una equivalente de la lista oficial '
-      + '(GET /api/bibliotecas) o pedir al administrador que la incorpore.',
+    'Quedó registrada la solicitud: las más pedidas se verifican (licencia, que compile, que no choque) '
+      + 'y se incorporan. Mientras tanto puedes usar una equivalente de la lista (GET /api/bibliotecas).',
   ].join('\n');
 }
 
@@ -251,7 +287,7 @@ export function mensajePendientes(p: InclusionAnalizada[]): string {
   return [
     'Estas bibliotecas son oficiales pero este servidor aún no las tiene instaladas:',
     ...p.map((x) => `  ${x.cabecera} → ${x.biblioteca} ${x.version}`),
-    'Administrador: ejecute desde la carpeta del proyecto  sh scripts/placas.sh oficial  '
+    'Administrador: ejecute desde la carpeta del proyecto  sh scripts/placas.sh oficial  (y «verificadas») '
       + '(Windows: powershell -ExecutionPolicy Bypass -File scripts\\placas.ps1 oficial).',
   ].join('\n');
 }
@@ -288,10 +324,10 @@ export function createBibliotecasMiddleware(raiz: string) {
     }
     void bibliotecasEn(path.join(raiz, '.tools', 'arduino-user', 'libraries')).then((inst) => {
       const porNombre = new Map(inst.map((i) => [i.nombre, i]));
-      const bibliotecas = OFICIAL.map((b) => {
+      const bibliotecas = [...OFICIAL, ...VERIFICADAS].map((b) => {
         const i = porNombre.get(b.nombre);
         return {
-          nombre: b.nombre, version: b.version, grupo: b.grupo, requerida_por: b.requerida_por,
+          nombre: b.nombre, nivel: NIVEL.get(b.nombre), version: b.version, grupo: b.grupo, requerida_por: b.requerida_por,
           cabeceras: i ? i.cabeceras : b.cabeceras, repositorio: b.repositorio, licencia: b.licencia,
           estado: !i ? 'no_instalada' : i.version === b.version ? 'instalada' : 'version_distinta',
         };

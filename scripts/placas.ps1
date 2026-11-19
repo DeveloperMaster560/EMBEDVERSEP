@@ -5,6 +5,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 nucleo vendedor:arq URL
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 biblioteca "DHT sensor library" "BH1750"
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 oficial      (TODA la biblioteca oficial, versiones exactas)
+#   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 verificadas  (las aprobadas por verificar_biblioteca.py)
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 grupo ambiente
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 grupos
 #   powershell -ExecutionPolicy Bypass -File scripts\placas.ps1 zip C:\ruta\biblioteca.zip
@@ -82,6 +83,17 @@ switch ($orden) {
     if ($fallos -eq 0) { Write-Host "Biblioteca oficial completa en .tools\arduino-user\libraries" }
     else { Write-Host "$fallos no se instalaron (mira arriba); vuelve a ejecutar 'oficial' para reintentarlas" }
   }
+  "verificadas" {
+    $v = (Get-Content -Raw -Encoding UTF8 (Join-Path $raiz "server\bibliotecas-verificadas.json") | ConvertFrom-Json).bibliotecas |
+      Where-Object { $_.estado -eq "verificada" }
+    Cli lib update-index
+    $refs = @()
+    foreach ($b in $v) { foreach ($d in @($b.dependencias)) { if ($d) { $refs += "$($d.nombre)@$($d.version)" } } }
+    foreach ($b in $v) { $refs += "$($b.nombre)@$($b.version)" }
+    foreach ($ref in $refs) {
+      try { Cli lib install --no-deps $ref | Out-Null; Write-Host "  ok $ref" } catch { Write-Host "  FALLO $ref" }
+    }
+  }
   "grupo" {
     if ($resto.Count -lt 1) { Write-Host "Uso: scripts\placas.ps1 grupo <nombre>  (ver: scripts\placas.ps1 grupos)"; exit 1 }
     $lista = $grupos.($resto[0])
@@ -102,5 +114,5 @@ switch ($orden) {
     Cli lib install --zip-path $resto[0]
   }
   "instaladas" { Write-Host "Nucleos:"; Cli core list; Write-Host ""; Write-Host "Bibliotecas:"; Cli lib list }
-  default { Get-Content $PSCommandPath -TotalCount 14 | Select-Object -Skip 1 }
+  default { Get-Content $PSCommandPath -TotalCount 15 | Select-Object -Skip 1 }
 }

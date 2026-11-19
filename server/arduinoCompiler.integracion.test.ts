@@ -45,9 +45,9 @@ describe.skipIf(!hayCadena)('compilar con la biblioteca oficial (Arduino Uno rea
   }, 120_000);
 
   it('una biblioteca que no es oficial se rechaza antes de compilar, con su nombre', async () => {
-    const r = await compilar('#include <FastLED.h>\nvoid setup(){}\nvoid loop(){}\n');
+    const r = await compilar('#include <AsyncMqttClient.h>\nvoid setup(){}\nvoid loop(){}\n');
     expect(r.status).toBe(422);
     expect(r.cuerpo.code).toBe('BIBLIOTECA_NO_OFICIAL');
-    expect(r.cuerpo.error).toContain('FastLED.h → la dan: FastLED');
+    expect(r.cuerpo.error).toContain('AsyncMqttClient.h → la dan: AsyncMqttClient');
   }, 60_000);
 });
