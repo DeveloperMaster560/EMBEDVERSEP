@@ -40,7 +40,7 @@ import { ElectronicsLab } from './electronics-lab/ElectronicsLab';
 import { ShmStationSimulator } from './shm/sim/ShmStationSimulator';
 import { PlataformaView } from './plataforma/PlataformaView';
 import { ProyectoShmFicha, SelectorProyectoShm } from './shm/ProyectoShmFicha';
-import { admiteGemelo, buscarProyecto } from './shm/proyectos';
+import { PROYECTOS_SHM, admiteGemelo, buscarProyecto } from './shm/proyectos';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
@@ -728,8 +728,12 @@ function WorkspacePanel({
   const [embeddedView, setEmbeddedView] = useState<'lab' | 'proyecto' | 'shm' | 'plataforma'>('lab');
   const shmDef = buscarProyecto(project.shmProjectId);
   const gemelo = admiteGemelo(shmDef);
-  // Si se desvincula de La Novena estando en el gemelo, se vuelve a la ficha.
-  const vista = embeddedView === 'shm' && !gemelo ? 'proyecto' : embeddedView;
+  // La pestaña del gemelo STM32 siempre se puede abrir: si el proyecto no está
+  // vinculado a La Novena, dice por qué y ofrece vincularlo (antes quedaba gris
+  // y el motivo solo se veía al pasar el ratón).
+  const vista = embeddedView;
+  const proyectoGemelo = PROYECTOS_SHM.find((p) => p.def?.proyecto_id === 'novena-gemelo' && admiteGemelo(p.def))?.def
+    ?? PROYECTOS_SHM.find((p) => admiteGemelo(p.def))?.def ?? null;
 
   return (
     <div className="workspace-shell">
@@ -778,8 +782,7 @@ function WorkspacePanel({
             {([
               ['lab', 'Laboratorio del proyecto (emulado)', true, ''],
               ['proyecto', shmDef ? `Proyecto SHM · ${shmDef.estructura.nombre ?? shmDef.nombre}` : 'Proyecto SHM', true, ''],
-              ['shm', 'Gemelo funcional · estación STM32H743', gemelo,
-                'El gemelo funcional está construido sobre la geometría de La Novena: vincula este proyecto con La Novena para usarlo.'],
+              ['shm', 'Gemelo funcional · estación STM32H743', true, ''],
               ['plataforma', 'Plataforma de datos (en vivo)', true, ''],
             ] as const).map(([id, texto, habilitada, motivo]) => (
               <button
@@ -813,7 +816,25 @@ function WorkspacePanel({
               </p>
             )
           ) : vista === 'shm' ? (
-            <ShmStationSimulator />
+            gemelo ? <ShmStationSimulator /> : (
+              <div className="shm-warn">
+                <p>
+                  <b>La estación STM32H743 es la del Viaducto de La Novena.</b> Su gemelo funcional (placa, sensores,
+                  firmware emulado en Renode) está construido sobre la geometría de ese puente, así que este proyecto
+                  tiene que estar vinculado a La Novena para usarlo.{' '}
+                  {shmDef ? <>Ahora está vinculado a «{shmDef.nombre}».</> : <>Ahora no está vinculado a ninguna estructura.</>}
+                </p>
+                {proyectoGemelo ? (
+                  <button type="button" className="primary-button" onClick={() => onChangeShmProject(proyectoGemelo.proyecto_id)}>
+                    Vincular con «{proyectoGemelo.nombre}»
+                  </button>
+                ) : <p>No hay ningún proyecto de La Novena en proyectos/.</p>}
+                <p className="shm-note">
+                  Para programar una STM32 propia (Blue Pill, Black Pill, Nucleo…) no hace falta esto: elige la placa en
+                  «Código → Compilar para».
+                </p>
+              </div>
+            )
           ) : (
             <PlataformaView proyectoVinculado={project.shmProjectId} />
           )}
@@ -1217,6 +1238,11 @@ function SettingsPage({ project, onChangeBoard }: { project: EmbeddedProject; on
           <option value="arduino-uno">Arduino Uno R3</option>
           <option value="esp32-devkit">ESP32 DevKit</option>
         </select>
+        <p className="field-hint">
+          Esta placa es la del laboratorio emulado (el que corre en el navegador). Para compilar para otras —STM32,
+          Nano, Mega, ESP32-S3, Pico, Teensy…— elige la placa en <b>Código → Compilar para</b>. Las marcadas «sin
+          instalar» necesitan antes su núcleo de Arduino en el ordenador que compila.
+        </p>
 
         <div className="property-group compact">
           <span className="property-label">NOMBRE</span>
