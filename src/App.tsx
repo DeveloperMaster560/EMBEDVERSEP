@@ -17,6 +17,7 @@ import {
   FolderOpen,
   LayoutDashboard,
   Library,
+  Play,
   Plus,
   Save,
   Search,
@@ -1301,6 +1302,62 @@ interface CompileResult {
   artifacts?: { name: string; bytes: number; downloadBase64?: string }[];
   error?: string;
   code?: string;
+  bibliotecas?: { nombre: string; version: string; licencia: string | null; grupo: string; delNucleo: boolean }[];
+  avisosLicencia?: string[];
+}
+
+/** Respuesta de /api/simular (server/simulador.ts). */
+interface SimulacionResult {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  mensajes?: number;
+  con_problemas?: number;
+  notas?: string[];
+  tiempo_simulado_s?: number;
+  serie?: string[];
+  serie_total?: number;
+  mensajes_detalle?: { t_s: number; topico: string; problemas: string[] }[];
+}
+
+const ESCENARIO_EJEMPLO = `# Escenario de prueba (inventado, no medido). Una fila por instante:
+# t_s = segundos desde que arranca la placa; una columna por señal; entre filas se interpola.
+# Celda vacía = ese sensor falla en ese tramo. Columnas que entiende el simulador:
+#   temperatura, humedad (DHT), luz (BH1750), co2 (SCD4x), acel_x/y/z (MPU6050), A<pin>, D<pin>…
+# Dispositivos SPI o serie:  #@ conectar MAX31865 cs=10   ·   #@ conectar GPS serie=Serial2
+t_s,temperatura,humedad,luz
+0,24.0,60,350
+120,25.5,57,
+300,26.5,55,420
+`;
+
+function leerEscenario(projectId: string): string {
+  try {
+    return localStorage.getItem(`embedverse.escenario.${projectId}`) ?? ESCENARIO_EJEMPLO;
+  } catch {
+    return ESCENARIO_EJEMPLO;
+  }
+}
+
+function guardarEscenario(projectId: string, texto: string): void {
+  try {
+    localStorage.setItem(`embedverse.escenario.${projectId}`, texto);
+  } catch {
+    // sin almacenamiento: se pierde al recargar
+  }
+}
+
+/** El resultado de la simulación como texto de consola. */
+function textoSimulacion(r: SimulacionResult): string {
+  if (!r.ok) return r.error ?? 'La simulación falló.';
+  const lineas = [`Simulación: ${Math.round(r.tiempo_simulado_s ?? 0)} s simulados · ${r.mensajes ?? 0} mensajes · ${r.con_problemas ?? 0} con problemas`, ''];
+  for (const l of r.serie ?? []) lineas.push(`placa │ ${l}`);
+  if ((r.serie_total ?? 0) > (r.serie?.length ?? 0)) lineas.push(`placa │ … (${r.serie_total} líneas en total)`);
+  for (const m of r.mensajes_detalle ?? []) {
+    lineas.push(`[${m.t_s.toFixed(1).padStart(7)} s] ${m.topico}  ${m.problemas.length ? '✗ ' + m.problemas.slice(0, 2).join('; ') : '✓'}`);
+  }
+  if (r.notas?.length) lineas.push('', ...r.notas.map((n) => `· ${n}`));
+  return lineas.join('\n');
 }
 
 function EditorPage({
@@ -1329,6 +1386,9 @@ function EditorPage({
   const [firmwareDownload, setFirmwareDownload] = useState<{ name: string; url: string } | null>(null);
   const [placas, setPlacas] = useState<PlacaCompilador[] | null>(null);
   const [placaId, setPlacaId] = useState(() => leerPlacaGuardada(project.id, project.boardId));
+  const [simState, setSimState] = useState<'idle' | 'running'>('idle');
+  const [escenario, setEscenario] = useState(() => leerEscenario(project.id));
+  const [duracionSim, setDuracionSim] = useState(300);
   const placa = placas?.find((p) => p.id === placaId);
 
   useEffect(() => {
@@ -1366,8 +1426,15 @@ function EditorPage({
         return;
       }
       const artifacts = result.artifacts?.map((artifact) => `${artifact.name} (${artifact.bytes.toLocaleString()} bytes)`).join('\n');
+      const libs = result.bibliotecas?.filter((b) => !b.delNucleo)
+        .map((b) => `${b.nombre} ${b.version} — ${b.licencia ?? 'sin licencia'}`).join('\n');
       setCompileState('success');
-      setCompileOutput([result.output.trim(), artifacts ? `Artefactos generados:\n${artifacts}` : 'Compilación correcta.'].filter(Boolean).join('\n'));
+      setCompileOutput([
+        result.output.trim(),
+        artifacts ? `Artefactos generados:\n${artifacts}` : 'Compilación correcta.',
+        libs ? `Bibliotecas dentro del firmware (incluye sus avisos de copyright al entregarlo):\n${libs}` : '',
+        result.avisosLicencia?.length ? `⚠ Licencias:\n${result.avisosLicencia.map((a) => `· ${a}`).join('\n')}` : '',
+      ].filter(Boolean).join('\n\n'));
       const hex = result.artifacts?.find((artifact) => /\.ino\.(hex|bin|uf2)$/.test(artifact.name) && artifact.downloadBase64);
       if (hex?.downloadBase64) {
         const extension = hex.name.split('.').pop() ?? 'hex';
@@ -1384,9 +1451,35 @@ function EditorPage({
     }
   };
 
+  const simulateProject = async () => {
+    setSimState('running');
+    setCompileState('compiling');
+    setCompileOutput('Simulando en el PC con las bibliotecas reales… (la primera vez con una biblioteca grande tarda un minuto)');
+    try {
+      const response = await fetch('/api/simular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boardId: placaId, escenario, duracion_s: duracionSim,
+          files: project.files.map(({ path, content }) => ({ path, content })),
+        }),
+      });
+      const result = await response.json() as SimulacionResult;
+      setCompileState(result.ok && !result.con_problemas ? 'success' : 'error');
+      setCompileOutput(textoSimulacion(result));
+    } catch (error) {
+      setCompileState('error');
+      setCompileOutput(error instanceof Error ? error.message : 'No se pudo contactar al simulador local.');
+    } finally {
+      setSimState('idle');
+    }
+  };
+
+  const ocupado = compileState === 'compiling';
+
   return (
     <div className="ide-page">
-      <div className="ide-titlebar"><div><button className="subtle-link" onClick={onBack}>Proyectos</button><span className="breadcrumb-separator">/</span><strong>{project.name}</strong></div><div className="ide-actions"><span className={`save-indicator ${saveState}`}><span />{saveState === 'saving' ? 'Guardando…' : saveState === 'error' ? 'Error al guardar' : 'Guardado local'}</span><button className="secondary-button save-button" onClick={onSave}><Save size={15} /> Guardar</button><button className="secondary-button save-button" onClick={onOpenTwin}><Box size={15} /> Ver 3D</button><button className="primary-button compile-button" disabled={compileState === 'compiling'} onClick={() => void compileProject()}><Zap size={15} /> {compileState === 'compiling' ? 'Compilando…' : 'Compilar'}</button></div></div>
+      <div className="ide-titlebar"><div><button className="subtle-link" onClick={onBack}>Proyectos</button><span className="breadcrumb-separator">/</span><strong>{project.name}</strong></div><div className="ide-actions"><span className={`save-indicator ${saveState}`}><span />{saveState === 'saving' ? 'Guardando…' : saveState === 'error' ? 'Error al guardar' : 'Guardado local'}</span><button className="secondary-button save-button" onClick={onSave}><Save size={15} /> Guardar</button><button className="secondary-button save-button" onClick={onOpenTwin}><Box size={15} /> Ver 3D</button><button className="secondary-button compile-button" disabled={ocupado} onClick={() => void simulateProject()} title="Ejecuta el programa en el PC contra el escenario del panel de propiedades"><Play size={15} /> {simState === 'running' ? 'Simulando…' : 'Simular'}</button><button className="primary-button compile-button" disabled={ocupado} onClick={() => void compileProject()}><Zap size={15} /> {ocupado && simState !== 'running' ? 'Compilando…' : 'Compilar'}</button></div></div>
       <div className="ide-workspace">
         <aside className="file-explorer">
           <div className="explorer-heading"><span>EXPLORADOR</span><button className="icon-button compact-button" onClick={onAddFile} aria-label="Agregar archivo"><FilePlus2 size={15} /></button></div>
@@ -1420,9 +1513,9 @@ function EditorPage({
               }}
             />
           ) : <div className="editor-empty">Selecciona un archivo para editar.</div>}
-          <div className={`terminal-panel terminal-${compileState}`}><div className="terminal-heading"><span><TerminalSquare size={14} /> CONSOLA · {compileState === 'compiling' ? 'COMPILANDO' : compileState === 'success' ? 'COMPILACIÓN CORRECTA' : compileState === 'error' ? 'COMPILACIÓN FALLIDA' : 'LISTA'}</span><span className={`terminal-idle ${compileState}`}>{compileState === 'compiling' ? 'EN CURSO' : compileState === 'error' ? 'ERROR' : compileState === 'success' ? 'OK' : 'ARDUINO CLI'}</span></div><pre className="terminal-content compile-output">{compileOutput || 'Listo. Compila el proyecto para verificar el firmware real; la ejecución simulada aún no está disponible.'}</pre>{firmwareDownload && <a className="firmware-download" href={firmwareDownload.url} download={firmwareDownload.name}><Save size={13} /> Descargar firmware HEX</a>}</div>
+          <div className={`terminal-panel terminal-${compileState}`}><div className="terminal-heading"><span><TerminalSquare size={14} /> CONSOLA · {simState === 'running' ? 'SIMULANDO' : compileState === 'compiling' ? 'COMPILANDO' : compileState === 'success' ? 'COMPILACIÓN CORRECTA' : compileState === 'error' ? 'COMPILACIÓN FALLIDA' : 'LISTA'}</span><span className={`terminal-idle ${compileState}`}>{compileState === 'compiling' ? 'EN CURSO' : compileState === 'error' ? 'ERROR' : compileState === 'success' ? 'OK' : 'ARDUINO CLI'}</span></div><pre className="terminal-content compile-output">{compileOutput || 'Listo. Compila para verificar el firmware real, o simula para ejecutarlo en el PC contra el escenario.'}</pre>{firmwareDownload && <a className="firmware-download" href={firmwareDownload.url} download={firmwareDownload.name}><Save size={13} /> Descargar firmware HEX</a>}</div>
         </section>
-        <aside className="properties-panel"><div className="properties-heading"><Settings2 size={15} /> PROPIEDADES</div><div className="property-group"><span className="property-label">PROYECTO</span><strong>{project.name}</strong><small>Proyecto local</small></div><div className="property-group"><span className="property-label">MICROCONTROLADOR</span><strong><Cpu size={14} /> {boardLabels[project.boardId]}</strong><label className="property-label" htmlFor="placa-compilar">COMPILAR PARA</label><select id="placa-compilar" value={placaId} onChange={(e) => elegirPlaca(e.target.value)}>{placas === null ? <option value={placaId}>{placaId}</option> : [...new Set(placas.map((p) => p.familia))].map((familia) => <optgroup key={familia} label={familia}>{placas.filter((p) => p.familia === familia).map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.instalada ? '' : ' — sin instalar'}</option>)}</optgroup>)}</select><small>{placas === null ? 'Consultando placas…' : placas.length === 0 ? 'No se pudo leer la lista de placas del compilador.' : !placa ? 'Esta placa no está en la lista del compilador.' : placa.instalada ? `Núcleo ${placa.paquete} instalado.` : `Falta el núcleo ${placa.paquete}${placa.descarga_mb ? ` (~${placa.descarga_mb} MB)` : ''}: ver la guía de placas.`}{placa?.notas ? ` ${placa.notas}` : ''}</small></div><div className="property-group"><span className="property-label">ARCHIVOS</span><strong>{project.files.length} archivo{project.files.length === 1 ? '' : 's'}</strong><small>{project.files.map((file) => file.path.split('.').pop()?.toUpperCase()).filter(Boolean).join(' · ')}</small></div><div className="property-warning"><AlertCircle size={15} /><span>Compilar verifica el firmware, pero todavía no ejecuta una simulación.</span></div></aside>
+        <aside className="properties-panel"><div className="properties-heading"><Settings2 size={15} /> PROPIEDADES</div><div className="property-group"><span className="property-label">PROYECTO</span><strong>{project.name}</strong><small>Proyecto local</small></div><div className="property-group"><span className="property-label">MICROCONTROLADOR</span><strong><Cpu size={14} /> {boardLabels[project.boardId]}</strong><label className="property-label" htmlFor="placa-compilar">COMPILAR PARA</label><select id="placa-compilar" value={placaId} onChange={(e) => elegirPlaca(e.target.value)}>{placas === null ? <option value={placaId}>{placaId}</option> : [...new Set(placas.map((p) => p.familia))].map((familia) => <optgroup key={familia} label={familia}>{placas.filter((p) => p.familia === familia).map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.instalada ? '' : ' — sin instalar'}</option>)}</optgroup>)}</select><small>{placas === null ? 'Consultando placas…' : placas.length === 0 ? 'No se pudo leer la lista de placas del compilador.' : !placa ? 'Esta placa no está en la lista del compilador.' : placa.instalada ? `Núcleo ${placa.paquete} instalado.` : `Falta el núcleo ${placa.paquete}${placa.descarga_mb ? ` (~${placa.descarga_mb} MB)` : ''}: ver la guía de placas.`}{placa?.notas ? ` ${placa.notas}` : ''}</small></div><div className="property-group"><span className="property-label">ARCHIVOS</span><strong>{project.files.length} archivo{project.files.length === 1 ? '' : 's'}</strong><small>{project.files.map((file) => file.path.split('.').pop()?.toUpperCase()).filter(Boolean).join(' · ')}</small></div><div className="property-group"><label className="property-label" htmlFor="escenario-sim">ESCENARIO DE SIMULACIÓN</label><textarea id="escenario-sim" className="escenario-input" spellCheck={false} value={escenario} onChange={(e) => { setEscenario(e.target.value); guardarEscenario(project.id, e.target.value); }} /><label className="property-label" htmlFor="duracion-sim">DURACIÓN (S SIMULADOS)</label><input id="duracion-sim" className="duracion-input" type="number" min={1} max={3600} value={duracionSim} onChange={(e) => setDuracionSim(Math.max(1, Math.min(3600, Number(e.target.value) || 1)))} /><small>Datos inventados para probar el programa: no son mediciones. Columnas y dispositivos: firmware/simulador-host/LEEME.md.</small></div><div className="property-warning"><AlertCircle size={15} /><span>Simular ejecuta el programa en este PC con las bibliotecas reales; que funcione aquí no prueba que funcione en la placa (tiempos, RAM, tensiones).</span></div></aside>
       </div>
       <div className="ide-statusbar"><span><span className="status-dot" /> {boardLabels[project.boardId]}</span><span>UTF-8</span><span>Arduino Framework · no configurado</span><span>{activeFile?.content.split('\n').length ?? 0} líneas</span></div>
     </div>

@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Connect } from 'vite';
-import { anotarSolicitudes, bibliotecasEn, cabecerasDelNucleo } from './bibliotecaOficial.js';
+import {
+  anotarSolicitudes, bibliotecasEn, cabecerasDelNucleo, licenciasDelFirmware, type BibliotecaEnFirmware,
+  type UsadaPorCompilador,
+} from './bibliotecaOficial.js';
 import {
   codigoPrincipal, diagnosticar, estadoHttp, mensaje, otroEntorno, paraRespuesta, registrar, type Problema,
 } from './diagnostico.js';
@@ -33,6 +36,30 @@ export interface CompileResponse {
   code?: string;
   /** Todo lo que impide compilar, con a quién le toca arreglarlo. */
   diagnostico?: Problema[];
+  /** Bibliotecas que quedaron dentro del firmware, con su licencia (para los avisos de copyright). */
+  bibliotecas?: BibliotecaEnFirmware[];
+  /** Condiciones de licencia que el cliente debe conocer antes de vender equipos (GPL, sin licencia…). */
+  avisosLicencia?: string[];
+}
+
+/** Salida de «arduino-cli compile --format json». */
+interface SalidaCompilador {
+  compiler_out?: string;
+  compiler_err?: string;
+  error?: string;
+  builder_result?: { used_libraries?: UsadaPorCompilador[] };
+}
+
+/** El texto que ve el cliente (el mismo que sin --format json) y lo que se enlazó. */
+export function leerSalidaCompilador(stdout: string, stderr: string): { texto: string; usadas: UsadaPorCompilador[] } {
+  let r: SalidaCompilador | null = null;
+  try {
+    r = JSON.parse(stdout) as SalidaCompilador;
+  } catch {
+    return { texto: stdout + stderr, usadas: [] };
+  }
+  const texto = [r.compiler_out, r.compiler_err, stderr, r.error].filter(Boolean).join('');
+  return { texto, usadas: r.builder_result?.used_libraries ?? [] };
 }
 
 export class CompileRequestError extends Error {
@@ -154,7 +181,7 @@ function sendJson(response: ServerResponse, statusCode: number, body: CompileRes
   response.end(JSON.stringify(body));
 }
 
-function isLocalRequest(request: IncomingMessage): boolean {
+export function isLocalRequest(request: IncomingMessage): boolean {
   const address = request.socket.remoteAddress?.replace(/^::ffff:/, '');
   if (address !== '127.0.0.1' && address !== '::1') return false;
 
@@ -376,6 +403,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       placa.fqbn,
       '--output-dir',
       outputDirectory,
+      // JSON: además de la salida del compilador, la lista de bibliotecas que enlazó (licencias).
+      '--format',
+      'json',
       sketchDirectory,
     ];
 
@@ -397,7 +427,8 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
         },
       });
 
-      let output = '';
+      let stdout = '';
+      let stderr = '';
       let outputBytes = 0;
       let timedOut = false;
       let overflow = false;
@@ -408,18 +439,19 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
         child.kill();
       }, limiteMs);
 
-      const collect = (chunk: Buffer) => {
+      const collect = (destino: 'out' | 'err') => (chunk: Buffer) => {
         outputBytes += chunk.length;
         if (outputBytes > maxOutputBytes) {
           overflow = true;
           child.kill();
           return;
         }
-        output += chunk.toString('utf8');
+        if (destino === 'out') stdout += chunk.toString('utf8');
+        else stderr += chunk.toString('utf8');
       };
 
-      child.stdout.on('data', collect);
-      child.stderr.on('data', collect);
+      child.stdout.on('data', collect('out'));
+      child.stderr.on('data', collect('err'));
       child.once('error', (error) => {
         if (settled) return;
         settled = true;
@@ -438,10 +470,12 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
           reject(new CompileRequestError('La salida del compilador superó el límite permitido.', 413, 'OUTPUT_TOO_LARGE'));
           return;
         }
+        const { texto: output, usadas } = leerSalidaCompilador(stdout, stderr);
         if (exitCode !== 0) {
           resolve({ success: false, board: placa.nombre, output, code: 'COMPILE_FAILED' });
           return;
         }
+        const licencias = licenciasDelFirmware(usadas);
 
         void readdir(outputDirectory)
           .then(async (names) => {
@@ -454,6 +488,8 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
               success: true,
               board: placa.nombre,
               output,
+              bibliotecas: licencias.bibliotecas,
+              ...(licencias.avisos.length ? { avisosLicencia: licencias.avisos } : {}),
               artifacts: await Promise.all(
                 names.map(async (name) => ({
                   name,

@@ -37,10 +37,14 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import licencias  # noqa: E402  (scripts/licencias.py)
+
 RAIZ = Path(__file__).resolve().parents[1]
 CURADA = RAIZ / "server" / "bibliotecas.json"
 SALIDA = RAIZ / "server" / "bibliotecas.lock.json"
 CABECERAS = RAIZ / "server" / "cabeceras-indice.json"
+INFORME_LICENCIAS = RAIZ / "server" / "LICENCIAS_BIBLIOTECAS.md"
 DESCARGAS = RAIZ / ".tools" / "arduino-downloads" / "libraries"
 INDICES = [RAIZ / ".tools" / f"arduino-data-{p}" / "library_index.json" for p in ("darwin", "linux", "win32")] + \
           [RAIZ / ".tools" / "arduino-data" / "library_index.json"]
@@ -161,6 +165,9 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
     if LEER_ARCHIVOS and del_archivo is None:
         problemas.append(f"«{nombre}»: no se pudo leer su .zip (descarga o checksum); cabeceras deducidas del nombre")
     cabeceras = sorted(set(cabeceras_de(lib)) | set(del_archivo[0] if del_archivo else []))
+    # La licencia sale del mismo .zip verificado (scripts/licencias.py); el índice no la trae.
+    spdx, de_donde = (licencias.licencia_del_zip(DESCARGAS / lib["archiveFileName"])
+                      if del_archivo is not None else (None, "no se pudo leer el .zip"))
     salida[nombre] = {
         "nombre": nombre,
         "version": lib["version"],
@@ -177,7 +184,9 @@ def resolver(nombre: str, u: dict[str, dict], grupo: str, salida: dict, problema
         "url": lib["url"],
         "checksum": lib["checksum"],
         "bytes": lib.get("size"),
-        "licencia": None,   # el índice no la trae: se revisa aparte (ver _nota)
+        "licencia": spdx,
+        "licencia_grupo": licencias.grupo(spdx),
+        "licencia_fuente": de_donde,
         **({"version_fija": FIJAS[nombre]["motivo"], "ultima_en_indice": u[nombre]["version"]} if nombre in FIJAS else {}),
     }
     for dep in lib.get("dependencies") or []:
@@ -221,8 +230,8 @@ def principal() -> int:
     lock = {
         "_nota": ("Biblioteca oficial de EMBEDVERSE. Generado por scripts/biblioteca_oficial.py desde "
                   "server/bibliotecas.json; NO editar a mano. Versiones fijas: el servidor compila "
-                  "siempre con estas. «licencia» null = aún sin revisar: antes de entregar binarios "
-                  "compilados al público hay que revisar las GPL/LGPL."),
+                  "siempre con estas. «licencia» se lee del .zip de cada una (scripts/licencias.py; no "
+                  "es asesoría legal): ver server/LICENCIAS_BIBLIOTECAS.md."),
         "generado": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "indice": {"archivo": ruta.name, "bytes": ruta.stat().st_size},
         "bibliotecas": sorted(salida.values(), key=lambda x: x["nombre"].lower()),
@@ -231,6 +240,8 @@ def principal() -> int:
         "problemas": problemas,
     }
     SALIDA.write_text(json.dumps(lock, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    if LEER_ARCHIVOS:
+        INFORME_LICENCIAS.write_text(licencias.informe(lock), encoding="utf-8")
 
     # Cabecera → bibliotecas que la dan, en todo el índice (para sugerir).
     mapa: dict[str, list[str]] = {}

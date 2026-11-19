@@ -339,6 +339,9 @@
 .property-group strong { display: flex; align-items: center; gap: 5px; overflow-wrap: anywhere; color: #cbd5e1; font-size: 9px; font-weight: 550; }
 .property-group strong svg { flex: 0 0 auto; color: #84b8f5; }
 .property-group small { color: #7e8b9b; font-size: 8px; line-height: 1.5; }
+.escenario-input { width: 100%; min-height: 150px; resize: vertical; padding: 7px; border: 1px solid #2c3743; border-radius: 4px; color: #cbd5e1; background: #12171d; font: 9px/1.45 'Cascadia Code', Consolas, monospace; white-space: pre; overflow: auto; }
+.escenario-input:focus, .duracion-input:focus { outline: 1px solid #3b82f6; outline-offset: 0; }
+.duracion-input { width: 100%; padding: 5px 7px; border: 1px solid #2c3743; border-radius: 4px; color: #cbd5e1; background: #12171d; font-size: 9px; }
 .property-warning { display: flex; gap: 7px; margin: 12px 9px; padding: 9px 8px; border: 1px solid #4b4232; border-radius: 5px; color: #bbaa84; background: #29261f; font-size: 8px; line-height: 1.5; }
 .property-warning svg { flex: 0 0 auto; color: #d9b560; }
 .ide-statusbar { display: flex; flex: 0 0 24px; align-items: center; gap: 16px; padding: 0 10px; border-top: 1px solid #2d3946; color: #a8b7c8; background: #203047; font-size: 8px; }

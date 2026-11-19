@@ -624,7 +624,8 @@ def principal(argv: Optional[list[str]] = None) -> int:
         res["rechazados_por_la_pasarela"] = pasarela.rechazados
         res["con_problemas"] += pasarela.rechazados
     if a.json:
-        print(json.dumps(res | {"mensajes_detalle": [m.__dict__ for m in r.mensajes[:200]]}, ensure_ascii=False))
+        print(json.dumps(res | {"mensajes_detalle": [m.__dict__ for m in r.mensajes[:200]],
+                                "serie": r.serie[:500], "serie_total": len(r.serie)}, ensure_ascii=False))
     else:
         print(f"\n· {res['tiempo_simulado_s']:.0f} s simulados; {res['mensajes']} mensajes "
               f"({', '.join(f'{k}: {v}' for k, v in res['por_topico'].items()) or 'ninguno'}); "

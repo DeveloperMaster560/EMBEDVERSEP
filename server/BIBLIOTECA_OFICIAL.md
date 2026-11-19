@@ -96,17 +96,39 @@ Actualizar versiones es lo mismo (paso 2 toma la última del índice): **nunca
 en un servidor en uso sin probar antes**, porque cambia lo que compilan los
 clientes.
 
+## Licencias
+
+`scripts/licencias.py` lee la licencia de cada biblioteca de su propio `.zip`
+verificado (archivo LICENSE/COPYING, identificador SPDX o cabeceras) y
+`biblioteca_oficial.py` la guarda en el lock (`licencia`, `licencia_grupo`,
+`licencia_fuente`). El inventario completo está en
+[LICENCIAS_BIBLIOTECAS.md](LICENCIAS_BIBLIOTECAS.md). **No es asesoría legal.**
+
+- Si un archivo del código trae una licencia más restrictiva que la declarada,
+  se suman (`Apache-2.0 AND GPL-3.0`): ModbusMaster se declara Apache-2.0
+  pero su `util/word.h`, que siempre se incluye, es GPL-3.0.
+- Al compilar, la respuesta trae `bibliotecas` (lo que `arduino-cli` enlazó,
+  con su licencia: son los avisos de copyright que hay que entregar con el
+  firmware) y `avisosLicencia` para GPL, licencia propia o sin licencia. No
+  bloquea: el código y la decisión son del cliente.
+- El núcleo de Arduino (AVR, SAMD…) es LGPL-2.1: todo firmware de Arduino
+  enlaza código LGPL. Al entregar binarios hay que poder dar el código y la
+  forma de volver a enlazar (en Arduino: el proyecto y las versiones exactas
+  del lock).
+- Teensy: la licencia de su núcleo pide que, si un sistema de compilación
+  ofrece una placa de PJRC, ofrezca también las parecidas. Por eso están todas.
+
 ## Pendiente antes de abrirlo al público
 
-- **Licencias.** El índice de Arduino no las trae; en el lock están a `null`.
-  Muchas bibliotecas son MIT/BSD, pero varias son **GPL o LGPL**: si
-  entregamos el binario compilado a un cliente, hay obligaciones (dar el código
-  fuente, permitir re-enlazar). Hay que revisarlas una por una antes de
-  publicar.
+- **Revisión legal** del inventario de licencias (las 7 GPL, las 4 sin
+  licencia, NewPing) y de qué se entrega con cada firmware descargado.
 - **Compilación remota.** Hoy `/api/compile` solo acepta peticiones del propio
   equipo (`LOCAL_ORIGIN_REQUIRED`). Para clientes por Internet hace falta un
   servicio de compilación con cuentas, límites de uso y aislamiento (cada
   compilación ejecuta herramientas sobre código ajeno).
-- **Simulación.** Que una biblioteca sea oficial permite **compilar** para la
-  placa real. Para **simular** en el PC hace falta además su imitación en
-  `firmware/simulador-host/nucleo` (hoy: DHT, BH1750, PubSubClient, WiFi, NTP).
+- **Simulación en el servicio público.** El botón «Simular» ejecuta el
+  programa del cliente en el servidor: hoy solo en modo local
+  (`SIMULACION_SOLO_LOCAL` con `EMBEDVERSE_PUBLICO=1`). Para el público hace
+  falta un entorno aislado (contenedor sin red, límites de CPU y memoria).
+  El simulador usa las bibliotecas oficiales reales; lo que falta para un
+  sensor es el modelo de su chip (`firmware/simulador-host/modelos`).

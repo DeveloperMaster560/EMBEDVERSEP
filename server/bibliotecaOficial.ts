@@ -34,6 +34,9 @@ export interface BibliotecaFijada {
   cabeceras_internas?: string[];
   repositorio: string | null;
   licencia: string | null;
+  /** permisiva · lgpl · gpl · propia · desconocida (scripts/licencias.py). */
+  licencia_grupo?: string;
+  licencia_fuente?: string;
 }
 
 export const OFICIAL: readonly BibliotecaFijada[] = (lock as unknown as { bibliotecas: BibliotecaFijada[] }).bibliotecas;
@@ -347,4 +350,52 @@ export function createBibliotecasMiddleware(raiz: string) {
       response.end(JSON.stringify({ error: error instanceof Error ? error.message : 'error' }));
     });
   };
+}
+
+/** Lo que arduino-cli dice que enlazó (--format json → builder_result.used_libraries). */
+export interface UsadaPorCompilador {
+  name: string;
+  version?: string;
+  container_platform?: string;
+}
+
+export interface BibliotecaEnFirmware {
+  nombre: string;
+  version: string;
+  /** SPDX («MIT», «GPL-3.0», «Apache-2.0 AND GPL-3.0»…) o null si no tiene. */
+  licencia: string | null;
+  grupo: string;
+  /** Viene con el núcleo de la placa (Wire, SPI…): su licencia es la del núcleo. */
+  delNucleo: boolean;
+}
+
+/**
+ * Las bibliotecas que quedaron dentro del firmware, con su licencia, y avisos
+ * para el cliente cuando una le pone condiciones al entregar o vender equipos.
+ * No bloquea: el código es del cliente y la decisión también. No es asesoría legal.
+ */
+export function licenciasDelFirmware(usadas: UsadaPorCompilador[]): { bibliotecas: BibliotecaEnFirmware[]; avisos: string[] } {
+  const bibliotecas: BibliotecaEnFirmware[] = [];
+  const avisos: string[] = [];
+  for (const u of usadas) {
+    const b = POR_NOMBRE.get(u.name);
+    if (u.container_platform || !b) {
+      bibliotecas.push({ nombre: u.name, version: u.version ?? '', licencia: null, grupo: 'nucleo', delNucleo: true });
+      continue;
+    }
+    const grupo = b.licencia_grupo ?? (b.licencia ? 'permisiva' : 'desconocida');
+    bibliotecas.push({ nombre: b.nombre, version: b.version, licencia: b.licencia, grupo, delNucleo: false });
+    if (grupo === 'gpl') {
+      avisos.push(`«${b.nombre}» tiene licencia ${b.licencia}: si entregas o vendes equipos con este firmware, `
+        + 'debes entregar también el código fuente de todo el firmware bajo la GPL. Para un producto cerrado, '
+        + 'usa otra biblioteca o pide otra licencia a su autor.');
+    } else if (grupo === 'desconocida') {
+      avisos.push(`«${b.nombre}» no trae licencia: legalmente no da permiso de uso. Antes de vender equipos, `
+        + 'pídele permiso a su autor o usa otra biblioteca.');
+    } else if (grupo === 'propia') {
+      avisos.push(`«${b.nombre}» tiene una licencia propia de su autor: úsala sin modificarla `
+        + `(${b.licencia_fuente ?? 'ver su código'}).`);
+    }
+  }
+  return { bibliotecas, avisos };
 }

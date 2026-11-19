@@ -30,13 +30,22 @@ describe.skipIf(!hayCadena)('compilar con la biblioteca oficial (Arduino Uno rea
       headers: { 'Content-Type': 'application/json', Origin: base },
       body: JSON.stringify({ boardId: 'arduino-uno', files: [{ path: archivo, content: codigo }] }),
     });
-    return { status: r.status, cuerpo: await r.json() as { success: boolean; code?: string; error?: string } };
+    return {
+      status: r.status,
+      cuerpo: await r.json() as {
+        success: boolean; code?: string; error?: string; output?: string;
+        bibliotecas?: { nombre: string; delNucleo: boolean }[];
+      },
+    };
   }
 
   it('lo del núcleo (Wire) compila sin bibliotecas instaladas', async () => {
     const r = await compilar('#include <Wire.h>\nvoid setup(){ Wire.begin(); }\nvoid loop(){}\n');
     expect(r.status, JSON.stringify(r.cuerpo)).toBe(200);
     expect(r.cuerpo.success).toBe(true);
+    // --format json: el cliente sigue viendo el texto del compilador, y se sabe qué se enlazó.
+    expect(r.cuerpo.output).toMatch(/bytes/);
+    expect(r.cuerpo.bibliotecas).toEqual([expect.objectContaining({ nombre: 'Wire', delNucleo: true })]);
   }, 120_000);
 
   it('un .ino con cualquier nombre (cacao.ino) es el principal', async () => {

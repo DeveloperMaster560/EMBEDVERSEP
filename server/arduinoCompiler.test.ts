@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CompileRequestError, validateCompileRequest } from './arduinoCompiler';
+import { CompileRequestError, leerSalidaCompilador, validateCompileRequest } from './arduinoCompiler';
 
 describe('Arduino compile request validation', () => {
   it('accepts a source sketch for the supported Arduino Uno target', () => {
@@ -47,5 +47,21 @@ describe('Arduino compile request validation', () => {
         { path: 'MAIN.INO', content: '' },
       ],
     })).toThrowError(/duplicado/i);
+  });
+});
+
+describe('salida de arduino-cli --format json', () => {
+  it('el texto es el del compilador y se leen las bibliotecas enlazadas', () => {
+    const json = JSON.stringify({
+      compiler_out: 'El Sketch usa 2024 bytes\n', compiler_err: 'aviso: x\n', success: true,
+      builder_result: { used_libraries: [{ name: 'Wire', version: '1.0', container_platform: 'arduino:avr@1.8.8' }] },
+    });
+    const r = leerSalidaCompilador(json, '');
+    expect(r.texto).toBe('El Sketch usa 2024 bytes\naviso: x\n');
+    expect(r.usadas.map((u) => u.name)).toEqual(['Wire']);
+  });
+
+  it('si no es JSON (un error antes de compilar) se muestra tal cual', () => {
+    expect(leerSalidaCompilador('Error: placa desconocida', ' más')).toEqual({ texto: 'Error: placa desconocida más', usadas: [] });
   });
 });

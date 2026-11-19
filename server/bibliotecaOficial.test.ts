@@ -3,7 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { OFICIAL, VERIFICADAS, analizar, bibliotecasEn, esDelSistema, inclusiones, mensajeAjenas } from './bibliotecaOficial';
+import {
+  OFICIAL, VERIFICADAS, analizar, bibliotecasEn, esDelSistema, inclusiones, licenciasDelFirmware, mensajeAjenas,
+} from './bibliotecaOficial';
 
 const version = (n: string) => OFICIAL.find((b) => b.nombre === n)!.version;
 
@@ -111,5 +113,29 @@ describe('biblioteca oficial', () => {
         { nombre: 'DHT sensor library', version: '1.4.7', cabeceras: ['DHT.h'] },
       ]);
     });
+  });
+});
+
+describe('licencias del firmware', () => {
+  it('cada biblioteca oficial trae su licencia leída del .zip', () => {
+    const sin = OFICIAL.filter((b) => b.licencia_grupo === undefined).map((b) => b.nombre);
+    expect(sin).toEqual([]);
+    expect(OFICIAL.find((b) => b.nombre === 'Adafruit MAX31865 library')!.licencia_grupo).toBe('permisiva');
+  });
+
+  it('avisa de lo que pone condiciones al vender equipos, sin bloquear', () => {
+    const r = licenciasDelFirmware([
+      { name: 'Wire', version: '1.0', container_platform: 'arduino:avr@1.8.8' },
+      { name: 'ModbusMaster', version: '2.0.1' },       // Apache-2.0, pero util/word.h es GPL-3.0
+      { name: 'NewPing', version: '1.9.7' },            // licencia propia: sin modificar
+      { name: 'TFLI2C', version: '0.2.0' },             // sin licencia
+      { name: 'Adafruit MAX31865 library', version: '1.6.2' },
+    ]);
+    expect(r.bibliotecas.map((b) => [b.nombre, b.grupo])).toEqual([
+      ['Wire', 'nucleo'], ['ModbusMaster', 'gpl'], ['NewPing', 'propia'], ['TFLI2C', 'desconocida'],
+      ['Adafruit MAX31865 library', 'permisiva'],
+    ]);
+    expect(r.avisos).toHaveLength(3);
+    expect(r.avisos[0]).toContain('GPL');
   });
 });
