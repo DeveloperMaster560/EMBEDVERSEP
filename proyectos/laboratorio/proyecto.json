@@ -87,6 +87,71 @@
         }
       ],
       "notas": "Una placa sin Wi-Fi (Arduino, STM32, PIC, ESP32…) conectada al PC por USB; la pasarela serie del PC publica por ella. Sensor declarado para pruebas con un MPU6050; cambiarlo si se conecta otro."
+    },
+    {
+      "id": "LAB-AMB-01",
+      "tipo": "SR",
+      "nombre": "ESP32 ambiental (sensores del monitor de cacao)",
+      "estado": "instalada",
+      "ubicacion": {
+        "descripcion": "Banco de pruebas: no está sobre ninguna estructura",
+        "elemento": null,
+        "posicion": null
+      },
+      "hardware": {
+        "placa": "esp32-devkit",
+        "firmware": "firmware/esp32-ambiente",
+        "firmware_version": "esp32-ambiente-0.1.0"
+      },
+      "comunicacion": {
+        "protocolo": "mqtt",
+        "periodo_s": 10
+      },
+      "sensores": [
+        {
+          "id": "DHT22-T-LAB-AMB-01",
+          "modelo": "DHT22 (Aosong AM2302)",
+          "magnitud": "temperatura",
+          "unidad": "degC",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "DHT22-H-LAB-AMB-01",
+          "modelo": "DHT22 (Aosong AM2302)",
+          "magnitud": "humedad",
+          "unidad": "%HR",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "SUELO-LAB-AMB-01",
+          "modelo": "Sensor capacitivo de humedad de suelo v1.2",
+          "magnitud": "humedad_suelo",
+          "unidad": "%",
+          "muestreo_hz": null,
+          "calibracion": null,
+          "notas": "El % sale de dos lecturas de calibración (seco y en agua) hechas con ESTE sensor y ESTE suelo; sin ellas el valor no es comparable."
+        },
+        {
+          "id": "BH1750-LAB-AMB-01",
+          "modelo": "BH1750 (ROHM)",
+          "magnitud": "luz",
+          "unidad": "lux",
+          "muestreo_hz": null,
+          "calibracion": null
+        },
+        {
+          "id": "HCSR04-LAB-AMB-01",
+          "modelo": "HC-SR04",
+          "magnitud": "distancia",
+          "unidad": "cm",
+          "muestreo_hz": null,
+          "calibracion": null,
+          "notas": "La distancia depende de la temperatura del aire (velocidad del sonido); el firmware usa 343 m/s fijos."
+        }
+      ],
+      "notas": "Recibe los datos del sketch del ingeniero ambiental adaptado al contrato de medidas (tópico medida). Hora NTP."
     }
   ],
   "criterios": {

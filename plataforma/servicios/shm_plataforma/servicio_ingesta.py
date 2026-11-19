@@ -25,7 +25,8 @@ from .ingesta import Ingestor, estaciones_silenciosas
 
 log = logging.getLogger("ingesta")
 
-SUSCRIPCIONES = [("shm/v1/+/registro", 1), ("shm/v1/+/estado", 1), ("shm/v1/+/evento", 1)]
+SUSCRIPCIONES = [("shm/v1/+/registro", 1), ("shm/v1/+/estado", 1), ("shm/v1/+/evento", 1),
+                  ("shm/v1/+/medida", 1)]
 # Una estación es «silenciosa» tras este número de periodos sin mensajes.
 PERIODOS_SILENCIO = int(os.environ.get("PERIODOS_SILENCIO", "6"))
 

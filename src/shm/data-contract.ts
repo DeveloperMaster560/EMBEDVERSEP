@@ -65,9 +65,9 @@ const REQUIRED = [
 ] as const;
 
 /** Palabras que el firmware no debe emitir como diagnóstico (§7). */
-const DIAGNOSTIC_WORDS = /\b(dano|danio|daño|damage|inseguro|unsafe|colapso|collapse)\b/i;
+export const DIAGNOSTIC_WORDS = /\b(dano|danio|daño|damage|inseguro|unsafe|colapso|collapse)\b/i;
 
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+export const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function validateStationRecord(input: unknown): string[] {
   const problems: string[] = [];

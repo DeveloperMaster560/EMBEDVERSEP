@@ -60,6 +60,18 @@ class RepositorioPg:
              r.get("samples"), r.get("gaps"), r.get("saturated"), r.get("firmware_version"),
              r.get("schema_version"), v.fuera_de_orden, Jsonb(r)))
 
+    def guardar_medidas(self, station_id: str, instante: datetime, calidad: str, medidas: list[dict], recibido: datetime) -> int:
+        """Una fila por sensor. Reenviar el mismo mensaje no duplica (clave sensor + instante)."""
+        nuevas = 0
+        for m in medidas:
+            cur = self.c.execute(
+                """INSERT INTO medidas (station_id, sensor_id, instante, magnitud, unidad, valor, error, calidad_tiempo, recibido)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (sensor_id, instante) DO NOTHING""",
+                (station_id, m["sensor_id"], instante, m["quantity"], m["unit"], m["value"],
+                 m.get("error") if isinstance(m.get("error"), str) else None, calidad, recibido))
+            nuevas += cur.rowcount
+        return nuevas
+
     def guardar_rechazo(self, topic: str, payload: bytes, recibido: datetime, problemas: list[str]) -> None:
         self.c.execute("INSERT INTO rechazos (topic, payload, recibido, problemas) VALUES (%s,%s,%s,%s)",
                        (topic, payload, recibido, problemas))
@@ -146,6 +158,13 @@ class RepositorioPg:
         return self.c.execute(
             f"SELECT {cols} FROM ventanas WHERE station_id = %s AND inicio >= %s AND inicio < %s "
             "ORDER BY inicio DESC LIMIT %s", (station_id, desde, hasta, limite)).fetchall()
+
+    def medidas(self, station_id: str, desde: datetime, hasta: datetime, magnitud: Optional[str], limite: int) -> list[dict]:
+        return self.c.execute(
+            """SELECT sensor_id, instante, magnitud, unidad, valor, error, calidad_tiempo, recibido FROM medidas
+               WHERE station_id = %s AND instante >= %s AND instante < %s AND (%s::text IS NULL OR magnitud = %s)
+               ORDER BY instante DESC, sensor_id LIMIT %s""",
+            (station_id, desde, hasta, magnitud, magnitud, limite)).fetchall()
 
     def disponibilidad(self, station_id: str, desde: datetime) -> list[dict]:
         return self.c.execute(
@@ -250,7 +269,7 @@ class RepositorioPg:
                              station_id = EXCLUDED.station_id, modelo = EXCLUDED.modelo, ejes = EXCLUDED.ejes,
                              magnitud = EXCLUDED.magnitud, unidad = EXCLUDED.unidad,
                              muestreo_hz = EXCLUDED.muestreo_hz, notas = EXCLUDED.notas""",
-                        (s["id"], e["id"], s["modelo"], s["ejes"], s["magnitud"], s["unidad"],
+                        (s["id"], e["id"], s["modelo"], s.get("ejes"), s["magnitud"], s["unidad"],
                          s.get("muestreo_hz"), s.get("notas")))
                     sensores += 1
             desactivadas = self.c.execute(

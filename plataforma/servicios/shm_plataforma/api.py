@@ -4,7 +4,7 @@ API de la plataforma SHM (FastAPI). Documentación interactiva en /api/docs.
 Varios proyectos (puentes, edificios) comparten el servidor. Cada credencial
 tiene un ALCANCE y nunca ve nada fuera de él:
 
-  lectura    su proyecto: estaciones, ventanas, avisos y crudos
+  lectura    su proyecto: estaciones, ventanas, medidas, avisos y crudos
   operador   lo anterior + reconocer avisos
   ingeniero  lo anterior + elevar un aviso a E3/E4 (único camino a esos niveles)
   estacion   solo subir crudos de SU estación
@@ -140,6 +140,14 @@ def crear_app(obtener_repo: Callable[[], object], almacen) -> FastAPI:
         estacion_visible(station_id, c, r)
         d, h = rango(desde, hasta)
         return r.ventanas(station_id, d, h, max(1, min(limite, 5000)), completo)
+
+    @app.get("/api/v1/estaciones/{station_id}/medidas")
+    def medidas(station_id: str, desde: Optional[datetime] = None, hasta: Optional[datetime] = None,
+                magnitud: Optional[str] = None, limite: int = 2000, c=Depends(exige("lectura")), r=Depends(repo)):
+        """Sensores lentos (temperatura, humedad, luz…). valor null = la estación no leyó; «error» dice por qué."""
+        estacion_visible(station_id, c, r)
+        d, h = rango(desde, hasta)
+        return r.medidas(station_id, d, h, magnitud, max(1, min(limite, 20000)))
 
     @app.get("/api/v1/estaciones/{station_id}/disponibilidad")
     def disponibilidad(station_id: str, horas: int = 24, c=Depends(exige("lectura")), r=Depends(repo)):

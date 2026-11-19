@@ -27,8 +27,9 @@ from datetime import datetime, timezone
 from typing import Optional, Protocol
 
 from .contrato import validate_for_server
+from .contrato_medidas import validate_measurement_message
 
-TOPIC = re.compile(r"^shm/v1/([A-Z0-9][A-Z0-9-]{1,31})/(registro|estado|evento)$")
+TOPIC = re.compile(r"^shm/v1/([A-Z0-9][A-Z0-9-]{1,31})/(registro|estado|evento|medida)$")
 
 # Tolerancia para decidir que dos ventanas son contiguas.
 CONTINUITY_TOLERANCE_S = 0.05
@@ -114,6 +115,7 @@ class Repositorio(Protocol):
     def guardar_estado(self, station_id: str, estado: dict, recibido: datetime) -> None: ...
     def guardar_aviso(self, a: Aviso) -> None: ...
     def marcar_visto(self, station_id: str, cuando: datetime) -> None: ...
+    def guardar_medidas(self, station_id: str, instante: datetime, calidad: str, medidas: list[dict], recibido: datetime) -> int: ...
 
 
 def duracion_ventana(r: dict) -> Optional[float]:
@@ -167,6 +169,8 @@ class Ingestor:
             self.repo.guardar_estado(station_topic, data, recibido)
             self.repo.marcar_visto(station_topic, recibido)
             return Resultado("estado")
+        if tipo == "medida":
+            return self._medida(topic, payload, recibido, station_topic, data)
         if tipo == "evento":
             # Reservado: el firmware aún no publica eventos. Se guarda como rechazo
             # explicado para no perderlo ni inventarle un formato.
@@ -235,6 +239,21 @@ class Ingestor:
             texto += " Hubo cambio o pérdida de la calidad de hora: puede ser un salto de reloj."
         return [Aviso(v.station_id, "continuidad", "E1", codigo, texto, v.inicio)]
 
+    def _medida(self, topic: str, payload: bytes, recibido: datetime, station_topic: str, data) -> Resultado:
+        problemas = validate_measurement_message(data)
+        if not problemas and data["station_id"] != station_topic:
+            problemas.append(f"El mensaje dice ser de {data['station_id']} pero llegó por el tópico de {station_topic}.")
+        if not problemas:
+            try:
+                instante = parse_time(data["timestamp_utc"])
+            except ValueError as e:
+                problemas.append(str(e))
+        if problemas:
+            return self._rechazar(topic, payload, recibido, problemas)
+        self.repo.marcar_visto(station_topic, recibido)
+        nuevas = self.repo.guardar_medidas(station_topic, instante, data["time_quality"], data["measurements"], recibido)
+        return Resultado("guardado" if nuevas else "duplicado")
+
     def _rechazar(self, topic: str, payload: bytes, recibido: datetime, problemas: list[str]) -> Resultado:
         self.repo.guardar_rechazo(topic, payload, recibido, problemas)
         return Resultado("rechazado", problemas)
@@ -262,6 +281,7 @@ class RepositorioMemoria:
         self.estados: dict[str, tuple[dict, datetime]] = {}
         self.avisos: list[Aviso] = []
         self.visto: dict[str, datetime] = {}
+        self.medidas: dict[tuple[str, datetime], dict] = {}
 
     def estacion_activa(self, station_id):
         return station_id in self.estaciones
@@ -287,3 +307,12 @@ class RepositorioMemoria:
 
     def marcar_visto(self, station_id, cuando):
         self.visto[station_id] = max(cuando, self.visto.get(station_id, cuando))
+
+    def guardar_medidas(self, station_id, instante, calidad, medidas, recibido):
+        nuevas = 0
+        for m in medidas:
+            clave = (m["sensor_id"], instante)
+            if clave not in self.medidas:
+                self.medidas[clave] = {**m, "station_id": station_id, "calidad_tiempo": calidad, "recibido": recibido}
+                nuevas += 1
+        return nuevas

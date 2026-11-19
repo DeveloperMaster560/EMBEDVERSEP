@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import unittest
 
 from shm_plataforma.contrato import validate_for_server
@@ -71,6 +72,18 @@ class TestPasarela(unittest.TestCase):
         self.assertEqual(self.enviados[0][0], "shm/v1/LAB-ESP32-01/registro")
         self.assertEqual(len(p.cola), 0)
         self.assertTrue(any("placa:" in t for t in self.texto))
+
+    def test_medidas_de_sensores_lentos_van_a_su_topico(self):
+        casos = json.loads((Path(__file__).resolve().parents[2] / "contrato" / "casos-medidas.json").read_text(encoding="utf-8"))["casos"]
+        msg = casos[0]["mensaje"]
+        p = Pasarela("LAB-AMB-01", self.publicar, None, salida=self.texto.append)
+        p.linea("MEDIDA " + json.dumps(msg))
+        self.assertEqual(self.enviados[0][0], "shm/v1/LAB-AMB-01/medida")
+        malo = json.loads(json.dumps(msg))
+        malo["measurements"][0]["value"] = -999
+        p.linea("MEDIDA " + json.dumps(malo))
+        self.assertEqual((len(self.enviados), p.rechazados), (1, 1))
+        self.assertIn("envíe null", self.texto[-1])
 
     def test_no_publica_por_otra_estacion_ni_registros_invalidos(self):
         p = Pasarela("LAB-SERIE-01", self.publicar, None, salida=self.texto.append)

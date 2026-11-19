@@ -10,7 +10,7 @@ proyecto**.
 |---|---|
 | `novena/` | Viaducto de La Novena, Bucaramanga (el primero; hoy solo con una estación simulada) |
 | `novena-gemelo/` | Gemelo funcional de La Novena (datos sintéticos de la app) |
-| `laboratorio/` | Banco de pruebas con hardware real (ESP32 + MPU6050, pasarela serie). No es ninguna estructura |
+| `laboratorio/` | Banco de pruebas con hardware real (ESP32 + MPU6050, ESP32 ambiental, pasarela serie). No es ninguna estructura |
 | `PLANTILLA.proyecto.json` | Punto de partida para un proyecto nuevo. No se carga: no está en una subcarpeta |
 
 ## Crear un proyecto nuevo

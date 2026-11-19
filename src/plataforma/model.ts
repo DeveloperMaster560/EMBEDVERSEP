@@ -24,7 +24,8 @@ export interface SensorDef {
   modelo: string;
   magnitud: string;
   unidad: string;
-  ejes: string[];
+  /** Solo en magnitudes de varios ejes (aceleración, inclinación). */
+  ejes?: string[];
   muestreo_hz: number | null;
   rango?: number | null;
   rango_unidad?: string | null;

@@ -1,0 +1,240 @@
+{
+ "_nota": "Magnitudes y unidades que admite la plataforma. Fuente única: la leen proyecto.py (proyecto.json), contrato_medidas.py y src/shm/medidas-contract.ts. min/max son límites FÍSICOS (una humedad de 150 % es imposible), no umbrales de alerta: los umbrales los firma el ingeniero en «criterios» del proyecto. vectorial = se mide en varios ejes a la vez y viaja en ventanas (registro), no en medidas sueltas.",
+ "magnitudes": {
+  "aceleracion": {
+   "unidades": [
+    "m/s2",
+    "g"
+   ],
+   "vectorial": true,
+   "min": null,
+   "max": null,
+   "ejemplos": "ADXL355, MPU6050, ADXL345"
+  },
+  "inclinacion": {
+   "unidades": [
+    "deg",
+    "mrad"
+   ],
+   "vectorial": true,
+   "min": null,
+   "max": null,
+   "ejemplos": "SCL3300"
+  },
+  "deformacion": {
+   "unidades": [
+    "microdeformacion"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "galgas con HX711 o ADS1262"
+  },
+  "desplazamiento": {
+   "unidades": [
+    "mm",
+    "cm"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "LVDT, láser"
+  },
+  "temperatura": {
+   "unidades": [
+    "degC"
+   ],
+   "vectorial": false,
+   "min": -273.15,
+   "max": null,
+   "ejemplos": "DHT22, DS18B20, PT100, BME280"
+  },
+  "humedad": {
+   "unidades": [
+    "%HR"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": 100,
+   "ejemplos": "DHT22, SHT31, BME280"
+  },
+  "presion": {
+   "unidades": [
+    "hPa",
+    "kPa"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "BMP280, BME280"
+  },
+  "luz": {
+   "unidades": [
+    "lux"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "BH1750, TSL2591, VEML7700"
+  },
+  "indice_uv": {
+   "unidades": [
+    "UVI"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "VEML6070"
+  },
+  "humedad_suelo": {
+   "unidades": [
+    "%"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": 100,
+   "ejemplos": "capacitivo v1.2, STEMMA"
+  },
+  "distancia": {
+   "unidades": [
+    "mm",
+    "cm",
+    "m"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "HC-SR04, VL53L1X, TFmini"
+  },
+  "ph": {
+   "unidades": [
+    "pH"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": 14,
+   "ejemplos": "DFRobot pH"
+  },
+  "conductividad": {
+   "unidades": [
+    "uS/cm"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "sonda EC"
+  },
+  "solidos_disueltos": {
+   "unidades": [
+    "ppm"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "TDS CQRobot"
+  },
+  "co2": {
+   "unidades": [
+    "ppm"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "SCD30, SCD41"
+  },
+  "compuestos_volatiles": {
+   "unidades": [
+    "ppb"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "SGP30, ENS160"
+  },
+  "material_particulado": {
+   "unidades": [
+    "ug/m3"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "PMS5003, SDS011"
+  },
+  "velocidad_viento": {
+   "unidades": [
+    "m/s",
+    "km/h"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "anemómetro"
+  },
+  "direccion_viento": {
+   "unidades": [
+    "deg"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": 360,
+   "ejemplos": "veleta"
+  },
+  "lluvia": {
+   "unidades": [
+    "mm"
+   ],
+   "vectorial": false,
+   "min": 0,
+   "max": null,
+   "ejemplos": "pluviómetro de balancín"
+  },
+  "corriente": {
+   "unidades": [
+    "A",
+    "mA"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "INA219, SCT-013"
+  },
+  "tension": {
+   "unidades": [
+    "V"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "INA219, divisor"
+  },
+  "potencia": {
+   "unidades": [
+    "W"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "INA226, PZEM-004T"
+  },
+  "fuerza": {
+   "unidades": [
+    "N",
+    "kgf"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "celda de carga + HX711"
+  },
+  "masa": {
+   "unidades": [
+    "kg",
+    "g"
+   ],
+   "vectorial": false,
+   "min": null,
+   "max": null,
+   "ejemplos": "balanza con HX711"
+  }
+ }
+}

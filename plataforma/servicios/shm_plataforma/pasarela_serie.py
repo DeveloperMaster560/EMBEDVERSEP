@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
 from .contrato import validate_for_server
+from .contrato_medidas import validate_measurement_message
 
 G = 9.80665
 VENTANA_S = 10
@@ -216,8 +217,9 @@ class Ventanero:
 
 def extraer_registro(texto: str) -> Optional[dict]:
     t = texto.strip()
-    if t.startswith("SHM "):
-        t = t[4:].strip()
+    for prefijo in ("SHM ", "MEDIDA "):
+        if t.startswith(prefijo):
+            t = t[len(prefijo):].strip()
     if not t.startswith("{"):
         return None
     try:
@@ -233,7 +235,8 @@ class Pasarela:
         self.publicar = publicar          # (tópico, bytes) -> None; lanza si falla
         self.ventanero = ventanero
         self.salida = salida
-        self.cola: deque[bytes] = deque(maxlen=360)   # 1 h de registros si se cae el broker
+        # (tipo, mensaje): «registro» = ventana, «medida» = sensores lentos.
+        self.cola: deque[tuple[str, bytes]] = deque(maxlen=360)   # 1 h de registros si se cae el broker
         self.enviados = self.rechazados = 0
 
     def linea(self, texto: str) -> None:
@@ -251,6 +254,8 @@ class Pasarela:
         elif r is None:
             self.salida(f"(ignorada; para muestras sueltas usa --hz) {texto[:80]}")
             return
+        if "measurements" in r:
+            return self._medida(r)
         problemas = validate_for_server(r)
         if r.get("station_id") != self.estacion:
             problemas.append(f"el registro es de «{r.get('station_id')}» pero la pasarela publica como «{self.estacion}»")
@@ -258,17 +263,30 @@ class Pasarela:
             self.rechazados += 1
             self.salida("✗ registro no enviado: " + "; ".join(problemas))
             return
-        self.cola.append(json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+        self.cola.append(("registro", json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
         st = r.get("stats", {}).get("std")
         self.salida(f"ventana {r['timestamp_utc']}  muestras {r.get('samples')}  huecos {r.get('gaps')}"
                     + (f"  desv. x/y/z {st}" if st else ""))
         self.vaciar()
 
+    def _medida(self, r: dict) -> None:
+        problemas = validate_measurement_message(r)
+        if r.get("station_id") != self.estacion:
+            problemas.append(f"el mensaje es de «{r.get('station_id')}» pero la pasarela publica como «{self.estacion}»")
+        if problemas:
+            self.rechazados += 1
+            self.salida("✗ medida no enviada: " + "; ".join(problemas))
+            return
+        self.cola.append(("medida", json.dumps(r, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
+        self.salida(f"medida {r['timestamp_utc']}  " + "  ".join(
+            f"{m['quantity']} {'—' if m['value'] is None else m['value']} {m['unit']}" for m in r["measurements"]))
+        self.vaciar()
+
     def vaciar(self) -> None:
-        topico = f"shm/v1/{self.estacion}/registro"
         while self.cola:
+            tipo, carga = self.cola[0]
             try:
-                self.publicar(topico, self.cola[0])
+                self.publicar(f"shm/v1/{self.estacion}/{tipo}", carga)
             except (OSError, ConnectionError) as e:
                 self.salida(f"… broker no disponible ({e}); {len(self.cola)} en espera")
                 return

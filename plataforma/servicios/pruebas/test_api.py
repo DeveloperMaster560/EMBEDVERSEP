@@ -39,6 +39,7 @@ class RepoFalso:
     def proyectos(self, p): return [{"proyecto_id": x} for x in sorted(set(ESTACIONES.values())) if p in (None, x)]
     def estaciones(self, p): return [{"station_id": s, "proyecto_id": x} for s, x in ESTACIONES.items() if p in (None, x)]
     def ventanas(self, s, d, h, l, c): return [{"station_id": s}]
+    def medidas(self, s, d, h, m, l): return [{"sensor_id": "X", "magnitud": m}]
     def disponibilidad(self, s, d): return []
     def avisos(self, abiertos, limite, p): return [a for a in self.avisos_.values() if p in (None, a["proyecto_id"])]
     def aviso(self, i): return self.avisos_.get(i)
@@ -135,12 +136,15 @@ class AislamientoEntreProyectos(unittest.TestCase):
 
     def test_lo_ajeno_responde_404_como_si_no_existiera(self):
         for url in ("/api/v1/estaciones/SD-V2-M/ventanas", "/api/v1/estaciones/SD-V2-M/disponibilidad",
+                    "/api/v1/estaciones/SD-V2-M/medidas",
                     "/api/v1/crudos/SD-V2-M", "/api/v1/crudos/SD-V2-M/000001.bin"):
             ajena = self.c.get(url, headers=h("t-lec-otro"))
             inexistente = self.c.get(url.replace("SD-V2-M", "NO-EXISTE"), headers=h("t-lec-otro"))
             self.assertEqual(ajena.status_code, 404, url)
             self.assertEqual(ajena.json(), inexistente.json(), url)  # no se distingue «ajena» de «no existe»
         self.assertEqual(self.c.get("/api/v1/estaciones/SD-V2-M/ventanas", headers=h("t-lectura")).status_code, 200)
+        r = self.c.get("/api/v1/estaciones/SD-V2-M/medidas?magnitud=luz", headers=h("t-lectura"))
+        self.assertEqual((r.status_code, r.json()[0]["magnitud"]), (200, "luz"))
 
     def test_no_se_actua_sobre_avisos_ajenos(self):
         cuerpo = {"nivel": "E3", "justificacion": "Revisión de la captura y comparación con línea base."}

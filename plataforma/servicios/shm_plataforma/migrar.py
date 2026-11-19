@@ -27,7 +27,7 @@ MIGRACIONES = Path(__file__).with_name("migraciones")
 
 # Lo que Grafana puede leer. No incluye credenciales, auditoría ni rechazos.
 TABLAS_GRAFANA = ("estaciones", "sensores", "ventanas", "estado_estacion", "avisos",
-                  "archivos_crudos", "disponibilidad_horaria", "proyectos")
+                  "archivos_crudos", "disponibilidad_horaria", "proyectos", "medidas")
 
 
 def asegurar_rol_grafana(conn, clave: str) -> str:

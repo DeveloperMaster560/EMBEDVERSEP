@@ -26,6 +26,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from .contrato_medidas import MAGNITUDES
+
 FORMATO = "embedverse-proyecto-shm/1"
 
 RE_PROYECTO = re.compile(r"^[a-z0-9][a-z0-9-]{1,39}$")
@@ -41,14 +43,8 @@ ESTADOS_ESTACION = {"diseno", "simulada", "instalada", "retirada"}
 ESTADOS_CON_ALTA = {"simulada", "instalada"}
 PROTOCOLOS = {"mqtt"}
 
-UNIDADES = {
-    "aceleracion": {"m/s2", "g"},
-    "inclinacion": {"deg", "mrad"},
-    "deformacion": {"microdeformacion"},
-    "temperatura": {"degC"},
-    "desplazamiento": {"mm"},
-    "humedad": {"%HR"},
-}
+# Magnitudes y unidades: el mismo catálogo que el contrato de medidas.
+UNIDADES = {nombre: set(m["unidades"]) for nombre, m in MAGNITUDES.items()}
 
 
 class ProyectoInvalido(ValueError):
@@ -158,8 +154,10 @@ def validar(d: Any) -> list[str]:
             elif s.get("unidad") not in UNIDADES[mag]:
                 p.append(f"{sd}: la unidad de {mag} debe ser una de {sorted(UNIDADES[mag])}")
             ejes = s.get("ejes")
-            if not isinstance(ejes, list) or not ejes or not all(_texto(x) for x in ejes):
-                p.append(f"{sd}: «ejes» debe ser una lista no vacía")
+            vectorial = mag in MAGNITUDES and MAGNITUDES[mag]["vectorial"]
+            if vectorial or ejes is not None:
+                if not isinstance(ejes, list) or not ejes or not all(_texto(x) for x in ejes):
+                    p.append(f"{sd}: «ejes» debe ser una lista no vacía" + ("" if vectorial else " u omitirse (sensor de un valor)"))
             hz = s.get("muestreo_hz")
             if hz is not None and (not isinstance(hz, (int, float)) or isinstance(hz, bool) or hz <= 0):
                 p.append(f"{sd}: «muestreo_hz» debe ser positivo o null")

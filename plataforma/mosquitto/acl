@@ -9,4 +9,5 @@ topic read shm/v1/#
 pattern write shm/v1/%u/registro
 pattern write shm/v1/%u/estado
 pattern write shm/v1/%u/evento
+pattern write shm/v1/%u/medida
 pattern read shm/v1/%u/config

@@ -1,0 +1,782 @@
+{
+ "_nota": "Casos compartidos por shm_plataforma/contrato_medidas.py y src/shm/medidas-contract.ts.",
+ "casos": [
+  {
+   "nombre": "cacao tal como debe salir (con un sensor sin lectura = null)",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": true,
+   "problema_contiene": null
+  },
+  {
+   "nombre": "-999 en lugar de null",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": -999,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "envíe null"
+  },
+  {
+   "nombre": "humedad imposible",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 150,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "imposible"
+  },
+  {
+   "nombre": "luz negativa",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": -3,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "imposible"
+  },
+  {
+   "nombre": "unidad que no corresponde",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degF"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "unidad de temperatura"
+  },
+  {
+   "nombre": "magnitud desconocida",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "fertilidad",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "magnitud desconocida"
+  },
+  {
+   "nombre": "aceleración como medida suelta",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "X-1",
+      "quantity": "aceleracion",
+      "value": 1,
+      "unit": "m/s2"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "ventanas"
+  },
+  {
+   "nombre": "sensor repetido",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "dos veces"
+  },
+  {
+   "nombre": "sin value",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "null si el sensor no leyó"
+  },
+  {
+   "nombre": "value de texto",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": "24.3",
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "número o null"
+  },
+  {
+   "nombre": "value booleano",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": true,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "número o null"
+  },
+  {
+   "nombre": "lista vacía",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": []
+   },
+   "valido": false,
+   "problema_contiene": "vacía"
+  },
+  {
+   "nombre": "hora millis() (no RFC 3339)",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "123456",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "RFC 3339"
+  },
+  {
+   "nombre": "calidad de hora inventada",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "RELOJ",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "time_quality"
+  },
+  {
+   "nombre": "falta station_id",
+   "mensaje": {
+    "schema_version": "1.0",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "station_id"
+  },
+  {
+   "nombre": "diagnóstico en el mensaje",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC",
+      "error": "colapso del cultivo"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "diagnóstico"
+  },
+  {
+   "nombre": "temperatura bajo cero absoluto",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "NTP",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": -300,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 42,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": false,
+   "problema_contiene": "imposible"
+  },
+  {
+   "nombre": "GNSS y 0 permitido",
+   "mensaje": {
+    "schema_version": "1.0",
+    "station_id": "LAB-AMB-01",
+    "timestamp_utc": "2026-11-19T14:00:00.000Z",
+    "time_quality": "GNSS_LOCKED",
+    "firmware_version": "esp32-ambiente-0.1.0",
+    "measurements": [
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-T",
+      "quantity": "temperatura",
+      "value": 24.3,
+      "unit": "degC"
+     },
+     {
+      "sensor_id": "DHT22-LAB-AMB-01-H",
+      "quantity": "humedad",
+      "value": 81.5,
+      "unit": "%HR"
+     },
+     {
+      "sensor_id": "BH1750-LAB-AMB-01",
+      "quantity": "luz",
+      "value": 350.0,
+      "unit": "lux"
+     },
+     {
+      "sensor_id": "SUELO-LAB-AMB-01",
+      "quantity": "humedad_suelo",
+      "value": 0,
+      "unit": "%"
+     },
+     {
+      "sensor_id": "HCSR04-LAB-AMB-01",
+      "quantity": "distancia",
+      "value": null,
+      "unit": "cm",
+      "error": "sin eco"
+     }
+    ]
+   },
+   "valido": true,
+   "problema_contiene": null
+  }
+ ]
+}
