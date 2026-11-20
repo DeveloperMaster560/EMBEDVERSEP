@@ -18,6 +18,21 @@ import { assertNoCredentialMaterial } from '../../src/agent-team/security.js';
 const MAX_TOOL_CALLS_PER_RESPONSE = 3;
 const MAX_TOOL_RESULT_CHARS = 4_000;
 const MAX_FINAL_TEXT_CHARS = 14_000;
+/** Por turno: cabe una llamada a herramienta en JSON o un informe breve. Antes eran 128 y se cortaban. */
+const MAX_OUTPUT_TOKENS_PER_TURN = 1_024;
+/** Respuestas inválidas seguidas que se toleran antes de pasar la tarea a supervisión humana. */
+const MAX_INVALID_FINAL_TURNS = 3;
+
+/**
+ * Un informe final no puede ser una llamada a herramienta que no se ejecutó: el
+ * modelo escribió el JSON de una acción (cortado, o de una herramienta que no
+ * tiene) y el texto llegó aquí como si fuera el resultado.
+ */
+export function looksLikeUnexecutedAction(text: string): boolean {
+  const t = text.trimStart();
+  if (!t.startsWith('{') && !t.startsWith('```')) return false;
+  return /"action"\s*:\s*"(?:tool_call|final)"|"name"\s*:\s*"[a-z_.]+"\s*,\s*"arguments"/.test(t.slice(0, 400));
+}
 const MAX_PROJECT_CONTEXT_CHARS = 20_000;
 const MAX_DELEGATION_DEPTH = 2;
 const MAX_CHILD_TASKS = 3;
@@ -279,6 +294,7 @@ export class AgentOrchestrator {
     let toolCalls = 0;
     let successfulToolCalls = 0;
     let toolReminderTurns = 0;
+    let invalidFinalTurns = 0;
     let tokens = 0;
     const evidenceRefs = new Set<string>();
 
@@ -317,7 +333,7 @@ export class AgentOrchestrator {
             DELEGATE_TOOL,
           ],
           signal: controller.signal,
-          maxOutputTokens: Math.max(32, Math.min(this.canProposePatch(task) ? 1_024 : 128, task.budget.maxTokens ?? 128, (task.budget.maxTokens ?? 128) - tokens)),
+          maxOutputTokens: Math.max(32, Math.min(MAX_OUTPUT_TOKENS_PER_TURN, task.budget.maxTokens ?? MAX_OUTPUT_TOKENS_PER_TURN, (task.budget.maxTokens ?? MAX_OUTPUT_TOKENS_PER_TURN) - tokens)),
         });
         tokens += response.promptTokens + response.completionTokens;
         if (tokens > (task.budget.maxTokens ?? Number.MAX_SAFE_INTEGER)) {
@@ -340,6 +356,27 @@ export class AgentOrchestrator {
         if (!calls.length) {
           const summary = response.message.content.trim();
           if (!summary) throw new Error('El modelo terminó sin texto de resultado ni llamadas a herramientas.');
+          if (looksLikeUnexecutedAction(summary)) {
+            invalidFinalTurns += 1;
+            await this.runtime.recordEvent({
+              taskId, type: 'agent.invalid_response', actor: task.assignedAgentId,
+              payload: { turn: turns, reason: 'Llamada a herramienta no ejecutable presentada como resultado.', excerpt: summary.slice(0, 200) },
+            });
+            if (invalidFinalTurns >= MAX_INVALID_FINAL_TURNS) {
+              throw new Error('El modelo devolvió llamadas a herramientas inválidas en lugar de un resultado; la tarea necesita supervisión humana.');
+            }
+            const disponibles = [
+              ...(initialEvidence ? [] : this.tools.listForAgent(task.assignedAgentId).map((t) => t.function.name)),
+              ...(this.canCompileProject(task) ? [FIRMWARE_COMPILE_TOOL.function.name] : []),
+              ...(this.canProposePatch(task) ? [PROJECT_PROPOSE_EDIT_TOOL.function.name] : []),
+              DELEGATE_TOOL.function.name,
+            ];
+            messages.push({
+              role: 'user',
+              content: `Tu respuesta no es válida: escribiste una llamada a herramienta que no se ejecutó (incompleta o de una herramienta que no tienes). Herramientas disponibles: ${disponibles.join(', ')}. Llama a una de ellas con argumentos JSON completos, o entrega el resultado final como texto normal que cite las referencias de la evidencia.`,
+            });
+            continue;
+          }
           if (task.requiresEvidence && successfulToolCalls === 0) {
             toolReminderTurns += 1;
             if (toolReminderTurns >= 3) {
@@ -691,13 +728,16 @@ export class AgentOrchestrator {
       });
       return { text, evidenceRefs, summary: `Contexto de ${projectFiles.length} archivos seleccionados del proyecto local.` };
     }
-    const goalPaths = [...task.goal.matchAll(/(?:[A-Za-z0-9_.-]+[\\/])*[A-Za-z0-9_.-]+\.(?:md|txt|ts|tsx|js|py|json|ino|cpp|h|yaml|yml|ps1)/gi)]
+    const goalPaths = [...task.goal.matchAll(/(?:[A-Za-z0-9_.-]+[\\/])*[A-Za-z0-9_.-]+\.(?:md|txt|tsx|ts|json|js|py|ino|cpp|h|yaml|yml|ps1)(?![A-Za-z0-9_])/gi)]
       .map((match) => match[0].replace(/\\/g, '/'));
     const referencedPaths = [...task.contextRefs, ...goalPaths]
-      .filter((value) => /\.(?:md|txt|ts|tsx|js|py|json|ino|cpp|h|yaml|yml|ps1)$/i.test(value))
+      .filter((value) => /\.(?:md|txt|tsx|ts|json|js|py|ino|cpp|h|yaml|yml|ps1)$/i.test(value))
       .slice(0, 5);
     const queryWords = task.goal.match(/[\p{L}][\p{L}\p{N}_-]{3,}/gu) ?? [];
-    const query = queryWords.find((word) => !SEARCH_STOP_WORDS.has(word.toLocaleLowerCase()));
+    // Lo que la persona escribe entre comillas («medida», "shm/v1") es lo que hay que buscar;
+    // si no hay, la primera palabra con contenido.
+    const quoted = [...task.goal.matchAll(/["“«']([^"”»'\n]{3,60})["”»']/gu)].map((m) => m[1].trim()).filter(Boolean);
+    const query = quoted[0] ?? queryWords.find((word) => !SEARCH_STOP_WORDS.has(word.toLocaleLowerCase()));
     const actions = [
       ...[...new Set(referencedPaths)].map((filePath) => ({ toolId: 'workspace.read_file', args: { path: filePath } })),
       ...(query ? [{ toolId: 'workspace.search', args: { query } }] : []),

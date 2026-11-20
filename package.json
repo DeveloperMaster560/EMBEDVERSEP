@@ -11,7 +11,8 @@
     "agent:ui": "vite --host 127.0.0.1 --port 5174 --strictPort",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "agent:start:mac": "sh scripts/start-agent-team.sh"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

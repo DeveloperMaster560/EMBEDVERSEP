@@ -94,6 +94,7 @@ export type AgentEventType =
   | 'task.state_changed'
   | 'agent.turn_started'
   | 'agent.turn_completed'
+  | 'agent.invalid_response'
   | 'agent.message_sent'
   | 'agent.message_updated'
   | 'patch.proposed'

@@ -201,3 +201,16 @@ El historial se guarda en `events.jsonl` con secuencia y SHA-256 encadenada. `ru
 ## Integración MCP con Claude Code
 
 Claude Code puede conectarse mediante el servidor MCP local de `stdio` definido en `.mcp.json`, que ejecuta `scripts/agent-team-mcp.mjs` y habla con la API local por loopback. Expone consultas de agentes, tareas y mensajes, envío de tareas y cancelación; no expone lectura arbitraria ni aprobación/aplicación de parches. Primero hay que iniciar Ollama/runtime con `npm run agent:start`. Al abrir este proyecto en Claude Code, revisa y aprueba el servidor de proyecto cuando Claude Code lo solicite; luego `/mcp` permite comprobar la conexión. Esta integración permite a Claude Code Max usar el equipo como herramientas; el proveedor de los agentes internos sigue siendo Ollama/Qwen y no se sustituye por Claude.
+
+## 14. Primera prueba real en macOS (20/11/2026)
+
+Runtime arrancado en el Mac con `npm run agent:start:mac` (`scripts/start-agent-team.sh`, equivalente al iniciador de PowerShell). Tareas reales enviadas por `POST /api/agent-team/tasks` a los tres agentes; eventos y huellas en `~/.local/state/embedverse/agent-runtime/events.jsonl`.
+
+Fallos del runtime encontrados y corregidos (pruebas en `server/agentTeam/orchestrator.validacion.test.ts`):
+
+- **Resultados falsos marcados COMPLETED.** Si el modelo escribía como texto una llamada a herramienta (cortada, o de una herramienta que no tenía), el orquestador la tomaba como informe final. Ahora `looksLikeUnexecutedAction` la rechaza, registra `agent.invalid_response`, le recuerda al agente las herramientas que sí tiene y, a la tercera, pasa la tarea a `WAITING_FOR_HUMAN`.
+- **128 tokens por turno** en tareas sin propuesta de parche: no cabía ni la llamada en JSON. Ahora 1.024 (dentro del presupuesto de la tarea).
+- **`proyecto.json` se leía como `proyecto.js`**: en la lista de extensiones `js` iba antes que `json`.
+- **La búsqueda previa** usaba la primera palabra del enunciado («Comprobación»). Ahora manda lo que la persona escribe entre comillas.
+
+Con `llama3.2` (3B) el equipo **no es operativo**: no respeta los esquemas de herramientas (inventa argumentos y commits, delega en sí mismo o en un agente «admin» inexistente). Tras las correcciones, sus tareas quedan honestamente en `WAITING_FOR_HUMAN`. Hace falta el modelo para el que se diseñó el equipo (`qwen2.5-coder:7b`) o uno mayor. En un Intel Xeon sin GPU, un 7B responde despacio.
