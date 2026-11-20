@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "embedverse-agent-team": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["scripts/agent-team-mcp.mjs"],
+      "env": {
+        "EMBEVERSE_AGENT_URL": "http://127.0.0.1:5175/api/agent-team"
+      }
+    }
+  }
+}

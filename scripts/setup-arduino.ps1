@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$version = '1.5.1'
+$version = '1.6.0'
 $archiveName = "arduino-cli_${version}_Windows_64bit.zip"
 $checksumsName = "$version-checksums.txt"
 $baseUrl = "https://github.com/arduino/arduino-cli/releases/download/v$version"

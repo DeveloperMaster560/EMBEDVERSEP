@@ -516,7 +516,7 @@ async function rechazar(
   throw new CompileRequestError(mensaje(problemas), estadoHttp(problemas), codigoPrincipal(problemas), paraRespuesta(problemas));
 }
 
-async function compileProject(project: CompileRequest, rootDirectory: string): Promise<CompileResponse> {
+export async function compileProject(project: CompileRequest, rootDirectory: string): Promise<CompileResponse> {
   const placa = buscarPlaca(project.boardId) as Placa;   // validateCompileRequest ya la comprobó
   const esAvr = placa.paquete === 'arduino:avr';
   const toolDirectory = path.join(rootDirectory, '.tools');
@@ -533,6 +533,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
    * tiene dónde escribir su caché y el aislamiento se mantiene.
    */
   const homeDirectory = path.join(toolDirectory, 'arduino-home');
+  const appDataDirectory = path.join(homeDirectory, 'AppData', 'Roaming');
+  const localAppDataDirectory = path.join(homeDirectory, 'AppData', 'Local');
+  const documentsDirectory = path.join(homeDirectory, 'Documents');
 
   let dataDirectory: string | null = null;
   if (esAvr) {
@@ -587,6 +590,9 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
       mkdir(downloadsDirectory, { recursive: true }),
       mkdir(userDirectory, { recursive: true }),
       mkdir(homeDirectory, { recursive: true }),
+      mkdir(appDataDirectory, { recursive: true }),
+      mkdir(localAppDataDirectory, { recursive: true }),
+      mkdir(documentsDirectory, { recursive: true }),
     ]);
     const configFile = path.join(workspace, 'arduino-cli.yaml');
     await writeFile(configFile, [
@@ -645,6 +651,10 @@ async function compileProject(project: CompileRequest, rootDirectory: string): P
           // Apunta a .tools, no al hogar del usuario: ver homeDirectory.
           HOME: homeDirectory,
           USERPROFILE: homeDirectory,
+          ...(process.platform === 'win32' ? {
+            APPDATA: appDataDirectory,
+            LOCALAPPDATA: localAppDataDirectory,
+          } : {}),
         },
       });
 

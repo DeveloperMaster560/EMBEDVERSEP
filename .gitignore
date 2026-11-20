@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .tools/
+.agent-runtime/
+.agent-runtime-data/
 # Conexión local con la plataforma SHM (lleva el token): nunca al repositorio.
 .embedverse/
 tools/venv/

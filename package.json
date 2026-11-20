@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p tsconfig.agent-team.json && vite build",
+    "agent:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent-team.ps1",
+    "agent:runtime": "tsc -p tsconfig.agent-runtime.json && node .agent-runtime/server/agentTeam/main.js",
+    "agent:ui": "vite --host 127.0.0.1 --port 5174 --strictPort",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run"

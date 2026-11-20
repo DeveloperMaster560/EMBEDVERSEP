@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.agent-team.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.agent-runtime.tsbuildinfo",
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "./.agent-runtime",
+    "rootDir": ".",
+    "types": ["node"],
+    "sourceMap": false
+  },
+  "include": ["src/agent-team/**/*.ts", "server/agentTeam/**/*.ts"],
+  "exclude": ["server/agentTeam/**/*.test.ts"]
+}

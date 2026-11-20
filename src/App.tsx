@@ -27,6 +27,7 @@ import {
   TerminalSquare,
   Trash2,
   Upload,
+  UsersRound,
   X,
   Zap,
 } from 'lucide-react';
@@ -44,6 +45,9 @@ import { PROYECTOS_SHM, admiteGemelo, buscarProyecto } from './shm/proyectos';
 import { CAPABILITIES } from './simulation/avr-runner';
 import { templateById, templatesForBoard } from './domain/projectTemplates';
 import { deleteProject, duplicateProject, exportProject, importProjectFromJson, listProjects, saveProject } from './storage/projectRepository';
+import { AgentOperations } from './agent-team/AgentOperations';
+import type { AgentPatchProposal } from './agent-team/contracts';
+import { applyExactReplacement, sha256Text } from './agent-team/patch-utils';
 import './App.css';
 
 const DigitalTwinViewer = lazy(() =>
@@ -59,7 +63,7 @@ const BridgeStudio = lazy(() =>
   import('./bridge-studio/BridgeStudio').then((module) => ({ default: module.BridgeStudio })),
 );
 
-type View = 'dashboard' | 'projects' | 'workspace' | 'editor' | 'components' | 'lab' | 'twin';
+type View = 'dashboard' | 'projects' | 'workspace' | 'editor' | 'components' | 'lab' | 'twin' | 'agents';
 type WorkspaceTab =
   | 'summary'
   | 'code'
@@ -383,6 +387,18 @@ function App() {
     }
   };
 
+  const applyAgentPatch = async (proposal: AgentPatchProposal) => {
+    const project = projects.find((item) => item.id === proposal.projectId);
+    const file = project?.files.find((item) => item.path === proposal.path);
+    if (!project || !file || await sha256Text(file.content) !== proposal.originalSha256) throw new Error('PATCH_STALE: El archivo cambió antes de guardarse.');
+    const content = applyExactReplacement(file.content, proposal.searchText, proposal.replaceText);
+    if (await sha256Text(content) !== proposal.proposedSha256) throw new Error('PATCH_STALE: El reemplazo no coincide con el hash aprobado.');
+    const updated: EmbeddedProject = { ...project, updatedAt: new Date().toISOString(), files: project.files.map((item) => item.id === file.id ? { ...item, content } : item) };
+    await saveProject(updated);
+    setProjects((current) => current.map((item) => item.id === updated.id ? updated : item));
+    setSelectedProject((current) => current?.id === updated.id ? updated : current);
+  };
+
   const activeFile = selectedProject?.files.find((file) => file.id === selectedProject.activeFileId);
 
   return (
@@ -405,6 +421,7 @@ function App() {
           <NavButton icon={<FolderOpen size={17} />} label="Mis proyectos" active={view === 'projects'} onClick={() => setView('projects')} />
           <NavButton icon={<Code2 size={17} />} label="Embedded IDE" active={view === 'workspace' && workspaceTab === 'code'} onClick={() => openProjectWorkspace('code')} />
           <NavButton icon={<Library size={17} />} label="Componentes" active={view === 'components'} onClick={() => setView('components')} badge={`${componentCatalog.length}`} />
+          <NavButton icon={<UsersRound size={17} />} label="Equipo IA" active={view === 'agents'} onClick={() => setView('agents')} />
         </nav>
 
         <div className="nav-section-label nav-section-spaced">PLATAFORMA</div>
@@ -422,7 +439,7 @@ function App() {
         <header className="topbar">
           <div className="breadcrumbs">
             <span>Embedverse Studio</span><span className="breadcrumb-separator">/</span>
-            <strong>{view === 'dashboard' ? 'Inicio' : view === 'projects' ? 'Mis proyectos' : view === 'components' ? 'Componentes' : view === 'workspace' ? selectedProject?.name ?? 'Workspace' : view === 'lab' ? 'Laboratorio electrónico' : view === 'twin' ? 'Gemelo digital 3D' : selectedProject?.name ?? 'Embedded IDE'}</strong>
+            <strong>{view === 'dashboard' ? 'Inicio' : view === 'projects' ? 'Mis proyectos' : view === 'components' ? 'Componentes' : view === 'agents' ? 'Equipo de ingeniería IA' : view === 'workspace' ? selectedProject?.name ?? 'Workspace' : view === 'lab' ? 'Laboratorio electrónico' : view === 'twin' ? 'Gemelo digital 3D' : selectedProject?.name ?? 'Embedded IDE'}</strong>
           </div>
           <div className="topbar-actions">
             <span className="local-badge"><ShieldCheck size={14} /> LOCAL</span>
@@ -471,6 +488,8 @@ function App() {
               components={filteredComponents}
             />
           )}
+
+          {view === 'agents' && <AgentOperations projects={projects} onApplyPatch={applyAgentPatch} />}
 
           {view === 'lab' && (
             selectedProject ? (

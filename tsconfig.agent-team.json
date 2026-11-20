@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.agent-team.tsbuildinfo",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/agent-team/**/*.ts", "server/agentTeam/**/*.ts"]
+}
