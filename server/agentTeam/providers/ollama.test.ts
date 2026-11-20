@@ -99,3 +99,25 @@ describe('OllamaProvider · una sola herramienta', () => {
     expect(body.format.properties.arguments.required).toEqual(['agentId', 'goal']);
   });
 });
+
+describe('OllamaProvider · PC propio por Tailscale', () => {
+  it('solo admite 100.64.0.0/10 o *.ts.net, y solo con EMBEDVERSE_OLLAMA_REMOTO=tailscale', async () => {
+    const { OllamaProvider, esDireccionTailscale } = await import('./ollama.js');
+    expect(esDireccionTailscale('100.101.2.3')).toBe(true);
+    expect(esDireccionTailscale('pc-windows.tail1234.ts.net')).toBe(true);
+    expect(esDireccionTailscale('100.63.0.1')).toBe(false);
+    expect(esDireccionTailscale('192.168.1.10')).toBe(false);
+    expect(esDireccionTailscale('ts.net.evil.com')).toBe(false);
+    const antes = process.env.EMBEDVERSE_OLLAMA_REMOTO;
+    try {
+      delete process.env.EMBEDVERSE_OLLAMA_REMOTO;
+      expect(() => new OllamaProvider({ baseUrl: 'http://100.101.2.3:11434' })).toThrow(/loopback/);
+      process.env.EMBEDVERSE_OLLAMA_REMOTO = 'tailscale';
+      expect(() => new OllamaProvider({ baseUrl: 'http://100.101.2.3:11434' })).not.toThrow();
+      expect(() => new OllamaProvider({ baseUrl: 'http://192.168.1.10:11434' })).toThrow();
+      expect(() => new OllamaProvider({ baseUrl: 'https://100.101.2.3:11434' })).toThrow();
+    } finally {
+      if (antes === undefined) delete process.env.EMBEDVERSE_OLLAMA_REMOTO; else process.env.EMBEDVERSE_OLLAMA_REMOTO = antes;
+    }
+  });
+});

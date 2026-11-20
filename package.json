@@ -12,7 +12,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "agent:start:mac": "sh scripts/start-agent-team.sh"
+    "agent:start:mac": "sh scripts/start-agent-team.sh",
+    "agent:enlazar": "sh scripts/enlazar-windows.sh"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

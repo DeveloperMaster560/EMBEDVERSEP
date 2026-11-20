@@ -50,6 +50,8 @@ export interface ProviderStatus {
   model: string;
   available: boolean;
   reason?: string;
+  /** Dónde corre el modelo: «local» o el equipo Tailscale. */
+  donde?: string;
 }
 
 export interface AgentModelProvider {
@@ -66,16 +68,30 @@ export interface AgentModelProvider {
   }): Promise<ModelResponse>;
 }
 
-function validateLocalBaseUrl(raw: string): URL {
+/**
+ * Equipo propio dentro de la red Tailscale del usuario: 100.64.0.0/10 o un nombre
+ * *.ts.net. El tráfico va cifrado (WireGuard) y solo entre sus dispositivos.
+ */
+export function esDireccionTailscale(hostname: string): boolean {
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net$/i.test(hostname)) return true;
+  const m = hostname.match(/^100\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  return !!m && Number(m[1]) >= 64 && Number(m[1]) <= 127 && Number(m[2]) <= 255 && Number(m[3]) <= 255;
+}
+
+function validateLocalBaseUrl(raw: string, remoto = process.env.EMBEDVERSE_OLLAMA_REMOTO): URL {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
     throw new Error('EMBEDVERSE_OLLAMA_URL no es una URL válida.');
   }
-  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  // Por omisión solo loopback. Con EMBEDVERSE_OLLAMA_REMOTO=tailscale (decisión explícita
+  // del usuario, 20/11/2026) se admite además el Ollama de su propio PC por Tailscale.
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const tailscale = remoto === 'tailscale' && esDireccionTailscale(url.hostname);
+  if (url.protocol !== 'http:' || !(loopback || tailscale)
     || url.username || url.password || url.search || url.hash) {
-    throw new Error('Ollama debe usar HTTP en loopback; no se envían proyectos a hosts remotos.');
+    throw new Error('Ollama debe usar HTTP en loopback (o, con EMBEDVERSE_OLLAMA_REMOTO=tailscale, un equipo propio de la red Tailscale: 100.64.0.0/10 o *.ts.net); no se envían proyectos a otros hosts.');
   }
   url.pathname = url.pathname.replace(/\/+$/, '');
   return url;
@@ -157,6 +173,10 @@ export class OllamaProvider implements AgentModelProvider {
       ?? enteroDeEntorno('EMBEDVERSE_OLLAMA_TIMEOUT_MS', DEFAULT_REQUEST_TIMEOUT_MS, 10_000, 3_600_000);
   }
 
+  get donde(): string {
+    return ['localhost', '127.0.0.1', '[::1]'].includes(this.baseUrl.hostname) ? 'local' : `PC por Tailscale ${this.baseUrl.host}`;
+  }
+
   private endpoint(path: string): string {
     return new URL(path, `${this.baseUrl.toString().replace(/\/$/, '')}/`).toString();
   }
@@ -171,14 +191,15 @@ export class OllamaProvider implements AgentModelProvider {
       const body = await response.json() as { models?: { name?: string; model?: string }[] };
       const found = body.models?.some((item) => item.name === this.model || item.model === this.model) ?? false;
       return found
-        ? { provider: this.name, model: this.model, available: true }
-        : { provider: this.name, model: this.model, available: false, reason: `El modelo ${this.model} no está instalado en Ollama.` };
+        ? { provider: this.name, model: this.model, available: true, donde: this.donde }
+        : { provider: this.name, model: this.model, available: false, donde: this.donde, reason: `El modelo ${this.model} no está instalado en Ollama (${this.donde}).` };
     } catch (error) {
       return {
         provider: this.name,
         model: this.model,
         available: false,
-        reason: error instanceof Error ? error.message : 'No se pudo conectar a Ollama en loopback.',
+        donde: this.donde,
+        reason: error instanceof Error ? `${error.message} (${this.donde})` : `No se pudo conectar a Ollama (${this.donde}).`,
       };
     }
   }

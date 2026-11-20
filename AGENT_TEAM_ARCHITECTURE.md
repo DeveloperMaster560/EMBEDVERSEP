@@ -242,3 +242,24 @@ La **colaboración funciona mecánicamente**: hay delegaciones reales con tarea 
 - `{"action":"tool_call","content":"<herramienta>"}` se acepta solo si el nombre coincide exactamente con una herramienta ofrecida.
 - Presupuesto de tokens por tarea: 120.000 (antes 24.000, que se agotaba al reanudar con ventana de 16 k). Las subtareas tienen hasta 6 turnos.
 - La búsqueda excluye `.agent-runtime/`, la copia compilada que duplicaba coincidencias.
+
+## 16. Mac enlazado con el PC Windows por Tailscale (20/11/2026)
+
+**Objetivo:** que el equipo de agentes use la potencia del PC Windows mientras el trabajo (repositorio, runtime, interfaz y Claude Code) sigue en el Mac.
+
+- **En el Mac** siguen el runtime (127.0.0.1:5175), la interfaz (5174) y las herramientas: leen y proponen cambios sobre el repositorio del Mac, el mismo que edita Claude Code.
+- **En el PC** solo se ejecuta el modelo. Ollama sigue en 127.0.0.1:11434 y no se toca `OLLAMA_HOST`, así que el equipo de agentes del PC sigue funcionando igual. `tailscale serve --tcp 11434` lo publica solo dentro de la red Tailscale del usuario: cifrado, sin 0.0.0.0 y sin reglas de firewall.
+- **El runtime** solo admite un Ollama remoto si `EMBEDVERSE_OLLAMA_REMOTO=tailscale` y la dirección es 100.64.0.0/10 o `*.ts.net`. Sin esa variable sigue exigiendo loopback. `/health` indica dónde corre el modelo (`donde`).
+- **La elección** se guarda fuera del repositorio, en `~/.config/embedverse/ollama.env`. `start-agent-team.sh` la lee.
+
+### Pasos (una vez)
+
+1. Iniciar sesión en Tailscale en los dos equipos, con la misma cuenta.
+2. **En el PC:** `git pull` y después `powershell -ExecutionPolicy Bypass -File scripts\windows\compartir-ollama.ps1`. El script muestra si el modelo corre en GPU o CPU y el comando que hay que ejecutar en el Mac.
+3. **En el Mac:** `sh scripts/enlazar-windows.sh <nombre-del-PC>` (o `npm run agent:enlazar -- <nombre>`). Comprueba el PC, hace una generación de prueba, guarda el enlace y reinicia el runtime.
+4. **Comandos útiles:**
+   - ver dónde corre el modelo: `sh scripts/enlazar-windows.sh --estado`;
+   - volver al modelo del Mac: `sh scripts/enlazar-windows.sh --local`;
+   - dejar de compartir, en el PC: `compartir-ollama.ps1 -Detener`.
+
+**Qué viaja por la red:** el prompt de cada turno, es decir, extractos del repositorio y de la tarea, del Mac al PC propio, dentro de Tailscale. No sale a otros hosts.
