@@ -69,3 +69,33 @@ describe('OllamaProvider · contexto y cortes', () => {
     expect(holgado.numCtx).toBe(16_384);
   });
 });
+
+describe('OllamaProvider · nombre de herramienta en content', () => {
+  it('acepta {"action":"tool_call","content":"<herramienta ofrecida>"} y nada más', async () => {
+    const { OllamaProvider } = await import('./ollama.js');
+    const responder = (content: string) => (async () => new Response(JSON.stringify({ message: { role: 'assistant', content }, prompt_eval_count: 1, eval_count: 1 }))) as unknown as typeof fetch;
+    const tool = { type: 'function' as const, function: { name: 'team_delegate_task', description: 'd', parameters: { type: 'object' as const, required: [], properties: {} } } };
+    const ok = await new OllamaProvider({ model: 'm', fetcher: responder('{"action":"tool_call","content":"team_delegate_task","arguments":{"agentId":"structural_engineer"}}') })
+      .chat({ messages: [], tools: [tool], signal: new AbortController().signal, maxOutputTokens: 10 });
+    expect(ok.message.tool_calls?.[0].function).toEqual({ name: 'team_delegate_task', arguments: { agentId: 'structural_engineer' } });
+    const no = await new OllamaProvider({ model: 'm', fetcher: responder('{"action":"tool_call","content":"borrar_todo","arguments":{}}') })
+      .chat({ messages: [], tools: [tool], signal: new AbortController().signal, maxOutputTokens: 10 });
+    expect(no.message.tool_calls).toBeUndefined();
+  });
+});
+
+describe('OllamaProvider · una sola herramienta', () => {
+  it('la gramática exige name y arguments con los campos obligatorios de la herramienta', async () => {
+    const { OllamaProvider } = await import('./ollama.js');
+    let body: Record<string, any> = {};
+    const fetcher = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ message: { role: 'assistant', content: '{}' }, prompt_eval_count: 1, eval_count: 1 }));
+    }) as unknown as typeof fetch;
+    const tool = { type: 'function' as const, function: { name: 'team_delegate_task', description: 'd', parameters: { type: 'object' as const, required: ['agentId', 'goal'], properties: { agentId: { type: 'string', description: 'a' }, goal: { type: 'string', description: 'g' } } } } };
+    await new OllamaProvider({ model: 'm', fetcher }).chat({ messages: [], tools: [tool], signal: new AbortController().signal, maxOutputTokens: 10, requireTool: true });
+    expect(body.format.required).toEqual(['action', 'name', 'arguments']);
+    expect(body.format.properties.action.enum).toEqual(['tool_call']);
+    expect(body.format.properties.arguments.required).toEqual(['agentId', 'goal']);
+  });
+});

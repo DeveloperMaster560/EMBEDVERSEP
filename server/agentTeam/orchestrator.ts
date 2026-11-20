@@ -167,6 +167,10 @@ export class AgentOrchestrator {
   private readonly projectContexts = new Map<string, { boardId: string; files: { path: string; content: string }[] }>();
   /** Milisegundos de trabajo consumidos por tarea (en memoria: tras un reinicio no se reanuda nada solo). */
   private readonly activeMs = new Map<string, number>();
+  /** Archivos de los que la tarea solo vio un tramo, y búsquedas que hizo el propio agente. */
+  private readonly lecturasParciales = new Map<string, Set<string>>();
+  private readonly busquedasPropias = new Map<string, number>();
+  private readonly coincidencias = new Map<string, { query: string; path: string; line: number; text: string }[]>();
   private readonly firmwareCompiler: FirmwareCompiler;
   private readonly queue: string[] = [];
   private readonly queued = new Set<string>();
@@ -337,6 +341,7 @@ export class AgentOrchestrator {
           ...this.memoriaRelevante(task),
           ...this.incomingMessages(task).map((message) => `Respuesta del agente ${message.senderAgentId}: ${message.description}\nDatos: ${JSON.stringify(message.technicalContext)}\nReferencias: ${message.resourceRefs.join(', ') || 'ninguna'}`),
           'Si una referencia no es una ruta del repositorio, informa que esta primera versión no puede abrirla.',
+          this.estadoAlReanudar(task),
         ].filter(Boolean).join('\n'),
       },
     ];
@@ -345,6 +350,8 @@ export class AgentOrchestrator {
     let successfulToolCalls = 0;
     let toolReminderTurns = 0;
     let invalidFinalTurns = 0;
+    /** Herramienta única ofrecida en el turno siguiente a un cierre rechazado por faltarla. */
+    let soloDelegar: ChatToolSchema | false = false;
     let tokens = 0;
     const evidenceRefs = new Set<string>();
 
@@ -376,8 +383,12 @@ export class AgentOrchestrator {
         turns += 1;
         const response = await this.provider.chat({
           messages,
-          tools: [
-            ...(initialEvidence ? [] : this.tools.listForAgent(task.assignedAgentId)),
+          // Tras rechazar un cierre por una delegación pendiente, ese turno solo se ofrece
+          // team_delegate_task: con lectura disponible, un modelo pequeño lee él mismo y
+          // no delega (llegó a escribir «se ha delegado» sin hacerlo).
+          tools: soloDelegar ? [soloDelegar] : [
+            // Siempre: con la evidencia previa sola, el agente no podía confirmar nada ni leer otro tramo.
+            ...this.tools.listForAgent(task.assignedAgentId),
             ...(this.canCompileProject(task) ? [FIRMWARE_COMPILE_TOOL] : []),
             ...(this.canProposePatch(task) ? [PROJECT_PROPOSE_EDIT_TOOL] : []),
             KNOWLEDGE_SEARCH_TOOL,
@@ -386,6 +397,7 @@ export class AgentOrchestrator {
           ],
           signal: controller.signal,
           maxOutputTokens: Math.max(32, Math.min(MAX_OUTPUT_TOKENS_PER_TURN, task.budget.maxTokens ?? MAX_OUTPUT_TOKENS_PER_TURN, (task.budget.maxTokens ?? MAX_OUTPUT_TOKENS_PER_TURN) - tokens)),
+          ...(soloDelegar ? { requireTool: true } : {}),
         });
         tokens += response.promptTokens + response.completionTokens;
         if (tokens > (task.budget.maxTokens ?? Number.MAX_SAFE_INTEGER)) {
@@ -432,7 +444,7 @@ export class AgentOrchestrator {
               throw new Error('El modelo devolvió llamadas a herramientas inválidas en lugar de un resultado; la tarea necesita supervisión humana.');
             }
             const disponibles = [
-              ...(initialEvidence ? [] : this.tools.listForAgent(task.assignedAgentId).map((t) => t.function.name)),
+              ...this.tools.listForAgent(task.assignedAgentId).map((t) => t.function.name),
               ...(this.canCompileProject(task) ? [FIRMWARE_COMPILE_TOOL.function.name] : []),
               ...(this.canProposePatch(task) ? [PROJECT_PROPOSE_EDIT_TOOL.function.name] : []),
               KNOWLEDGE_SEARCH_TOOL.function.name,
@@ -456,6 +468,19 @@ export class AgentOrchestrator {
             });
             continue;
           }
+          const pendiente = this.faltaParaTerminar(task, summary);
+          if (pendiente) {
+            invalidFinalTurns += 1;
+            await this.runtime.recordEvent({
+              taskId, type: 'agent.invalid_response', actor: task.assignedAgentId,
+              payload: { turn: turns, reason: pendiente, excerpt: summary.slice(0, 200) },
+            });
+            if (invalidFinalTurns >= MAX_INVALID_FINAL_TURNS) throw new Error(`${pendiente} La tarea necesita supervisión humana.`);
+            messages.push({ role: 'user', content: `Todavía no puedes terminar: ${pendiente}` });
+            soloDelegar = pendiente.includes('llama a team_delegate_task') ? DELEGATE_TOOL
+              : pendiente.includes('llama a team_knowledge_record') ? KNOWLEDGE_RECORD_TOOL : false;
+            continue;
+          }
           const now = this.runtime.getTask(taskId);
           if (!now || now.state !== 'IN_PROGRESS') return;
           await this.runtime.transitionTask(taskId, 'COMPLETED', {
@@ -476,6 +501,7 @@ export class AgentOrchestrator {
           return;
         }
         if (calls.length > MAX_TOOL_CALLS_PER_RESPONSE) throw new Error('El modelo excedió el límite de llamadas simultáneas.');
+        soloDelegar = false;
 
         for (const call of calls) {
           if (++toolCalls > task.budget.maxToolCalls) throw new Error('Se agotó el presupuesto de llamadas a herramientas.');
@@ -535,7 +561,7 @@ export class AgentOrchestrator {
                   sourceRefs: Array.isArray(args.sourceRefs) ? args.sourceRefs.map(String) : typeof args.sourceRefs === 'string' ? [args.sourceRefs] : [],
                   createdBy: task.assignedAgentId,
                   ...(typeof args.verificationLevel === 'string' ? { verificationLevel: args.verificationLevel as KnowledgeRecord['verificationLevel'] } : {}),
-                  ...(typeof args.supersedes === 'string' && args.supersedes ? { supersedes: args.supersedes } : {}),
+                  ...(typeof args.supersedes === 'string' && /^[0-9a-f-]{36}$/i.test(args.supersedes) ? { supersedes: args.supersedes } : {}),
                 }, evidenceRefs);
                 texto = `Guardado en la memoria: ${record.id} (versión ${record.version}, ${record.verificationLevel}).`;
                 await this.runtime.recordEvent({ taskId, type: 'tool.completed', actor: task.assignedAgentId, payload: { toolId, summary: texto, knowledgeId: record.id } });
@@ -594,6 +620,7 @@ export class AgentOrchestrator {
           });
           try {
             const evidence = await this.tools.execute(task.assignedAgentId, toolId, args);
+            this.anotarLectura(task.id, toolId, evidence.text, true);
             for (const reference of evidence.evidenceRefs) evidenceRefs.add(reference);
             successfulToolCalls += 1;
             await this.runtime.recordEvent({
@@ -636,6 +663,97 @@ export class AgentOrchestrator {
       clearTimeout(timeout);
       this.activeMs.set(task.id, usadoMs + (Date.now() - inicioMs));
     }
+  }
+
+  /**
+   * Comprobaciones objetivas antes de aceptar un informe final (no juzgan su
+   * calidad: eso lo revisa quien encargó la tarea).
+   * - Si el objetivo nombra a otro agente, esa delegación tiene que haberse
+   *   hecho (cuenta también si la subtarea acabó esperando a una persona: el
+   *   informe debe decir el bloqueo).
+   * - Si la tarea exige evidencia, el informe cita al menos una referencia.
+   */
+  private faltaParaTerminar(task: AgentTask, summary: string): string | null {
+    const hijos = this.runtime.listTasks().filter((t) => t.parentTaskId === task.id);
+    // En el orden en que el objetivo los nombra: es el orden de los pasos.
+    const nombrados = (Object.keys(AGENT_REGISTRY) as AgentId[])
+      .filter((id) => id !== task.assignedAgentId && task.goal.includes(id))
+      .sort((a, b) => task.goal.indexOf(a) - task.goal.indexOf(b));
+    const sinDelegar = nombrados.filter((id) => !hijos.some((h) => h.assignedAgentId === id));
+    if (sinDelegar.length && hijos.length < MAX_CHILD_TASKS) {
+      const siguiente = sinDelegar[0];
+      // La frase del objetivo dirigida a ese agente: con un encargo concreto un modelo
+      // pequeño delega bien; con el objetivo entero de varios pasos, no.
+      const frase = task.goal.split(/(?<=[.;])\s+/).find((f) => f.includes(siguiente))?.trim() ?? '';
+      return `el objetivo pide trabajo de ${sinDelegar.join(' y ')} y aún no se lo has delegado. Siguiente paso: llama a team_delegate_task con agentId="${siguiente}", un goal que pida exactamente esto —${frase.slice(0, 600)}— y añade lo que ya sabes (por ejemplo, el componente elegido), y un expectedResult con el formato que necesitas.`;
+    }
+    // Afirmar que algo NO está después de haber visto solo un tramo de un archivo
+    // fue el error de la primera prueba («no hay biblioteca para el DHT22», y la había).
+    const niega = /\bno\s+(?:se\s+)?(?:encontr|encuentr|exist|hay\b|aparec|figur|incluy|est[aá]\b|cuenta\b|tiene\b)|\bningun[ao]?\b|\bsin\s+resultados\b/i.test(summary);
+    const hallado = this.coincidencias.get(task.id);
+    if (niega && hallado?.length) {
+      return `afirmas que algo no existe, pero la búsqueda «${hallado[0].query}» devolvió coincidencias, por ejemplo: ${hallado.slice(0, 3).map((m) => `${m.path}:${m.line} «${m.text.trim().slice(0, 80)}»`).join('; ')}. Lee ese tramo (workspace_read_file con path y startLine) y responde con lo que dice.`;
+    }
+    const parciales = this.lecturasParciales.get(task.id);
+    if (parciales?.size && niega && !this.busquedasPropias.get(task.id)) {
+      return `afirmas que algo no existe, pero solo leíste tramos parciales de ${[...parciales].join(', ')}. Antes de concluirlo, confírmalo con workspace_search (query=el término exacto, path=el archivo) y cita el resultado.`;
+    }
+    // Copiar la respuesta de un compañero no es hacer la parte propia.
+    const norm = (t: string) => t.toLocaleLowerCase('es').replace(/\s+/g, ' ').trim();
+    const copiada = hijos.find((h) => {
+      const r = typeof h.result?.summary === 'string' ? norm(h.result.summary) : '';
+      return r.length > 80 && norm(summary).includes(r.slice(0, Math.floor(r.length * 0.8)));
+    });
+    if (copiada) {
+      const propias = task.goal.split(/(?<=[.;])\s+/)
+        .filter((f) => !(Object.keys(AGENT_REGISTRY) as string[]).some((id) => f.includes(id))).join(' ').slice(0, 600);
+      return `tu informe repite la respuesta de ${copiada.assignedAgentId}. Úsala como dato y escribe TU parte del objetivo: ${propias}`;
+    }
+    // Solo una orden («guarda/registra … en la memoria»), no una mención («ya guardada en la memoria»).
+    if (/\b(?:guarda|registra|anota|almacena)\b[^.;]{0,80}\bmemoria\b/i.test(task.goal)
+      && !this.runtime.listEvents({ taskId: task.id }).some((e) => e.type === 'knowledge.recorded')) {
+      return 'el objetivo pide guardar lo verificado en la memoria del equipo y no lo has hecho. Siguiente paso: llama a team_knowledge_record con category, subject, content (los datos verificados) y sourceRefs (las referencias workspace:// que obtuviste).';
+    }
+    if (task.requiresEvidence && !/\b(?:workspace|project|task):\/\//.test(summary)) {
+      return 'el informe no cita ninguna referencia (workspace://… o project://…) de la evidencia obtenida. Reescríbelo citándolas.';
+    }
+    return null;
+  }
+
+  /**
+   * Al volver de una subtarea, un modelo pequeño releía el objetivo entero y copiaba la
+   * respuesta del compañero como informe propio. Se le dice qué está hecho y qué le queda:
+   * las frases del objetivo posteriores a la última delegación ya respondida.
+   */
+  private estadoAlReanudar(task: AgentTask): string {
+    const hechos = this.runtime.listTasks().filter((t) => t.parentTaskId === task.id && t.state === 'COMPLETED');
+    if (!hechos.length) return '';
+    const frases = task.goal.split(/(?<=[.;])\s+/);
+    const ultima = Math.max(...hechos.map((h) => frases.findIndex((f) => f.includes(h.assignedAgentId))));
+    const quedan = frases.slice(ultima + 1).filter((f) => f.trim());
+    return [
+      '',
+      `ESTADO: ya delegaste a ${hechos.map((h) => h.assignedAgentId).join(' y ')} y su respuesta está arriba. No la copies ni vuelvas a delegarlo: úsala como dato.`,
+      quedan.length ? `TE QUEDA POR HACER, en este orden:\n${quedan.map((f, i) => `${i + 1}. ${f.trim()}`).join('\n')}` : 'Te queda redactar el informe final con tu propia conclusión.',
+    ].join('\n');
+  }
+
+  private anotarLectura(taskId: string, toolId: string, texto: string, delAgente: boolean): void {
+    if (toolId === 'workspace.search') {
+      if (delAgente) this.busquedasPropias.set(taskId, (this.busquedasPropias.get(taskId) ?? 0) + 1);
+      try {
+        const r = JSON.parse(texto) as { query?: string; matches?: { path: string; line: number; text: string }[] };
+        if (r.query && r.matches?.length) {
+          this.coincidencias.set(taskId, [...(this.coincidencias.get(taskId) ?? []), ...r.matches.slice(0, 5).map((m) => ({ ...m, query: r.query! }))]);
+        }
+      } catch { /* texto no JSON */ }
+      return;
+    }
+    if (toolId !== 'workspace.read_file') return;
+    try {
+      const r = JSON.parse(texto) as { path?: string; truncated?: boolean };
+      if (r.truncated && r.path) this.lecturasParciales.set(taskId, new Set([...(this.lecturasParciales.get(taskId) ?? []), r.path]));
+    } catch { /* texto no JSON: nada que anotar */ }
   }
 
   /** Lo que la memoria del equipo ya sabe sobre el objetivo, para no repetir descubrimientos. */
@@ -758,7 +876,7 @@ export class AgentOrchestrator {
       contextRefs: contextRefs as string[],
       parentTaskId: task.id,
       cycleKey: `${recipient}:${goal.toLocaleLowerCase().replace(/\s+/g, ' ').slice(0, 180)}`,
-      budget: { maxTurns: Math.min(4, task.budget.maxTurns), maxToolCalls: Math.min(4, task.budget.maxToolCalls), maxRetries: 0 },
+      budget: { maxTurns: Math.min(6, task.budget.maxTurns), maxToolCalls: Math.min(6, task.budget.maxToolCalls), maxRetries: 0 },
     });
     const message = await this.runtime.recordMessage({
       projectId: task.projectId,
@@ -858,10 +976,17 @@ export class AgentOrchestrator {
     // Lo que la persona escribe entre comillas («medida», "shm/v1") es lo que hay que buscar;
     // si no hay, la primera palabra con contenido.
     const quoted = [...task.goal.matchAll(/["“«']([^"”»'\n]{3,60})["”»']/gu)].map((m) => m[1].trim()).filter(Boolean);
-    const query = quoted[0] ?? queryWords.find((word) => !SEARCH_STOP_WORDS.has(word.toLocaleLowerCase()));
+    // Sin comillas, un identificador técnico (SHT31, DHT22, ELE-TAB-TG) dice más que la primera palabra.
+    const tecnico = task.goal.match(/\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{3,}\b/)?.[0];
+    const query = quoted[0] ?? tecnico ?? queryWords.find((word) => !SEARCH_STOP_WORDS.has(word.toLocaleLowerCase()));
+    const rutas = [...new Set(referencedPaths)];
+    // Si el objetivo nombra un archivo y un término, primero se busca el término DENTRO de ese
+    // archivo: en un archivo largo, la lectura solo muestra el principio y el modelo concluía
+    // que el término no estaba (SHT31 en bibliotecas.lock.json, 20/11/2026).
     const actions = [
-      ...[...new Set(referencedPaths)].map((filePath) => ({ toolId: 'workspace.read_file', args: { path: filePath } })),
-      ...(query ? [{ toolId: 'workspace.search', args: { query } }] : []),
+      ...(query && rutas[0] ? [{ toolId: 'workspace.search', args: { query, path: rutas[0] } }] : []),
+      ...rutas.map((filePath) => ({ toolId: 'workspace.read_file', args: { path: filePath } })),
+      ...(query && !rutas[0] ? [{ toolId: 'workspace.search', args: { query } }] : []),
     ].slice(0, 2);
     if (!actions.length) return null;
 
@@ -881,6 +1006,7 @@ export class AgentOrchestrator {
       });
       try {
         const evidence = await this.tools.execute(task.assignedAgentId, action.toolId, action.args);
+        this.anotarLectura(task.id, action.toolId, evidence.text, false);
         await this.runtime.recordEvent({
           taskId: task.id,
           type: 'tool.completed',

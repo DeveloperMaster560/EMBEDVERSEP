@@ -129,3 +129,86 @@ describe('auditoría del runtime (20/11/2026)', () => {
     expect(sistema).toMatch(/no puedes delegarte a ti mismo/);
   });
 });
+
+describe('criterios objetivos de cierre', () => {
+  it('si el objetivo nombra a otro agente, no se cierra sin haberle delegado', async () => {
+    const vistos: ChatMessage[][] = [];
+    const { runtime, task } = await correr(
+      'Pide a software_engineer que verifique la biblioteca del sensor (lee proyectos/casa-demo/proyecto.json).',
+      proveedor(['No hay registros; investiga tú (workspace://proyectos/casa-demo/proyecto.json).'], vistos),
+    );
+    expect(task.state).toBe('WAITING_FOR_HUMAN');
+    const razones = runtime.listEvents({ taskId: task.id }).filter((e) => e.type === 'agent.invalid_response').map((e) => String(e.payload.reason));
+    expect(razones[0]).toMatch(/software_engineer/);
+    expect(vistos[1].at(-1)?.content).toMatch(/team_delegate_task/);
+  });
+
+  it('un informe sin ninguna referencia no se acepta cuando la tarea exige evidencia', async () => {
+    const { task } = await correr('Lee proyectos/casa-demo/proyecto.json', proveedor(['Todo correcto.', 'Todo correcto según workspace://proyectos/casa-demo/proyecto.json.']));
+    expect(task.state).toBe('COMPLETED');
+    expect(task.result?.summary).toContain('workspace://');
+  });
+});
+
+describe('ausencias sin confirmar', () => {
+  it('tras leer un tramo parcial, «no se encontró» exige una búsqueda propia antes de cerrar', async () => {
+    const { runtime, task } = await correr(
+      'Comprueba en server/bibliotecas.lock.json la biblioteca del DHT22.',
+      proveedor(['No se encontró biblioteca para el DHT22 (workspace://server/bibliotecas.lock.json).']),
+    );
+    expect(task.state).toBe('WAITING_FOR_HUMAN');
+    expect(runtime.listEvents({ taskId: task.id }).find((e) => e.type === 'agent.invalid_response')?.payload.reason).toMatch(/tramos parciales/);
+  });
+});
+
+describe('delegación pendiente', () => {
+  it('tras rechazar el cierre por una delegación pendiente, el turno siguiente solo ofrece team_delegate_task', async () => {
+    const ofrecidas: string[][] = [];
+    let i = 0;
+    const provider: AgentModelProvider = {
+      name: 'ollama', model: 'prueba',
+      async status() { return { provider: 'ollama', model: 'prueba', available: true }; },
+      async chat(input) {
+        ofrecidas.push(input.tools.map((t) => t.function.name));
+        i += 1;
+        return { message: { role: 'assistant', content: 'Se ha delegado a software_engineer (workspace://x).' }, promptTokens: 1, completionTokens: 1 };
+      },
+    };
+    const { task } = await correr('Delega a software_engineer que revise proyectos/casa-demo/proyecto.json.', provider);
+    expect(task.state).toBe('WAITING_FOR_HUMAN');
+    expect(ofrecidas[0]).toContain('workspace_read_file');
+    expect(ofrecidas[1]).toEqual(['team_delegate_task']);
+    expect(i).toBe(3);
+  });
+});
+
+describe('ausencia contradicha por la búsqueda', () => {
+  it('si la búsqueda previa encontró el término, «no se encuentra» se rechaza citando la línea', async () => {
+    const { runtime, task } = await correr(
+      'Busca la biblioteca del SHT31 en server/bibliotecas.lock.json.',
+      proveedor(['La biblioteca del SHT31 no se encuentra (workspace://server/bibliotecas.lock.json).']),
+    );
+    expect(task.state).toBe('WAITING_FOR_HUMAN');
+    const r = runtime.listEvents({ taskId: task.id }).find((e) => e.type === 'agent.invalid_response')?.payload.reason;
+    expect(r).toMatch(/bibliotecas\.lock\.json:\d+/);
+    const pre = runtime.listEvents({ taskId: task.id }).find((e) => e.type === 'tool.requested');
+    expect(pre?.payload.arguments).toEqual({ query: 'SHT31', path: 'server/bibliotecas.lock.json' });
+  });
+});
+
+describe('memoria pedida', () => {
+  it('si el objetivo pide guardar en la memoria y no se hizo, no se cierra y se ofrece solo team_knowledge_record', async () => {
+    const ofrecidas: string[][] = [];
+    const provider: AgentModelProvider = {
+      name: 'ollama', model: 'prueba',
+      async status() { return { provider: 'ollama', model: 'prueba', available: true }; },
+      async chat(input) {
+        ofrecidas.push(input.tools.map((t) => t.function.name));
+        return { message: { role: 'assistant', content: 'Hecho (workspace://proyectos/casa-demo/proyecto.json).' }, promptTokens: 1, completionTokens: 1 };
+      },
+    };
+    const { task } = await correr('Revisa proyectos/casa-demo/proyecto.json y guarda lo verificado en la memoria del equipo.', provider);
+    expect(task.state).toBe('WAITING_FOR_HUMAN');
+    expect(ofrecidas[1]).toEqual(['team_knowledge_record']);
+  });
+});

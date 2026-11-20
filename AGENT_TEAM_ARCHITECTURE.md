@@ -214,3 +214,31 @@ Fallos del runtime encontrados y corregidos (pruebas en `server/agentTeam/orches
 - **La búsqueda previa** usaba la primera palabra del enunciado («Comprobación»). Ahora manda lo que la persona escribe entre comillas.
 
 Con `llama3.2` (3B) el equipo **no es operativo**: no respeta los esquemas de herramientas (inventa argumentos y commits, delega en sí mismo o en un agente «admin» inexistente). Tras las correcciones, sus tareas quedan honestamente en `WAITING_FOR_HUMAN`. Hace falta el modelo para el que se diseñó el equipo (`qwen2.5-coder:7b`) o uno mayor. En un Intel Xeon sin GPU, un 7B responde despacio.
+
+## 15. Auditoría con `qwen2.5-coder:7b` y escenario de colaboración (20/11/2026)
+
+Modelo `qwen2.5-coder:7b` (Ollama 0.40.16, CPU Intel Xeon W-2150B sin GPU, ~34 GB RAM). Los tres agentes lo usan: cada `agent.turn_started` registra `model: qwen2.5-coder:7b`.
+
+### Escenario real (tareas, mensajes y memoria en el registro)
+
+| Paso | Tarea | Agente | Resultado verificado contra el repositorio |
+|---|---|---|---|
+| Identificar sensor fuera del catálogo | `dcaed0b0` | mecatrónica | Propone SHT31 (I2C). Correcto: el catálogo solo tiene `sensor-dht22`. **Error:** también lista el MPU6050 como sensor de temperatura y humedad. |
+| Delegar verificación de biblioteca | `0a7eacd7` → `9d9a9f02` | mecatrónica → software | «Adafruit SHT31 Library» 2.2.2, BSD-3-Clause, compatible con ESP32 (`arquitecturas: ["*"]`). Correcto (`server/bibliotecas.lock.json` L1009–1029). |
+| Propuesta + memoria | `0a7eacd7` | mecatrónica | I2C, 3,3 V, dirección 0x44 por omisión. Registro `be38ac26` (component, UNVERIFIED) en `knowledge.jsonl`. No concreta GPIO 21/22. |
+| Modelo 3D | `b373c2f4` → `4babacc4` | mecatrónica → estructural | `ELE-TAB-TG` y lista `sensores` de la estación: correcto. **Error:** describe el DHT22 existente como si fuera el nuevo sensor, y el plan final declara el SHT31 «con el modelo DHT22». |
+
+La **colaboración funciona mecánicamente**: hay delegaciones reales con tarea hija, mensajes `delegation.request`/`delegation.response`, reanudación del padre y registro en la memoria. **La calidad técnica del contenido no es fiable** con un 7B: confunde datos y hace falta revisión humana. El escenario completo de cuatro pasos en una sola tarea no termina; dividido en tres tareas encadenadas (`contextRefs: task://…`), sí.
+
+### Correcciones del runtime en esta ronda
+
+- La lectura de archivos acepta `startLine`/`lineCount`, muestra hasta 6.000 caracteres y avisa: «SOLO VES LAS LÍNEAS a-b DE N; no concluyas que algo falta». Con el corte en 2.000 caracteres, un agente dio por ausente la biblioteca del DHT22, que sí existía.
+- Si el objetivo nombra un archivo y un término técnico (SHT31, ELE-TAB-TG), la búsqueda previa se hace dentro de ese archivo.
+- No se acepta un cierre que niegue algo que la búsqueda sí encontró: se rechaza citando archivo y línea.
+- Tampoco se acepta una ausencia afirmada tras ver solo un tramo, si el agente no lo ha confirmado con una búsqueda propia.
+- Si el objetivo nombra a otro agente y no se le ha delegado, el cierre se rechaza. El turno siguiente solo ofrece `team_delegate_task`, y la gramática de Ollama (`requireTool`) obliga a dar `name` y `arguments`.
+- Si el objetivo ordena «guarda … en la memoria», se exige un `knowledge.recorded` antes de cerrar.
+- Un informe final que solo copia la respuesta de una subtarea se rechaza. Al reanudar, el padre recibe un «ESTADO» con lo ya delegado y las frases del objetivo que le quedan.
+- `{"action":"tool_call","content":"<herramienta>"}` se acepta solo si el nombre coincide exactamente con una herramienta ofrecida.
+- Presupuesto de tokens por tarea: 120.000 (antes 24.000, que se agotaba al reanudar con ventana de 16 k). Las subtareas tienen hasta 6 turnos.
+- La búsqueda excluye `.agent-runtime/`, la copia compilada que duplicaba coincidencias.

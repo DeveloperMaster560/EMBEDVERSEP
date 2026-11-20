@@ -61,6 +61,8 @@ export interface AgentModelProvider {
     tools: ChatToolSchema[];
     signal: AbortSignal;
     maxOutputTokens: number;
+    /** Exige llamar a la única herramienta ofrecida (sin informe final). */
+    requireTool?: boolean;
   }): Promise<ModelResponse>;
 }
 
@@ -102,6 +104,14 @@ function parseResponse(value: unknown, toolNames: readonly string[]): ModelRespo
   if (!toolCalls.length && toolNames.length && content.trimStart().startsWith('{')) {
     try {
       const action = JSON.parse(content) as Record<string, unknown>;
+      // Sin «name» obligatorio en el esquema, algún modelo pone el nombre de la
+      // herramienta en «content». Solo se acepta si coincide EXACTAMENTE con una
+      // herramienta ofrecida: la intención no es ambigua y no se inventa nada.
+      if (action.action === 'tool_call' && typeof action.name !== 'string'
+        && typeof action.content === 'string' && toolNames.includes(action.content.trim())) {
+        action.name = action.content.trim();
+        action.content = '';
+      }
       if (action.action === 'tool_call'
         && typeof action.name === 'string'
         && toolNames.includes(action.name)
@@ -178,9 +188,24 @@ export class OllamaProvider implements AgentModelProvider {
     tools: ChatToolSchema[];
     signal: AbortSignal;
     maxOutputTokens: number;
+    requireTool?: boolean;
   }): Promise<ModelResponse> {
     const toolNames = input.tools.map(({ function: fn }) => fn.name);
-    const format = toolNames.length ? {
+    // Con UNA sola herramienta ofrecida (el orquestador exige ese paso) la gramática obliga a
+    // llamarla con name y arguments; sin ello el modelo escribía {"action":"tool_call","content":…}
+    // sin nombre ni argumentos, que no se puede ejecutar.
+    const unica = input.requireTool && toolNames.length === 1 ? input.tools[0].function : null;
+    const format = unica ? {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['tool_call'] },
+        name: { type: 'string', enum: [unica.name] },
+        arguments: { type: 'object', properties: unica.parameters.properties, required: unica.parameters.required },
+        content: { type: 'string' },
+      },
+      required: ['action', 'name', 'arguments'],
+      additionalProperties: false,
+    } : toolNames.length ? {
       type: 'object',
       properties: {
         action: { type: 'string', enum: ['tool_call', 'final'] },

@@ -28,3 +28,19 @@ describe('WorkspaceToolRegistry', () => {
       .rejects.toThrow('no tiene permiso');
   });
 });
+
+describe('lectura por tramos (auditoría 20/11/2026)', () => {
+  it('un archivo largo avisa de que solo se ve un tramo y se puede leer otro', async () => {
+    const { WorkspaceToolRegistry } = await import('./tools.js');
+    const tools = new WorkspaceToolRegistry(process.cwd());
+    const primero = JSON.parse((await tools.execute('software_engineer', 'workspace.read_file', { path: 'server/bibliotecas.lock.json' })).text);
+    expect(primero.truncated).toBe(true);
+    expect(primero.aviso).toMatch(/No concluyas que algo falta/);
+    const linea = (await import('node:fs')).readFileSync('server/bibliotecas.lock.json', 'utf8').split('\n').findIndex((l) => l.includes('"DHT sensor library"')) + 1;
+    expect(linea).toBeGreaterThan(primero.lines.to);
+    const tramo = JSON.parse((await tools.execute('software_engineer', 'workspace.read_file', { path: 'server/bibliotecas.lock.json', startLine: linea, lineCount: 5 })).text);
+    expect(tramo.content).toContain('DHT sensor library');
+    const busqueda = JSON.parse((await tools.execute('software_engineer', 'workspace.search', { query: 'DHT sensor library', path: 'server/bibliotecas.lock.json' })).text);
+    expect(busqueda.matches.length).toBeGreaterThan(0);
+  });
+});

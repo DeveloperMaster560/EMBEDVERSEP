@@ -6,12 +6,15 @@ import { assertNoCredentialMaterial } from '../../src/agent-team/security.js';
 import type { ChatToolSchema } from './providers/ollama.js';
 
 const MAX_FILE_BYTES = 128 * 1024;
-const MAX_FILE_CHARS = 2_000;
+/** Por lectura. Con 2.000 un agente veía el 2 % de bibliotecas.lock.json y daba por ausente el resto. */
+const MAX_FILE_CHARS = 6_000;
 const MAX_SEARCH_FILES = 500;
 const MAX_SEARCH_BYTES = 12 * 1024 * 1024;
 const MAX_SEARCH_MATCHES = 30;
 const SKIP_DIRECTORY_NAMES = new Set([
   '.git', '.aws', '.codex', '.agents', '.embedverse', '.tools', '.venv', 'node_modules', 'dist',
+  // Copia compilada del runtime: duplicaba cada coincidencia de server/.
+  '.agent-runtime', '.agent-runtime-data',
   'coverage', 'secretos', 'secrets', 'datos', '__pycache__',
 ]);
 const SKIP_FILE_NAMES = /^(?:\.env(?:\..*)?|.*(?:secret|credential|password|token).*)$|\.(?:pem|p12|pfx|key)$/i;
@@ -83,7 +86,11 @@ export class WorkspaceToolRegistry {
             description: 'Lee un archivo de texto del repositorio actual. No accede a secretos, dependencias ni archivos fuera del repositorio.',
             parameters: {
               type: 'object', required: ['path'], additionalProperties: false,
-              properties: { path: { type: 'string', description: 'Ruta relativa al repositorio, por ejemplo src/domain/circuit.ts.' } },
+              properties: {
+                path: { type: 'string', description: 'Ruta relativa al repositorio, por ejemplo src/domain/circuit.ts.' },
+                startLine: { type: 'integer', description: 'Opcional: primera línea (desde 1) para leer un archivo largo por tramos.' },
+                lineCount: { type: 'integer', description: 'Opcional: cuántas líneas leer desde startLine.' },
+              },
             },
           },
         },
@@ -100,7 +107,7 @@ export class WorkspaceToolRegistry {
               type: 'object', required: ['query'], additionalProperties: false,
               properties: {
                 query: { type: 'string', description: 'Texto literal que se quiere localizar.' },
-                path: { type: 'string', description: 'Subcarpeta relativa opcional para limitar la búsqueda.' },
+                path: { type: 'string', description: 'Opcional: subcarpeta o ARCHIVO relativo donde buscar (p. ej. server/bibliotecas.lock.json).' },
               },
             },
           },
@@ -165,21 +172,33 @@ export class WorkspaceToolRegistry {
   }
 
   private async readFileTool(args: Record<string, unknown>): Promise<ToolEvidence> {
-    validateKeys(args, ['path']);
+    validateKeys(args, ['path', 'startLine', 'lineCount']);
     const { absolute, display } = await this.resolvePath(requireString(args, 'path', 500));
+    const entero = (v: unknown, def: number) => (Number.isSafeInteger(Number(v)) && Number(v) > 0 ? Number(v) : def);
     const info = await lstat(absolute);
     if (info.size > MAX_FILE_BYTES) throw new ToolExecutionError(`El archivo supera el límite de ${MAX_FILE_BYTES} bytes.`);
     const content = await readFile(absolute, 'utf8');
     if (content.includes('\0')) throw new ToolExecutionError('El archivo parece binario y no se devuelve al modelo.');
     assertNoCredentialMaterial(content);
-    const shown = content.slice(0, MAX_FILE_CHARS);
-    const truncated = shown.length < content.length;
+    const lines = content.split(/\r?\n/);
+    const desde = Math.min(entero(args.startLine, 1), Math.max(1, lines.length));
+    const pedidas = entero(args.lineCount, lines.length);
+    let tramo = lines.slice(desde - 1, desde - 1 + pedidas).join('\n');
+    if (tramo.length > MAX_FILE_CHARS) tramo = tramo.slice(0, MAX_FILE_CHARS);
+    const hasta = desde - 1 + tramo.split('\n').length;
+    const truncated = desde > 1 || hasta < lines.length;
     const hash = digest(content);
-    const text = JSON.stringify({ path: display, sha256: hash, content: shown, truncated, totalCharacters: content.length });
+    const text = JSON.stringify({
+      path: display, sha256: hash, content: tramo, truncated,
+      lines: { from: desde, to: hasta, total: lines.length }, totalCharacters: content.length,
+      ...(truncated ? {
+        aviso: `SOLO VES LAS LÍNEAS ${desde}-${hasta} DE ${lines.length}. No concluyas que algo falta en este archivo: búscalo con workspace_search (query=el término, path="${display}") o lee otro tramo con startLine.`,
+      } : {}),
+    });
     return {
       text,
       evidenceRefs: [`workspace://${display}#sha256=${hash}`],
-      summary: `Lectura de ${display}; ${content.length} caracteres${truncated ? ' (respuesta recortada)' : ''}.`,
+      summary: `Lectura de ${display}; líneas ${desde}-${hasta} de ${lines.length}${truncated ? ' (tramo parcial)' : ''}.`,
     };
   }
 

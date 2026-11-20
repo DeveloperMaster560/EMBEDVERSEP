@@ -133,7 +133,7 @@ describe('AgentOrchestrator', () => {
           promptTokens: 30, completionTokens: 10,
         };
         return {
-          message: { role: 'assistant', content: call === 2 ? 'README evidence reviewed.' : 'Combined result from the structural specialist.' },
+          message: { role: 'assistant', content: call === 2 ? 'README evidence reviewed: workspace://README.md.' : 'Combined result from the structural specialist.' },
           promptTokens: 40, completionTokens: 15,
         };
       },
@@ -170,7 +170,7 @@ describe('AgentOrchestrator', () => {
       async status() { return { provider: 'ollama', model: this.model, available: true }; },
       async chat({ messages }) {
         sawProjectContent = messages.some((message) => message.content.includes('SENSOR_SAMPLE_RATE = 100'));
-        return { message: { role: 'assistant', content: 'The selected project uses a 100 Hz sample rate.' }, promptTokens: 20, completionTokens: 10 };
+        return { message: { role: 'assistant', content: 'The selected project uses a 100 Hz sample rate (project://demo/firmware/sensor.ts).' }, promptTokens: 20, completionTokens: 10 };
       },
     };
     const orchestrator = new AgentOrchestrator({ runtime, workspaceRoot: process.cwd(), provider });
@@ -210,7 +210,7 @@ describe('AgentOrchestrator', () => {
           expect(tools.map((tool) => tool.function.name)).toContain('firmware_compile_selected');
           return { message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'firmware_compile_selected', arguments: {} } }] }, promptTokens: 20, completionTokens: 5 };
         }
-        return { message: { role: 'assistant', content: 'Compilación confirmada con evidencia.' }, promptTokens: 30, completionTokens: 10 };
+        return { message: { role: 'assistant', content: 'Compilación confirmada con evidencia (project://demo/main.ino).' }, promptTokens: 30, completionTokens: 10 };
       },
     };
     const orchestrator = new AgentOrchestrator({

@@ -5,7 +5,10 @@ export const DEFAULT_TASK_BUDGET: Readonly<AgentBudget> = Object.freeze({
   maxToolCalls: 20,
   maxRetries: 3,
   maxDurationMs: 10 * 60 * 1000,
-  maxTokens: 24_000,
+  // Cuenta prompt + respuesta de cada turno. Con 24.000 una tarea que delega y se reanuda
+  // (ventana de 16 k) se quedaba sin presupuesto al tercer turno. En local no hay coste por token:
+  // el límite real es el tiempo de trabajo (maxDurationMs).
+  maxTokens: 120_000,
 });
 
 export function enforceBudget(requested: Partial<AgentBudget> = {}): AgentBudget {
