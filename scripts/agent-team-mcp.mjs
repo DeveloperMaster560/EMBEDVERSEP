@@ -39,6 +39,23 @@ const tools = [
     },
   },
   {
+    name: 'embedverse_list_events',
+    description: 'Consulta el registro de eventos (auditoría) de una tarea: herramientas usadas, resultados, errores y respuestas inválidas del modelo. Sirve para verificar evidencias, no solo el resumen del agente.',
+    inputSchema: { type: 'object', required: ['taskId'], properties: { taskId: { type: 'string', format: 'uuid' } }, additionalProperties: false },
+  },
+  {
+    name: 'embedverse_search_knowledge',
+    description: 'Consulta la memoria de conocimiento compartida del equipo (decisiones, componentes, bibliotecas verificadas, errores y soluciones) con su nivel de verificación.',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        query: { type: 'string', maxLength: 500 },
+        category: { type: 'string', enum: ['project', 'technical', 'component', 'error', 'solution', 'decision'] },
+        projectId: { type: 'string', maxLength: 120 },
+      },
+    },
+  },
+  {
     name: 'embedverse_cancel_task',
     description: 'Cancela una tarea activa del equipo EMBEVERSE. Solo cancela tareas en estado activo indicado.',
     inputSchema: {
@@ -111,6 +128,15 @@ async function callTool(name, rawArgs) {
           requiresEvidence: true,
         }),
       });
+    }
+    case 'embedverse_list_events': {
+      if (!args.taskId) throw new Error('taskId es obligatorio.');
+      return api(`/events?taskId=${encodeURIComponent(String(args.taskId))}`);
+    }
+    case 'embedverse_search_knowledge': {
+      const query = new URLSearchParams();
+      for (const k of ['query', 'category', 'projectId']) if (typeof args[k] === 'string' && args[k]) query.set(k, args[k]);
+      return api(`/knowledge${query.size ? `?${query}` : ''}`);
     }
     case 'embedverse_cancel_task': {
       if (!args.taskId) throw new Error('taskId es obligatorio.');

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AgentDefinition, AgentId, AgentMessage, AgentPatchProposal, AgentTask, TaskState } from '../../src/agent-team/contracts.js';
+import type { AgentDefinition, AgentId, AgentMessage, AgentPatchProposal, AgentTask, KnowledgeRecord, TaskState } from '../../src/agent-team/contracts.js';
 import { AGENT_REGISTRY } from '../../src/agent-team/registry.js';
 import type { AgentRuntime } from './runtime.js';
 import { AgentInputError } from './runtime.js';
@@ -51,6 +51,38 @@ const DELEGATE_TOOL: ChatToolSchema = {
     },
   },
 };
+const KNOWLEDGE_SEARCH_TOOL: ChatToolSchema = {
+  type: 'function',
+  function: {
+    name: 'team_knowledge_search',
+    description: 'Consulta la memoria compartida del equipo: decisiones, componentes investigados, bibliotecas verificadas, compatibilidades, errores y soluciones, resultados de pruebas. Devuelve la última versión de cada registro con su nivel de verificación.',
+    parameters: {
+      type: 'object', required: ['query'], additionalProperties: false,
+      properties: {
+        query: { type: 'string', description: 'Palabras clave (p. ej. «SHT31 licencia», «DHT22 ESP32»).' },
+        category: { type: 'string', description: 'Opcional: filtra por categoría.', enum: ['project', 'technical', 'component', 'error', 'solution', 'decision'] },
+      },
+    },
+  },
+};
+const KNOWLEDGE_RECORD_TOOL: ChatToolSchema = {
+  type: 'function',
+  function: {
+    name: 'team_knowledge_record',
+    description: 'Guarda en la memoria compartida algo que el equipo debe poder reutilizar. Cita su origen. Usa COMPUTATIONAL solo si citas una referencia que una herramienta te devolvió en esta tarea; si no, UNVERIFIED. No inventes datos.',
+    parameters: {
+      type: 'object', required: ['category', 'subject', 'content', 'sourceRefs'], additionalProperties: false,
+      properties: {
+        category: { type: 'string', description: 'Tipo de conocimiento.', enum: ['project', 'technical', 'component', 'error', 'solution', 'decision'] },
+        subject: { type: 'string', description: 'Asunto corto y buscable.' },
+        content: { type: 'string', description: 'Lo aprendido, con datos concretos y sus límites.' },
+        sourceRefs: { type: 'array', description: 'Referencias de origen (workspace://…, project://…, task://…).' },
+        verificationLevel: { type: 'string', description: 'UNVERIFIED o COMPUTATIONAL.', enum: ['UNVERIFIED', 'COMPUTATIONAL'] },
+        supersedes: { type: 'string', description: 'Opcional: id del registro que esta versión corrige.' },
+      },
+    },
+  },
+};
 const FIRMWARE_COMPILE_TOOL: ChatToolSchema = {
   type: 'function',
   function: {
@@ -93,7 +125,13 @@ function systemPrompt(agentId: AgentId): string {
     'No tienes herramienta para instalar dependencias, ejecutar comandos, desplegar o acceder a hardware. No afirmes que hiciste esas acciones.',
     'Si faltan datos o el proveedor devuelve una respuesta incierta, dilo y solicita la información necesaria.',
     'Al terminar, entrega un informe breve con hallazgos, referencias workspace://, verificaciones y limitaciones.',
+    'Formato de cada respuesta: para usar una herramienta {"action":"tool_call","name":"<herramienta>","arguments":{...},"content":""}; para terminar {"action":"final","content":"<informe>"}. Solo puedes llamar a las herramientas que se te ofrecen en este turno; nunca inventes una ni sus resultados.',
   ];
+  const otros = (Object.keys(AGENT_REGISTRY) as AgentId[]).filter((id) => id !== agentId)
+    .map((id) => `${id} (${AGENT_REGISTRY[id].specialty})`);
+  common.unshift(
+    `Tu identificador es ${agentId}. Tus compañeros, a los que puedes delegar con team_delegate_task (campo agentId), son: ${otros.join('; ')}. No existe ningún otro agente y no puedes delegarte a ti mismo.`,
+  );
   const specialty: Record<AgentId, string[]> = {
     structural_engineer: [
       'Especialidad: modelado e integración estructural conceptual.',
@@ -111,6 +149,10 @@ function systemPrompt(agentId: AgentId): string {
   return [...common, ...specialty[agentId]].join('\n');
 }
 
+function resumenConocimiento(r: KnowledgeRecord) {
+  return { id: r.id, category: r.category, subject: r.subject, content: r.content.slice(0, 800), verificationLevel: r.verificationLevel, version: r.version, createdBy: r.createdBy, createdAt: r.createdAt, sourceRefs: r.sourceRefs.slice(0, 5) };
+}
+
 function parseToolArguments(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new AgentInputError('La llamada del modelo contiene argumentos que no son un objeto.');
@@ -123,6 +165,8 @@ export class AgentOrchestrator {
   readonly tools: WorkspaceToolRegistry;
   private readonly runtime: AgentRuntime;
   private readonly projectContexts = new Map<string, { boardId: string; files: { path: string; content: string }[] }>();
+  /** Milisegundos de trabajo consumidos por tarea (en memoria: tras un reinicio no se reanuda nada solo). */
+  private readonly activeMs = new Map<string, number>();
   private readonly firmwareCompiler: FirmwareCompiler;
   private readonly queue: string[] = [];
   private readonly queued = new Set<string>();
@@ -273,8 +317,13 @@ export class AgentOrchestrator {
 
     const controller = new AbortController();
     this.activeController = controller;
-    const remainingMs = Math.max(1, new Date(task.deadlineAt).getTime() - Date.now());
-    const timeout = setTimeout(() => controller.abort(new Error('Se agotó el tiempo máximo de la tarea.')), remainingMs);
+    // El presupuesto de duración es tiempo de TRABAJO: lo que la tarea pasa esperando
+    // a un especialista (WAITING_FOR_AGENT) no se descuenta. Con el plazo de reloj, una
+    // tarea padre volvía de su subtarea ya vencida y se abortaba en 1 ms.
+    const usadoMs = this.activeMs.get(task.id) ?? 0;
+    const remainingMs = Math.max(1, task.budget.maxDurationMs - usadoMs);
+    const inicioMs = Date.now();
+    const timeout = setTimeout(() => controller.abort(new Error('Se agotó el tiempo máximo de trabajo de la tarea.')), remainingMs);
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt(task.assignedAgentId) },
       {
@@ -285,6 +334,7 @@ export class AgentOrchestrator {
           `Proyecto: ${task.projectId}`,
           ...this.rejectedPatchNotes(task),
           task.contextRefs.length ? `Referencias de contexto declaradas: ${task.contextRefs.join(', ')}` : '',
+          ...this.memoriaRelevante(task),
           ...this.incomingMessages(task).map((message) => `Respuesta del agente ${message.senderAgentId}: ${message.description}\nDatos: ${JSON.stringify(message.technicalContext)}\nReferencias: ${message.resourceRefs.join(', ') || 'ninguna'}`),
           'Si una referencia no es una ruta del repositorio, informa que esta primera versión no puede abrirla.',
         ].filter(Boolean).join('\n'),
@@ -330,6 +380,8 @@ export class AgentOrchestrator {
             ...(initialEvidence ? [] : this.tools.listForAgent(task.assignedAgentId)),
             ...(this.canCompileProject(task) ? [FIRMWARE_COMPILE_TOOL] : []),
             ...(this.canProposePatch(task) ? [PROJECT_PROPOSE_EDIT_TOOL] : []),
+            KNOWLEDGE_SEARCH_TOOL,
+            KNOWLEDGE_RECORD_TOOL,
             DELEGATE_TOOL,
           ],
           signal: controller.signal,
@@ -352,6 +404,20 @@ export class AgentOrchestrator {
           },
         });
 
+        if (response.truncated || response.contextSaturated) {
+          invalidFinalTurns += 1;
+          const motivo = response.truncated
+            ? 'La respuesta se cortó por el límite de tokens de salida.'
+            : 'El prompt llenó la ventana de contexto: el modelo pudo no ver sus instrucciones.';
+          await this.runtime.recordEvent({
+            taskId, type: 'agent.invalid_response', actor: task.assignedAgentId,
+            payload: { turn: turns, reason: motivo, promptTokens: response.promptTokens, completionTokens: response.completionTokens },
+          });
+          if (invalidFinalTurns >= MAX_INVALID_FINAL_TURNS) throw new Error(`${motivo} La tarea necesita supervisión humana.`);
+          messages.pop();
+          messages.push({ role: 'user', content: `${motivo} Responde de nuevo de forma más breve: una sola llamada a herramienta o un informe final conciso.` });
+          continue;
+        }
         const calls = response.message.tool_calls ?? [];
         if (!calls.length) {
           const summary = response.message.content.trim();
@@ -369,6 +435,8 @@ export class AgentOrchestrator {
               ...(initialEvidence ? [] : this.tools.listForAgent(task.assignedAgentId).map((t) => t.function.name)),
               ...(this.canCompileProject(task) ? [FIRMWARE_COMPILE_TOOL.function.name] : []),
               ...(this.canProposePatch(task) ? [PROJECT_PROPOSE_EDIT_TOOL.function.name] : []),
+              KNOWLEDGE_SEARCH_TOOL.function.name,
+              KNOWLEDGE_RECORD_TOOL.function.name,
               DELEGATE_TOOL.function.name,
             ];
             messages.push({
@@ -427,7 +495,15 @@ export class AgentOrchestrator {
               actor: task.assignedAgentId,
               payload: { toolId },
             });
-            const child = await this.delegate(task, args);
+            let child: Awaited<ReturnType<AgentOrchestrator['delegate']>>;
+            try {
+              child = await this.delegate(task, args);
+            } catch (error) {
+              if (!(error instanceof AgentInputError)) throw error;
+              await this.runtime.recordEvent({ taskId, type: 'tool.failed', actor: task.assignedAgentId, payload: { toolId, error: error.message } });
+              messages.push({ role: 'tool', tool_name: functionName, content: `Delegación rechazada: ${error.message} Corrige los argumentos (agentId, goal, expectedResult) o continúa sin delegar.` });
+              continue;
+            }
             await this.runtime.recordEvent({
               taskId,
               type: 'tool.completed',
@@ -436,6 +512,41 @@ export class AgentOrchestrator {
             });
             messages.push({ role: 'tool', tool_name: functionName, content: `Subtarea ${child.id} enviada al agente ${child.assignedAgentId}; la tarea principal queda esperando la respuesta.` });
             return;
+          }
+          if (toolId === 'team_knowledge_search' || toolId === 'team_knowledge_record') {
+            await this.runtime.recordEvent({ taskId, type: 'tool.started', actor: task.assignedAgentId, payload: { toolId } });
+            try {
+              let texto: string;
+              if (toolId === 'team_knowledge_search') {
+                const hallados = this.runtime.knowledge.search({
+                  query: typeof args.query === 'string' ? args.query : '',
+                  ...(typeof args.category === 'string' ? { category: args.category as KnowledgeRecord['category'] } : {}),
+                  projectId: task.projectId, limit: 8,
+                });
+                texto = hallados.length ? JSON.stringify(hallados.map(resumenConocimiento)) : 'La memoria del equipo no tiene registros sobre eso.';
+                await this.runtime.recordEvent({ taskId, type: 'tool.completed', actor: task.assignedAgentId, payload: { toolId, summary: `${hallados.length} registros de la memoria.`, knowledgeIds: hallados.map((r) => r.id) } });
+              } else {
+                const allowed = ['category', 'subject', 'content', 'sourceRefs', 'verificationLevel', 'supersedes'];
+                if (Object.keys(args).some((k) => !allowed.includes(k))) throw new AgentInputError(`Campos permitidos: ${allowed.join(', ')}.`);
+                const record = await this.runtime.recordKnowledge(task.id, {
+                  category: args.category as KnowledgeRecord['category'],
+                  subject: String(args.subject ?? ''),
+                  content: String(args.content ?? ''),
+                  sourceRefs: Array.isArray(args.sourceRefs) ? args.sourceRefs.map(String) : typeof args.sourceRefs === 'string' ? [args.sourceRefs] : [],
+                  createdBy: task.assignedAgentId,
+                  ...(typeof args.verificationLevel === 'string' ? { verificationLevel: args.verificationLevel as KnowledgeRecord['verificationLevel'] } : {}),
+                  ...(typeof args.supersedes === 'string' && args.supersedes ? { supersedes: args.supersedes } : {}),
+                }, evidenceRefs);
+                texto = `Guardado en la memoria: ${record.id} (versión ${record.version}, ${record.verificationLevel}).`;
+                await this.runtime.recordEvent({ taskId, type: 'tool.completed', actor: task.assignedAgentId, payload: { toolId, summary: texto, knowledgeId: record.id } });
+              }
+              messages.push({ role: 'tool', tool_name: functionName, content: texto.slice(0, MAX_TOOL_RESULT_CHARS) });
+            } catch (error) {
+              if (!(error instanceof AgentInputError) && !(error instanceof Error && error.name === 'CredentialMaterialError')) throw error;
+              await this.runtime.recordEvent({ taskId, type: 'tool.failed', actor: task.assignedAgentId, payload: { toolId, error: error.message } });
+              messages.push({ role: 'tool', tool_name: functionName, content: `Herramienta no ejecutada: ${error.message}` });
+            }
+            continue;
           }
           if (toolId === 'firmware_compile_selected') {
             await this.runtime.recordEvent({ taskId, type: 'tool.started', actor: task.assignedAgentId, payload: { toolId } });
@@ -523,7 +634,17 @@ export class AgentOrchestrator {
       }
     } finally {
       clearTimeout(timeout);
+      this.activeMs.set(task.id, usadoMs + (Date.now() - inicioMs));
     }
+  }
+
+  /** Lo que la memoria del equipo ya sabe sobre el objetivo, para no repetir descubrimientos. */
+  private memoriaRelevante(task: AgentTask): string[] {
+    const hallados = this.runtime.knowledge.search({ query: `${task.goal} ${task.expectedResult}`, projectId: task.projectId, limit: 5 });
+    if (!hallados.length) return [];
+    return [
+      `Memoria del equipo (consulta antes de repetir trabajo; respeta el nivel de verificación, UNVERIFIED no es un hecho comprobado):\n${JSON.stringify(hallados.map(resumenConocimiento))}`,
+    ];
   }
 
   private incomingMessages(task: AgentTask): AgentMessage[] {

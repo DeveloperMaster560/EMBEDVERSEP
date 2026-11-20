@@ -83,3 +83,49 @@ describe('validación del resultado de un agente', () => {
     expect(q?.query).toBe('shm/v1');
   });
 });
+
+describe('auditoría del runtime (20/11/2026)', () => {
+  it('una respuesta cortada por el límite de tokens no se acepta como resultado', async () => {
+    let i = 0;
+    const provider: AgentModelProvider = {
+      name: 'ollama', model: 'prueba',
+      async status() { return { provider: 'ollama', model: 'prueba', available: true }; },
+      async chat() {
+        i += 1;
+        return i === 1
+          ? { message: { role: 'assistant', content: 'La estación está en ELE-' }, promptTokens: 10, completionTokens: 1024, truncated: true }
+          : { message: { role: 'assistant', content: 'La estación está en ELE-TAB-TG (workspace://proyectos/casa-demo/proyecto.json).' }, promptTokens: 10, completionTokens: 20 };
+      },
+    };
+    const { runtime, task } = await correr('Lee proyectos/casa-demo/proyecto.json', provider);
+    expect(task.state).toBe('COMPLETED');
+    expect(task.result?.summary).toContain('ELE-TAB-TG');
+    expect(runtime.listEvents({ taskId: task.id }).find((e) => e.type === 'agent.invalid_response')?.payload.reason).toMatch(/cortó/);
+  });
+
+  it('una delegación inválida se devuelve al agente para que la corrija, sin abortar la tarea', async () => {
+    let i = 0;
+    const provider: AgentModelProvider = {
+      name: 'ollama', model: 'prueba',
+      async status() { return { provider: 'ollama', model: 'prueba', available: true }; },
+      async chat() {
+        i += 1;
+        if (i === 1) return { message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'team_delegate_task', arguments: { agentId: 'admin', goal: 'x', expectedResult: 'y' } } }] }, promptTokens: 10, completionTokens: 10 };
+        return { message: { role: 'assistant', content: 'Sin delegar: ELE-TAB-TG según workspace://proyectos/casa-demo/proyecto.json.' }, promptTokens: 10, completionTokens: 10 };
+      },
+    };
+    const { runtime, task } = await correr('Lee proyectos/casa-demo/proyecto.json', provider);
+    expect(task.state).toBe('COMPLETED');
+    expect(runtime.listEvents({ taskId: task.id }).some((e) => e.type === 'tool.failed' && e.payload.toolId === 'team_delegate_task')).toBe(true);
+  });
+
+  it('el prompt de sistema dice al agente quién es y a quién puede delegar', async () => {
+    const vistos: ChatMessage[][] = [];
+    await correr('Lee proyectos/casa-demo/proyecto.json', proveedor(['Informe workspace://x.'], vistos));
+    const sistema = vistos[0][0].content;
+    expect(sistema).toContain('Tu identificador es structural_engineer');
+    expect(sistema).toContain('software_engineer');
+    expect(sistema).toContain('mechatronics_engineer');
+    expect(sistema).toMatch(/no puedes delegarte a ti mismo/);
+  });
+});

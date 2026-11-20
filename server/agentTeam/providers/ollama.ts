@@ -29,6 +29,20 @@ export interface ModelResponse {
   message: ChatMessage;
   promptTokens: number;
   completionTokens: number;
+  /** Ollama cortó la respuesta por el límite de tokens (done_reason = "length"). */
+  truncated?: boolean;
+  /** El prompt llenó la ventana de contexto: Ollama pudo recortar su principio (instrucciones). */
+  contextSaturated?: boolean;
+}
+
+/** Ventana de contexto pedida a Ollama. Sin ella usa su valor por omisión (4096) y recorta el prompt sin avisar. */
+export const DEFAULT_NUM_CTX = 16_384;
+/** Tiempo por petición. En CPU un 7B con varios miles de tokens de prompt pasa de los 120 s de antes. */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 600_000;
+
+function enteroDeEntorno(nombre: string, porOmision: number, minimo: number, maximo: number): number {
+  const v = Number(process.env[nombre]);
+  return Number.isSafeInteger(v) && v >= minimo && v <= maximo ? v : porOmision;
 }
 
 export interface ProviderStatus {
@@ -111,20 +125,26 @@ function parseResponse(value: unknown, toolNames: readonly string[]): ModelRespo
     },
     promptTokens: Number.isSafeInteger(body.prompt_eval_count) ? body.prompt_eval_count as number : 0,
     completionTokens: Number.isSafeInteger(body.eval_count) ? body.eval_count as number : 0,
+    ...(body.done_reason === 'length' ? { truncated: true } : {}),
   };
 }
 
 export class OllamaProvider implements AgentModelProvider {
   readonly name = 'ollama' as const;
   readonly model: string;
+  readonly numCtx: number;
+  readonly requestTimeoutMs: number;
   private readonly baseUrl: URL;
   private readonly fetcher: typeof fetch;
 
-  constructor(options: { baseUrl?: string; model?: string; fetcher?: typeof fetch } = {}) {
+  constructor(options: { baseUrl?: string; model?: string; fetcher?: typeof fetch; numCtx?: number; requestTimeoutMs?: number } = {}) {
     this.baseUrl = validateLocalBaseUrl(options.baseUrl ?? process.env.EMBEDVERSE_OLLAMA_URL ?? 'http://127.0.0.1:11434');
     this.model = (options.model ?? process.env.EMBEDVERSE_OLLAMA_MODEL ?? 'qwen2.5-coder:7b').trim();
     if (!this.model || this.model.length > 120) throw new Error('Configura un nombre de modelo Ollama válido.');
     this.fetcher = options.fetcher ?? fetch;
+    this.numCtx = options.numCtx ?? enteroDeEntorno('EMBEDVERSE_OLLAMA_NUM_CTX', DEFAULT_NUM_CTX, 2_048, 131_072);
+    this.requestTimeoutMs = options.requestTimeoutMs
+      ?? enteroDeEntorno('EMBEDVERSE_OLLAMA_TIMEOUT_MS', DEFAULT_REQUEST_TIMEOUT_MS, 10_000, 3_600_000);
   }
 
   private endpoint(path: string): string {
@@ -168,20 +188,22 @@ export class OllamaProvider implements AgentModelProvider {
         arguments: { type: 'object' },
         content: { type: 'string' },
       },
-      required: ['action', 'name', 'arguments', 'content'],
+      // name/arguments solo hacen falta en una llamada: exigirlos en el informe final
+      // obligaba al modelo a inventar una herramienta («none») o unos argumentos.
+      required: ['action', 'content'],
       additionalProperties: false,
     } : undefined;
     const response = await this.fetcher(this.endpoint('/api/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.any([input.signal, AbortSignal.timeout(120_000)]),
+      signal: AbortSignal.any([input.signal, AbortSignal.timeout(this.requestTimeoutMs)]),
       body: JSON.stringify({
         model: this.model,
         messages: input.messages,
         tools: input.tools,
         ...(format ? { format } : {}),
         stream: false,
-        options: { temperature: 0, num_predict: input.maxOutputTokens },
+        options: { temperature: 0, num_predict: input.maxOutputTokens, num_ctx: this.numCtx },
       }),
     });
     if (!response.ok) {
@@ -190,6 +212,9 @@ export class OllamaProvider implements AgentModelProvider {
     }
     const raw = await response.text();
     if (Buffer.byteLength(raw) > 1024 * 1024) throw new Error('La respuesta de Ollama supera 1 MiB.');
-    return parseResponse(JSON.parse(raw) as unknown, toolNames);
+    const parsed = parseResponse(JSON.parse(raw) as unknown, toolNames);
+    // Ollama no avisa cuando recorta el prompt; si prompt + respuesta llenan la ventana, se asume que lo hizo.
+    if (parsed.promptTokens + input.maxOutputTokens >= this.numCtx - 8) parsed.contextSaturated = true;
+    return parsed;
   }
 }

@@ -181,6 +181,43 @@ export function createAgentTeamServer(
         }, allowedOrigin);
         return;
       }
+      // Memoria de conocimiento del equipo (no es el registro de eventos).
+      if (request.method === 'GET' && url.pathname === '/api/agent-team/knowledge') {
+        const category = url.searchParams.get('category');
+        const id = url.searchParams.get('historyOf');
+        if (id) { send(response, 200, { history: runtime.knowledge.history(id) }, allowedOrigin); return; }
+        send(response, 200, {
+          records: runtime.knowledge.search({
+            query: url.searchParams.get('query') ?? '',
+            ...(category ? { category: category as never } : {}),
+            projectId: url.searchParams.get('projectId') ?? undefined,
+            limit: Number(url.searchParams.get('limit') ?? 20) || 20,
+          }),
+          total: runtime.knowledge.size,
+        }, allowedOrigin);
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/agent-team/knowledge') {
+        if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) throw Object.assign(new Error('Content-Type debe ser application/json.'), { status: 415 });
+        const body = record(await readJson(request));
+        try {
+          const nuevo = await runtime.recordKnowledge(null, {
+            ...(typeof body.projectId === 'string' ? { projectId: body.projectId } : {}),
+            category: body.category as never,
+            subject: String(body.subject ?? ''),
+            content: String(body.content ?? ''),
+            sourceRefs: Array.isArray(body.sourceRefs) ? body.sourceRefs.map(String) : [],
+            createdBy: 'human',
+            ...(typeof body.verificationLevel === 'string' ? { verificationLevel: body.verificationLevel as never } : {}),
+            ...(typeof body.verifiedBy === 'string' ? { verifiedBy: body.verifiedBy } : {}),
+            ...(typeof body.supersedes === 'string' ? { supersedes: body.supersedes } : {}),
+          });
+          send(response, 201, { record: nuevo }, allowedOrigin);
+        } catch (error) {
+          throw Object.assign(error instanceof Error ? error : new Error('Registro no válido.'), { status: 400 });
+        }
+        return;
+      }
       if (request.method === 'GET' && url.pathname === '/api/agent-team/patch-proposals') {
         send(response, 200, { proposals: runtime.listPatchProposals({ projectId: url.searchParams.get('projectId') ?? undefined, taskId: url.searchParams.get('taskId') ?? undefined }) }, allowedOrigin);
         return;

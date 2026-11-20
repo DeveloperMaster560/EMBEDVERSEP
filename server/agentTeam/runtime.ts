@@ -1,3 +1,4 @@
+import { KnowledgeStore, type NewKnowledge } from './knowledgeStore.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AgentEvent,
@@ -7,6 +8,7 @@ import type {
   AgentId,
   AgentTask,
   CreateTaskInput,
+  KnowledgeRecord,
   TaskState,
 } from '../../src/agent-team/contracts.js';
 import { getAgentDefinition } from '../../src/agent-team/registry.js';
@@ -96,14 +98,42 @@ export class AgentRuntime {
   private readonly tasks = new Map<string, AgentTask>();
   private readonly patchProposals = new Map<string, AgentPatchProposal>();
   private readonly store: AgentEventStore;
+  /** Memoria de conocimiento del equipo (archivo aparte del registro de eventos). */
+  readonly knowledge: KnowledgeStore;
 
-  private constructor(store: AgentEventStore) {
+  private constructor(store: AgentEventStore, knowledge: KnowledgeStore) {
     this.store = store;
+    this.knowledge = knowledge;
     this.replay();
   }
 
   static async open(dataDirectory: string): Promise<AgentRuntime> {
-    return new AgentRuntime(await AgentEventStore.open(dataDirectory));
+    // El registro toma el bloqueo del directorio; la memoria se abre después, ya protegida por él.
+    const store = await AgentEventStore.open(dataDirectory);
+    try {
+      return new AgentRuntime(store, await KnowledgeStore.open(dataDirectory));
+    } catch (error) {
+      await store.close();
+      throw error;
+    }
+  }
+
+  /**
+   * Guarda conocimiento y, si viene de una tarea, deja constancia en el registro
+   * de eventos (qué se aprendió, quién y cuándo; el contenido vive en la memoria).
+   */
+  async recordKnowledge(taskId: string | null, input: NewKnowledge, evidenceRefs?: ReadonlySet<string>): Promise<KnowledgeRecord> {
+    const task = taskId ? this.tasks.get(taskId) : undefined;
+    if (taskId && !task) throw new AgentNotFoundError(`No existe la tarea ${taskId}.`);
+    const record = await this.knowledge.record({ ...input, ...(task && !input.projectId ? { projectId: task.projectId } : {}) }, evidenceRefs);
+    if (task) {
+      await this.recordEvent({
+        taskId: task.id, type: 'knowledge.recorded', actor: input.createdBy,
+        payload: { knowledgeId: record.id, category: record.category, subject: record.subject, version: record.version, verificationLevel: record.verificationLevel },
+        evidenceRefs: record.sourceRefs.filter((r) => r.startsWith('workspace://') || r.startsWith('project://')),
+      });
+    }
+    return record;
   }
 
   private replay(): void {

@@ -51,3 +51,21 @@ describe('OllamaProvider', () => {
     });
   });
 });
+
+describe('OllamaProvider · contexto y cortes', () => {
+  it('pide num_ctx explícito, marca done_reason=length y la ventana llena', async () => {
+    const { OllamaProvider } = await import('./ollama.js');
+    let cuerpo: Record<string, unknown> = {};
+    const fetcher = (async (_url: string, init: RequestInit) => {
+      cuerpo = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ message: { role: 'assistant', content: 'hola' }, prompt_eval_count: 3500, eval_count: 512, done_reason: 'length' }));
+    }) as unknown as typeof fetch;
+    const p = new OllamaProvider({ model: 'm', fetcher, numCtx: 4096 });
+    const r = await p.chat({ messages: [{ role: 'user', content: 'x' }], tools: [], signal: new AbortController().signal, maxOutputTokens: 1024 });
+    expect((cuerpo.options as { num_ctx: number }).num_ctx).toBe(4096);
+    expect(r.truncated).toBe(true);
+    expect(r.contextSaturated).toBe(true);
+    const holgado = new OllamaProvider({ model: 'm', fetcher });
+    expect(holgado.numCtx).toBe(16_384);
+  });
+});
